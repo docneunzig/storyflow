@@ -209,6 +209,24 @@ export function SpecificationSection({ project }: SectionProps) {
     project.specification || defaultSpecification
   )
   const [hasChanges, setHasChanges] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Validation function for numeric fields
+  const validateNumericField = (
+    field: string,
+    value: number,
+    min: number,
+    max: number,
+    label: string
+  ): string | null => {
+    if (value < min) {
+      return `${label} must be at least ${min.toLocaleString()}`
+    }
+    if (value > max) {
+      return `${label} must be at most ${max.toLocaleString()}`
+    }
+    return null
+  }
 
   // Debounced save
   const saveChanges = useCallback(async () => {
@@ -260,6 +278,24 @@ export function SpecificationSection({ project }: SectionProps) {
     key: K,
     value: NovelSpecification[K]
   ) => {
+    // Validate numeric fields
+    let error: string | null = null
+    if (key === 'targetWordCount') {
+      error = validateNumericField('targetWordCount', value as number, 10000, 300000, 'Word count')
+    } else if (key === 'targetChapterCount') {
+      error = validateNumericField('targetChapterCount', value as number, 5, 100, 'Chapter count')
+    }
+
+    if (error) {
+      setErrors(prev => ({ ...prev, [key]: error! }))
+    } else {
+      setErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[key]
+        return newErrors
+      })
+    }
+
     setSpec(prev => ({ ...prev, [key]: value }))
     setHasChanges(true)
   }
@@ -530,9 +566,15 @@ export function SpecificationSection({ project }: SectionProps) {
                 min={10000}
                 max={300000}
                 step={5000}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none"
+                className={`w-full px-3 py-2 bg-surface border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none ${
+                  errors.targetWordCount ? 'border-error' : 'border-border'
+                }`}
               />
-              <p className="text-xs text-text-secondary mt-1">Typical: 50,000 - 120,000 words</p>
+              {errors.targetWordCount ? (
+                <p className="text-xs text-error mt-1">{errors.targetWordCount}</p>
+              ) : (
+                <p className="text-xs text-text-secondary mt-1">Typical: 50,000 - 120,000 words</p>
+              )}
             </div>
 
             <div>
@@ -545,8 +587,13 @@ export function SpecificationSection({ project }: SectionProps) {
                 onChange={(e) => updateSpec('targetChapterCount', parseInt(e.target.value) || 0)}
                 min={5}
                 max={100}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none"
+                className={`w-full px-3 py-2 bg-surface border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none ${
+                  errors.targetChapterCount ? 'border-error' : 'border-border'
+                }`}
               />
+              {errors.targetChapterCount && (
+                <p className="text-xs text-error mt-1">{errors.targetChapterCount}</p>
+              )}
             </div>
           </div>
 

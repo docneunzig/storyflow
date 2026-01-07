@@ -107,6 +107,8 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
     // Name validation
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required'
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = 'Name must be at least 2 characters'
     } else if (formData.name.trim().length > 100) {
       newErrors.name = 'Name must be 100 characters or less'
     }
