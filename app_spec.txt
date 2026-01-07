@@ -1,0 +1,973 @@
+<project_specification>
+  <project_name>Storyflow</project_name>
+
+  <overview>
+    Storyflow is an AI-powered novel writing assistant that guides authors from initial concept to polished, print-ready manuscript. The application combines a Figma-inspired UI with an intelligent multi-agent system that assists with plot development, character creation, scene building, and iterative quality refinement. Core value: Transform novel-writing from solitary struggle to collaborative creation where AI handles consistency, critique, and refinement while the author retains full creative control.
+  </overview>
+
+  <technology_stack>
+    <frontend>
+      <framework>React 18 + TypeScript</framework>
+      <build_tool>Vite</build_tool>
+      <styling>Tailwind CSS</styling>
+      <component_library>Radix UI</component_library>
+      <canvas_rendering>React Flow</canvas_rendering>
+      <state_management>Zustand</state_management>
+      <port>5173</port>
+    </frontend>
+    <backend>
+      <runtime>Node.js + Express</runtime>
+      <database>IndexedDB via Dexie.js (local-first, browser-based)</database>
+      <document_export>docx.js</document_export>
+      <port>3001</port>
+    </backend>
+    <ai_integration>
+      <sdk>Claude Agent SDK</sdk>
+      <authentication>Claude Max subscription (CLI-based login)</authentication>
+    </ai_integration>
+    <communication>
+      <api>REST API between frontend and local backend</api>
+      <agent_communication>Structured JSON messages</agent_communication>
+    </communication>
+  </technology_stack>
+
+  <prerequisites>
+    <environment_setup>
+      - Node.js 18+ installed
+      - Claude CLI installed and authenticated (claude login)
+      - Modern browser (Chrome, Firefox, Safari, Edge)
+      - No external database required (IndexedDB)
+    </environment_setup>
+  </prerequisites>
+
+  <feature_count>400</feature_count>
+
+  <security_and_access_control>
+    <user_roles>
+      <role name="author">
+        <permissions>
+          - Full access to all features (single-user application)
+          - Create, edit, delete all project data
+          - Configure all settings
+          - Export in all formats
+        </permissions>
+      </role>
+    </user_roles>
+    <authentication>
+      <method>Claude CLI authentication (claude login)</method>
+      <session_timeout>Browser session-based</session_timeout>
+      <flow>
+        1. App checks Claude CLI login status on startup
+        2. If not logged in, prompt user to run 'claude login' in terminal
+        3. After login, refresh and create session
+        4. No user accounts needed - local-first architecture
+      </flow>
+    </authentication>
+    <data_privacy>
+      - All project data stored locally in IndexedDB
+      - No server-side storage
+      - No telemetry or usage data collected
+      - Export/import as JSON for backup
+      - AI processing via Claude Max subscription (Anthropic privacy policy)
+    </data_privacy>
+  </security_and_access_control>
+
+  <core_features>
+    <f1_novel_specification_studio>
+      <purpose>Define all parameters that shape the novel before writing begins</purpose>
+      <specification_fields>
+        - Title (working title, required)
+        - Genre (multi-select from genre list)
+        - Subgenre (genre-dependent multi-select)
+        - Target Audience (Children, Middle Grade, YA, New Adult, Adult)
+        - Writing Style (famous author dropdown + custom text)
+        - Tone (free text, e.g., "Dark and gritty with moments of dark humor")
+        - POV (First Person, Third Limited, Third Omniscient, Second Person, Multiple POV)
+        - Tense (Past, Present)
+        - Target Length (word count 50k-200k + chapter count 10-50)
+        - Chapter Length Range (min/max words per chapter)
+        - Setting Type (multi-select: Contemporary, Historical, Futuristic, Fantasy World, etc.)
+        - Time Period (specific era or "present day")
+        - Primary Themes (multi-select + custom: Love, Redemption, Power, Identity, etc.)
+        - Pacing (slider: Slow burn to Fast-paced)
+        - Complexity (slider: Simple/Linear to Complex/Non-linear)
+      </specification_fields>
+      <genre_templates>
+        - Cozy Mystery: Mystery genre, Light/Humorous tone, First Person POV, Moderate pacing
+        - Epic Fantasy: Fantasy genre, 120k+ words, Multiple POV, High complexity
+        - Contemporary Romance: Romance genre, Dual First Person POV, Moderate pacing
+        - Psychological Thriller: Thriller genre, Dark/Tense tone, First/Third Limited POV
+        - Literary Fiction: Lyrical tone, Slow pacing, Character-driven focus
+        - YA Fantasy: YA audience, Fantasy genre, 80k words, First Person POV
+        - Sci-Fi Space Opera: Sci-Fi genre, Futuristic setting, High complexity
+        - Historical Fiction: Historical setting, Research-heavy flag
+        - Horror: Horror genre, Dark/Atmospheric tone
+        - Urban Fantasy: Fantasy genre, Contemporary with magic setting
+      </genre_templates>
+      <style_references>
+        Famous author dropdown with 50+ authors including:
+        - Hemingway (sparse, direct)
+        - Austen (witty, social observation)
+        - King (conversational, detailed)
+        - Atwood (lyrical, speculative)
+        - Rowling (accessible, whimsical)
+        - McCarthy (stark, biblical)
+        - Gaiman (mythic, dreamlike)
+        - Christie (precise, puzzle-like)
+        - Murakami (surreal, melancholic)
+        - Plus many more classic, contemporary, and genre masters
+      </style_references>
+    </f1_novel_specification_studio>
+
+    <f2_assisted_plot_development>
+      <purpose>Transform a story seed into a fully structured plot</purpose>
+      <plot_frameworks>
+        - Three-Act Structure: Setup, Confrontation, Resolution
+        - Hero's Journey: 12 stages from Ordinary World to Return
+        - Save the Cat: 15 beats including Opening Image, Catalyst, All Is Lost
+        - Seven-Point Structure: Hook, Plot Turn 1, Pinch 1, Midpoint, Pinch 2, Plot Turn 2, Resolution
+        - Freeform: User defines custom beats
+      </plot_frameworks>
+      <workflow>
+        1. User provides story seed/premise
+        2. Plot Agent generates 3 distinct plot expansions
+        3. User selects preferred direction
+        4. Further actions: Expand (add detail), Modify (change aspect), Regenerate (new take)
+        5. Repeat until plot structure is complete
+      </workflow>
+      <plot_beat_properties>
+        - Framework position (e.g., "Act 1 - Inciting Incident")
+        - Title, summary, detailed description
+        - Characters involved (linked to character IDs)
+        - Location (linked to location ID)
+        - Timeline position
+        - Emotional arc
+        - Stakes
+        - Foreshadowing elements
+        - Payoff elements
+        - Target chapter number
+        - Word count estimate
+        - Status (outline, drafted, revised, locked)
+        - User notes
+      </plot_beat_properties>
+      <consistency_checking>
+        - Timeline logic validation (no paradoxes)
+        - Character presence validation (availability at location/time)
+        - Cause-and-effect chain verification
+        - Foreshadowing payoff tracking
+        - Stakes escalation verification
+        - Real-time warnings with suggestions
+      </consistency_checking>
+    </f2_assisted_plot_development>
+
+    <f3_assisted_character_development>
+      <purpose>Create deep, consistent, and compelling characters</purpose>
+      <character_properties>
+        Identity:
+        - Name, aliases, role (protagonist, antagonist, etc.)
+        - Archetype (Reluctant Hero, Femme Fatale, etc.)
+
+        Physical:
+        - Age, gender, physical description
+        - Distinguishing features
+
+        Psychology:
+        - Personality summary
+        - Strengths, flaws, fears
+        - Desires (what they want) and needs (what they actually need)
+        - Misbelief (the lie they believe)
+
+        Background:
+        - Backstory, formative experiences, secrets
+
+        Voice:
+        - Speech patterns, vocabulary level
+        - Catchphrases, internal voice style
+
+        Dynamics:
+        - Relationships with other characters
+        - Character arc and arc catalyst
+
+        Meta:
+        - First appearance, scenes present
+        - Status (alive, deceased, unknown)
+      </character_properties>
+      <archetypes>
+        Heroes: Reluctant Hero, Chosen One, Anti-Hero, Everyman, Knight in Shining Armor
+        Villains: Mastermind, Fallen Angel, Force of Nature, Mirror Image, Sympathetic Antagonist
+        Support: Wise Mentor, Loyal Sidekick, Trickster, Love Interest, Threshold Guardian
+        Complex: Tragic Hero, Reformed Villain, Double Agent, Morally Gray
+      </archetypes>
+      <voice_consistency_checker>
+        - Analyzes dialogue and internal monologue against character specs
+        - Flags inconsistencies with specific alternatives
+        - Checks speech patterns, vocabulary level, catchphrases
+      </voice_consistency_checker>
+      <visual_relationship_map>
+        - React Flow canvas with character nodes
+        - Nodes sized by importance
+        - Relationship edges colored by type (family=blue, romantic=red, conflict=orange, alliance=green)
+        - Hoverable edge labels
+        - Draggable layout
+        - Filter toggles (by role, relationship type, etc.)
+      </visual_relationship_map>
+    </f3_assisted_character_development>
+
+    <f4_assisted_scene_building>
+      <purpose>Create detailed scene blueprints before writing</purpose>
+      <scene_properties>
+        - Title and placement (chapter, sequence, plot beat link)
+        - Setting (location, time, weather/atmosphere)
+        - Characters (POV character, characters present)
+        - Content (summary, detailed outline, opening hook, key moments, closing hook)
+        - Purpose (scene goal, character goals with outcomes, conflict type and description)
+        - Emotional (opening emotion, closing emotion, tone)
+        - Technical (estimated word count, pacing)
+        - Connections (setup_for scenes, payoff_for scenes)
+        - Status (outline, drafted, revised, locked)
+      </scene_properties>
+      <views>
+        Timeline View:
+        - Horizontal scrollable timeline
+        - Scenes as cards positioned chronologically
+        - Chapter boundaries marked
+        - Color-coded by POV character
+        - Drag to reorder
+
+        Chapter Grouping View:
+        - Vertical list of chapters
+        - Scenes nested under each chapter
+        - Expandable/collapsible
+        - Word count totals per chapter
+      </views>
+      <scene_character_matrix>
+        - Auto-generated matrix showing character appearances per scene
+        - Highlights: too many characters, missing key characters, inconsistent appearances
+      </scene_character_matrix>
+    </f4_assisted_scene_building>
+
+    <f5_ai_writing_process>
+      <purpose>Generate the actual manuscript text, chapter by chapter</purpose>
+      <workflow>
+        1. Context Assembly: spec, plot beats, scenes, characters, previous chapter, worldbuilding, style guide
+        2. Chapter Outline Preview: AI generates scene-by-scene outline for approval
+        3. Hybrid Writing Mode: AI generates, user reviews inline, can edit/regenerate/skip
+        4. Chapter Completion: word count display, consistency check, mark as draft complete
+      </workflow>
+      <generation_settings>
+        - Generation Length: Paragraph / Scene / Full Chapter (default: Paragraph)
+        - Auto-continue: Yes / No (default: No)
+        - Style Strictness: Loose / Moderate / Strict (default: Moderate)
+        - Show Alternatives: Yes / No (default: Yes, 3 alternatives)
+      </generation_settings>
+      <inline_actions>
+        - Accept (keep as written)
+        - Regenerate (new version)
+        - Edit (modify directly)
+        - Expand (add more detail)
+        - Condense (make shorter)
+        - Lock (protect from future changes)
+      </inline_actions>
+      <consistency_enforcement>
+        - Character voice consistency
+        - Timeline accuracy
+        - Previously established facts
+        - Foreshadowing elements
+        - Style guide adherence
+        - Real-time warnings with options: Ignore, Acknowledge, Fix First
+      </consistency_enforcement>
+    </f5_ai_writing_process>
+
+    <f6_f7_critique_and_improvement_loop>
+      <purpose>Iteratively refine manuscript to bestseller quality</purpose>
+      <quality_dimensions>
+        - Plot Coherence (12%): Does the story make logical sense?
+        - Character Consistency (10%): Do characters behave consistently?
+        - Character Voice (10%): Are voices distinct and authentic?
+        - Pacing (10%): Does the story flow well?
+        - Dialogue Quality (10%): Is dialogue natural and purposeful?
+        - Prose Style (10%): Is the writing craft strong?
+        - Emotional Impact (10%): Does the story evoke emotion?
+        - Tension Management (8%): Is tension built and released well?
+        - World-building Integration (7%): Is the world seamlessly woven in?
+        - Theme Expression (5%): Are themes present without being heavy-handed?
+        - Market Appeal (5%): Would this sell in its genre?
+        - Originality (3%): Does it bring something fresh?
+      </quality_dimensions>
+      <harshness_levels>
+        - Gentle Mentor: Encouraging, focuses on positives first
+        - Constructive Editor: Balanced, specific, actionable (default)
+        - Tough Love: Direct, no sugarcoating
+        - Brutal Honesty: Harsh but fair, bestseller standard
+      </harshness_levels>
+      <improvement_workflow>
+        1. Critic Agent analyzes chapter
+        2. Feedback Review Interface: overall score, dimension breakdown, prioritized suggestions
+        3. User reviews each suggestion: Approve, Modify, or Reject
+        4. Writer Agent implements approved/modified suggestions (shows diff view)
+        5. User approves changes or requests adjustments
+        6. Loop continues until score >= 9.8 or iteration limit reached
+      </improvement_workflow>
+      <iteration_management>
+        - Default limit: 5 revision cycles per chapter
+        - User can authorize additional cycles (with diminishing returns warning)
+        - Skip to final: accept current state at any point
+        - Locked passages excluded from revision
+      </iteration_management>
+      <diff_view>
+        - Side-by-side comparison (original left, revised right)
+        - Highlighted changes (insertions green, deletions red)
+        - Inline comments explaining each change
+        - Accept/Reject buttons per change
+      </diff_view>
+    </f6_f7_critique_and_improvement_loop>
+
+    <f8_formatting_and_export>
+      <purpose>Transform manuscript into professional, print-ready document</purpose>
+      <formatting_capabilities>
+        - Chapter title formatting (consistent style)
+        - Scene breaks (*** or ornamental dividers)
+        - Paragraph formatting (first-line indent vs. block)
+        - Dialogue formatting verification
+        - Page breaks between chapters
+        - Front matter (title page, copyright placeholder)
+        - Back matter (about author, also-by placeholders)
+      </formatting_capabilities>
+      <presets>
+        - Standard Manuscript: 12pt Times New Roman, double-spaced, 1" margins (agent/publisher submission)
+        - Print-Ready 6x9: Trade paperback format (self-publishing)
+        - Print-Ready 5.5x8.5: Smaller paperback (mass market style)
+        - E-book Optimized: Clean formatting, minimal styling (Kindle/EPUB)
+        - Review Copy: Double-spaced with line numbers (beta readers)
+      </presets>
+      <export_formats>
+        - DOCX: Primary output, fully formatted via docx.js
+        - Markdown: Plain text with formatting markers
+        - JSON: Full project export for backup/restore
+      </export_formats>
+      <docx_specifications>
+        - Page: US Letter (12240x15840 twips), 1" margins
+        - Chapter titles: Georgia, 16pt, bold, Heading 1
+        - Body text: Georgia, 12pt, double-spaced
+        - Scene breaks: Centered "* * *" with spacing
+        - Page breaks: New chapter = new page
+      </docx_specifications>
+    </f8_formatting_and_export>
+
+    <f9_worldbuilding_wiki>
+      <purpose>Maintain internal consistency and organized world-building details</purpose>
+      <categories>
+        - Locations: Places with descriptions, atmosphere, history
+        - Characters: Auto-linked from Character Development
+        - Timeline: Chronological events, backstory and story-present
+        - Magic/Technology: Systems, rules, limitations
+        - Cultures/Factions: Groups, beliefs, hierarchies
+        - Objects: Important items, MacGuffins, artifacts
+        - Terminology: Made-up words, jargon, in-world terms
+        - Rules: Established facts that must remain consistent
+      </categories>
+      <auto_extraction>
+        - Scans completed chapters for new proper nouns
+        - Identifies newly established facts
+        - Prompts user to confirm additions to wiki
+      </auto_extraction>
+      <consistency_checking>
+        - Wiki facts cross-referenced during plot, scene, writing, critique
+        - Warnings with specific conflict details and resolution options
+      </consistency_checking>
+    </f9_worldbuilding_wiki>
+
+    <f10_writing_statistics_dashboard>
+      <purpose>Track progress and maintain motivation</purpose>
+      <metrics>
+        - Total words (current manuscript word count)
+        - Words today (current session)
+        - Daily average (rolling 7-day)
+        - Chapter progress (X of Y chapters drafted/revised)
+        - Quality trend (chart of scores over revisions)
+        - Time spent (optional session tracking)
+        - Projected completion (based on current pace)
+      </metrics>
+      <visualizations>
+        - Bar chart: Words per chapter (target vs. actual)
+        - Line chart: Daily word count over time
+        - Heat map: Writing activity calendar
+        - Pie chart: Draft status breakdown (outline/drafted/revised/final)
+      </visualizations>
+    </f10_writing_statistics_dashboard>
+
+    <f11_market_analysis>
+      <purpose>Position the novel competitively within its genre</purpose>
+      <components>
+        - Comparable Titles: Current bestsellers, similar premise books, author comps (via web search)
+        - Genre Positioning: Market fit, uniqueness, reader expectations
+        - Length Recommendations: Typical word counts, comparison to target
+      </components>
+    </f11_market_analysis>
+  </core_features>
+
+  <ai_agent_architecture>
+    <orchestrator>
+      - Routes requests to appropriate specialized agent
+      - Maintains conversation context
+      - Handles inter-agent communication
+    </orchestrator>
+    <agents>
+      <plot_agent>
+        Purpose: Transform story seeds into well-structured plots
+        Capabilities: Apply narrative frameworks, ensure cause-effect logic, create setups/payoffs, escalate stakes
+        Output: 3 distinct plot options, structured plot beats with relationships
+      </plot_agent>
+      <character_agent>
+        Purpose: Create psychologically complex, believable characters
+        Capabilities: Develop distinctive voices, build meaningful relationships, design character arcs
+        Output: 3 distinct character interpretations, complete character profiles
+      </character_agent>
+      <scene_agent>
+        Purpose: Design scenes that advance plot and reveal character
+        Capabilities: Create tension through conflict, establish scene goals, craft hooks
+        Output: 3 distinct scene approaches, complete scene blueprints
+      </scene_agent>
+      <writer_agent>
+        Purpose: Generate publication-quality prose
+        Capabilities: Adapt to any voice/genre, maintain consistency, balance showing vs. telling
+        Input: Full context (spec, plot, characters, scenes, previous chapters, current scene)
+        Output: Manuscript prose matching specified style
+      </writer_agent>
+      <critic_agent>
+        Purpose: Analyze manuscripts against professional publishing standards
+        Capabilities: Rate quality across 12 dimensions, compare against successful novels, provide actionable feedback
+        Output: Quality scores, detailed feedback, prioritized suggestions
+      </critic_agent>
+      <consistency_agent>
+        Purpose: Ensure perfect internal consistency
+        Capabilities: Track established facts, detect contradictions, maintain timeline integrity
+        Output: Consistency warnings with resolution suggestions
+      </consistency_agent>
+      <formatter_agent>
+        Purpose: Prepare manuscripts for publication
+        Capabilities: Apply formatting, create chapter/scene breaks, add front/back matter
+        Output: Formatted document structure ready for export
+      </formatter_agent>
+    </agents>
+    <communication_protocol>
+      Structured JSON messages with:
+      - agent_target, action, context (spec, plot, characters, scenes, content, wiki)
+      - payload (action-specific data)
+      - user_preferences (style strictness, critic harshness, show alternatives)
+      Response includes: status, primary_result, alternatives, warnings, metadata
+    </communication_protocol>
+  </ai_agent_architecture>
+
+  <database_schema>
+    <tables>
+      <storyflow_project>
+        - id (string, primary key)
+        - version (schema version for migrations)
+        - metadata (ProjectMetadata object)
+        - specification (NovelSpecification object)
+        - plot (PlotStructure object)
+        - characters (Character array)
+        - scenes (Scene array)
+        - chapters (Chapter array)
+        - worldbuilding (WorldbuildingWiki object)
+        - relationships (CharacterRelationship array)
+        - revisions (RevisionHistory array)
+        - qualityScores (ChapterQualityScore array)
+        - statistics (WritingStatistics object)
+        - marketAnalysis (MarketAnalysis or null)
+        - createdAt, updatedAt, lastExportedAt (ISO dates)
+      </storyflow_project>
+      <project_metadata>
+        - workingTitle, authorName, createdAt, lastModified
+        - currentPhase (specification, plotting, characters, scenes, writing, revision, complete)
+      </project_metadata>
+      <novel_specification>
+        - genre, subgenre (arrays)
+        - targetAudience, writingStyle (reference + custom), tone
+        - pov, tense, targetWordCount, targetChapterCount
+        - chapterLengthRange (min, max)
+        - settingType (array), timePeriod, themes (array)
+        - pacing (1-10), complexity (1-10)
+      </novel_specification>
+      <plot_structure>
+        - framework (string)
+        - beats (PlotBeat array)
+        - overallArc, centralConflict, stakes
+      </plot_structure>
+      <plot_beat>
+        - id, framework_position, title
+        - summary, detailed_description
+        - characters_involved (array of IDs)
+        - location (location ID)
+        - timeline_position (number)
+        - emotional_arc, stakes
+        - foreshadowing (array), payoffs (array)
+        - chapter_target, word_count_estimate
+        - status (outline, drafted, revised, locked)
+        - user_notes
+      </plot_beat>
+      <character>
+        - id, name, aliases (array)
+        - role (protagonist, antagonist, etc.)
+        - archetype
+        - age, gender, physical_description
+        - distinguishing_features (array)
+        - personality_summary
+        - strengths, flaws, fears, desires, needs (arrays)
+        - misbelief, backstory
+        - formative_experiences, secrets (arrays)
+        - speech_patterns, vocabulary_level
+        - catchphrases, internal_voice
+        - character_arc, arc_catalyst
+        - first_appearance, scenes_present (array)
+        - status (alive, deceased, unknown)
+        - user_notes
+      </character>
+      <relationship>
+        - source_character_id, target_character_id
+        - relationship_type (sibling, rival, mentor, etc.)
+        - dynamic_description, evolution
+        - key_scenes (array)
+      </relationship>
+      <scene>
+        - id, title
+        - chapter_id, sequence_in_chapter
+        - plot_beat_id
+        - location_id, time_in_story, weather_atmosphere
+        - pov_character_id, characters_present (array)
+        - summary, detailed_outline
+        - opening_hook, key_moments (array), closing_hook
+        - scene_goal, conflict_type, conflict_description
+        - character_goals (array with character_id, goal, outcome)
+        - opening_emotion, closing_emotion, tone
+        - estimated_word_count, pacing
+        - setup_for (array), payoff_for (array)
+        - status (outline, drafted, revised, locked)
+        - user_notes
+      </scene>
+      <chapter>
+        - id, number, title
+        - sceneIds (array)
+        - content (manuscript text)
+        - wordCount
+        - status (outline, draft, revision, final, locked)
+        - lockedPassages (array with start/end indices and reason)
+        - currentRevision (number)
+      </chapter>
+      <worldbuilding_wiki>
+        - locations, timeline, magicTechnology, culturesFactions
+        - objects, terminology, rules (all WikiEntry arrays)
+      </worldbuilding_wiki>
+      <wiki_entry>
+        - id, category, name, description
+        - relatedEntries (array), sourceChapters (array), tags (array)
+      </wiki_entry>
+      <revision_history>
+        - chapterId, revisionNumber, timestamp
+        - previousContent, changes (array)
+        - qualityScoreBefore, qualityScoreAfter
+      </revision_history>
+      <quality_score>
+        - chapter_id, revision_number, timestamp
+        - dimensions (object with all 12 dimension scores)
+        - overall_score
+        - strengths, weaknesses (arrays)
+        - specific_suggestions (array)
+        - bestseller_comparison
+      </quality_score>
+      <writing_statistics>
+        - totalWords, wordsPerDay (array), sessionsLogged (array)
+        - averageSessionLength, chaptersCompleted, revisionsCompleted
+        - averageQualityScore
+      </writing_statistics>
+    </tables>
+    <indexeddb_schema>
+      Using Dexie.js:
+      - projects: 'id, metadata.workingTitle, updatedAt'
+      - chapters: 'id, projectId, number, status'
+      - revisions: 'id, chapterId, revisionNumber, timestamp'
+      - backups: 'id, projectId, createdAt'
+    </indexeddb_schema>
+  </database_schema>
+
+  <api_endpoints_summary>
+    <projects>
+      - GET /api/projects (list all projects)
+      - POST /api/projects (create new project)
+      - GET /api/projects/:id (get project)
+      - PUT /api/projects/:id (update project)
+      - DELETE /api/projects/:id (delete project)
+      - POST /api/projects/:id/export (export project)
+      - POST /api/projects/import (import project from JSON)
+    </projects>
+    <specification>
+      - GET /api/projects/:id/specification
+      - PUT /api/projects/:id/specification
+    </specification>
+    <plot>
+      - GET /api/projects/:id/plot
+      - PUT /api/projects/:id/plot
+      - POST /api/projects/:id/plot/generate (AI generates 3 options)
+      - POST /api/projects/:id/plot/beats (create beat)
+      - PUT /api/projects/:id/plot/beats/:beatId
+      - DELETE /api/projects/:id/plot/beats/:beatId
+    </plot>
+    <characters>
+      - GET /api/projects/:id/characters
+      - POST /api/projects/:id/characters
+      - POST /api/projects/:id/characters/generate (AI generates 3 options)
+      - GET /api/projects/:id/characters/:charId
+      - PUT /api/projects/:id/characters/:charId
+      - DELETE /api/projects/:id/characters/:charId
+      - GET /api/projects/:id/characters/relationships
+      - POST /api/projects/:id/characters/relationships
+    </characters>
+    <scenes>
+      - GET /api/projects/:id/scenes
+      - POST /api/projects/:id/scenes
+      - POST /api/projects/:id/scenes/generate (AI generates 3 options)
+      - GET /api/projects/:id/scenes/:sceneId
+      - PUT /api/projects/:id/scenes/:sceneId
+      - DELETE /api/projects/:id/scenes/:sceneId
+      - PUT /api/projects/:id/scenes/reorder
+    </scenes>
+    <chapters>
+      - GET /api/projects/:id/chapters
+      - POST /api/projects/:id/chapters
+      - GET /api/projects/:id/chapters/:chapterId
+      - PUT /api/projects/:id/chapters/:chapterId
+      - DELETE /api/projects/:id/chapters/:chapterId
+      - POST /api/projects/:id/chapters/:chapterId/write (AI writes chapter)
+      - POST /api/projects/:id/chapters/:chapterId/critique (AI critiques)
+      - POST /api/projects/:id/chapters/:chapterId/improve (AI implements suggestions)
+    </chapters>
+    <wiki>
+      - GET /api/projects/:id/wiki
+      - GET /api/projects/:id/wiki/:category
+      - POST /api/projects/:id/wiki
+      - PUT /api/projects/:id/wiki/:entryId
+      - DELETE /api/projects/:id/wiki/:entryId
+      - POST /api/projects/:id/wiki/extract (auto-extract from chapter)
+    </wiki>
+    <export>
+      - POST /api/projects/:id/export/docx
+      - POST /api/projects/:id/export/markdown
+      - POST /api/projects/:id/export/json
+    </export>
+    <statistics>
+      - GET /api/projects/:id/statistics
+      - POST /api/projects/:id/statistics/session (log session)
+    </statistics>
+    <market>
+      - POST /api/projects/:id/market/analyze (web search for comps)
+    </market>
+    <ai>
+      - POST /api/ai/generate (generic AI generation endpoint)
+      - POST /api/ai/consistency-check
+      - GET /api/ai/status (check Claude CLI login status)
+    </ai>
+  </api_endpoints_summary>
+
+  <ui_layout>
+    <main_structure>
+      Header: Project Title | Save Status | Settings | Export | Dark/Light toggle
+
+      Left Navigation (collapsible):
+      - Specification
+      - Plot
+      - Characters
+      - Scenes
+      - Write
+      - Review
+      - Export
+      - (separator)
+      - Wiki
+      - Stats
+      - Market
+
+      Main Workspace (center):
+      - Context-dependent content based on selected section
+      - Canvas toggle for relationship/plot views
+
+      Right Inspector (collapsible):
+      - Context-sensitive details
+      - Quick actions
+      - Related items
+
+      Footer: Word Count | Chapter Progress | Quality Score | Keyboard Shortcuts hint
+    </main_structure>
+    <key_screens>
+      Specification Studio: Form-based input, grouped sections, template selector, AI Suggest buttons
+      Plot Canvas: React Flow canvas, plot beat nodes, framework guide rails, minimap
+      Character Gallery: Card grid, detail panel, relationship map toggle, role filters
+      Scene Timeline: Horizontal scrollable timeline, POV lanes, chapter markers, zoom controls
+      Writing Editor: Distraction-free, chapter outline sidebar, AI suggestion panel, focus mode
+      Review Dashboard: Quality score cards, suggestion list, diff viewer, accept/reject controls
+      Export Page: Format selection, preset selection, preview, download button
+      Wiki Browser: Category tabs, entry list, detail view, search, auto-extraction queue
+      Statistics Dashboard: Charts (bar, line, pie, heat map), metrics cards, trends
+      Market Analysis: Comp titles display, genre positioning summary, recommendations
+    </key_screens>
+    <modals_overlays>
+      - Confirmation dialogs (delete, discard changes)
+      - AI generation progress modal (with cancel option)
+      - Settings modal (theme, keyboard shortcuts reference)
+      - Quick add modals (new character, new scene, new wiki entry)
+      - Diff viewer modal for revisions
+      - Keyboard shortcuts reference overlay
+    </modals_overlays>
+  </ui_layout>
+
+  <design_system>
+    <color_palette>
+      Dark mode (default):
+      - Background: #0F0F0F (near black)
+      - Surface: #1A1A1A (dark gray)
+      - Surface-elevated: #262626 (slightly lighter)
+      - Border: #333333
+      - Text-primary: #FFFFFF
+      - Text-secondary: #A3A3A3
+      - Accent: #3B82F6 (blue)
+      - Success: #22C55E (green)
+      - Warning: #F59E0B (amber)
+      - Error: #EF4444 (red)
+
+      Light mode:
+      - Background: #FFFFFF
+      - Surface: #F5F5F5
+      - Surface-elevated: #FFFFFF
+      - Border: #E5E5E5
+      - Text-primary: #171717
+      - Text-secondary: #525252
+      - (Accent colors same as dark mode)
+
+      Relationship colors:
+      - Family: #3B82F6 (blue)
+      - Romantic: #EF4444 (red)
+      - Conflict: #F97316 (orange)
+      - Alliance: #22C55E (green)
+      - Mentor: #8B5CF6 (purple)
+    </color_palette>
+    <typography>
+      - UI Font: Inter, system-ui, -apple-system, sans-serif
+      - Editor Font: Georgia, serif (for manuscript preview)
+      - Monospace: JetBrains Mono, Consolas, monospace
+      - Headings: font-semibold
+      - Body: font-normal, leading-relaxed
+    </typography>
+    <components>
+      Based on Radix UI primitives + Tailwind:
+      - Card: Subtle border, rounded-lg, hover state for interactive
+      - Form: Grouped sections, clear labels, inline validation
+      - Dialog: Centered modal, backdrop blur, escape to close
+      - Tabs: Underline style for main nav, pill style for filters
+      - Accordion: Expandable sections for complex forms
+      - Slider: For pacing/complexity inputs
+      - Select: Dropdown with search for large lists
+      - Toggle: For boolean settings
+      - Toast: Bottom-right, auto-dismiss, stackable
+      - Progress: Linear for generation, circular for scores
+    </components>
+    <animations>
+      - Transitions: 150-200ms ease-out
+      - Page transitions: Fade + slight slide
+      - Modal: Scale up + fade
+      - Toast: Slide in from right
+      - Canvas: Smooth pan/zoom
+      - Loading: Pulse skeleton
+    </animations>
+  </design_system>
+
+  <keyboard_shortcuts>
+    Navigation:
+    - Cmd/Ctrl + 1: Specification
+    - Cmd/Ctrl + 2: Plot
+    - Cmd/Ctrl + 3: Characters
+    - Cmd/Ctrl + 4: Scenes
+    - Cmd/Ctrl + 5: Write
+    - Cmd/Ctrl + 6: Review
+    - Cmd/Ctrl + 7: Export
+
+    Actions:
+    - Cmd/Ctrl + Enter: Generate / Continue
+    - Cmd/Ctrl + S: Save project
+    - Cmd/Ctrl + E: Export
+    - Cmd/Ctrl + /: Command palette
+
+    Editing:
+    - Cmd/Ctrl + Z: Undo
+    - Cmd/Ctrl + Shift + Z: Redo
+    - Cmd/Ctrl + F: Find in document
+
+    View:
+    - F11: Focus mode (hide all panels)
+    - Esc: Close panel / Cancel
+  </keyboard_shortcuts>
+
+  <implementation_steps>
+    <step number="1">
+      <title>Phase 1: Foundation (MVP)</title>
+      <tasks>
+        - Project setup (React + Vite + TypeScript + Tailwind)
+        - Basic UI layout (header, sidebar, main workspace, inspector)
+        - Radix UI component integration
+        - Novel Specification form with all fields
+        - IndexedDB persistence with Dexie.js
+        - Project CRUD (create, list, load, delete)
+        - Claude SDK integration and authentication check
+        - Single combined agent (basic generation)
+        - Basic chapter text generation
+        - Markdown export
+        - Dark/light theme toggle
+        - Auto-save functionality
+      </tasks>
+      <success_criteria>Can specify a novel, generate one chapter, save/load project</success_criteria>
+    </step>
+    <step number="2">
+      <title>Phase 2: Assisted Development</title>
+      <tasks>
+        - Separate Plot Agent with framework support
+        - Plot beat cards with all properties
+        - 3-option generation pattern for plot
+        - Expand/Modify/Regenerate actions
+        - Plot canvas with React Flow
+        - Separate Character Agent with templates
+        - Character cards with all properties
+        - 3-option generation for characters
+        - Visual relationship map (basic)
+        - Scene Agent with timeline
+        - Timeline view and chapter grouping view
+        - Scene cards with all properties
+        - Basic consistency checking
+        - Consistency warnings display
+      </tasks>
+      <success_criteria>Can develop full plot, create characters with relationships, build scene blueprints</success_criteria>
+    </step>
+    <step number="3">
+      <title>Phase 3: Writing and Critique</title>
+      <tasks>
+        - Full Writer Agent implementation
+        - Context assembly for writing
+        - Chapter outline preview
+        - Hybrid writing mode with inline controls
+        - Accept/Regenerate/Edit/Expand/Condense/Lock actions
+        - Critic Agent with 12-dimension quality scoring
+        - Harshness level configuration
+        - Feedback review interface
+        - Prioritized suggestions display
+        - Writer Agent improvement implementation
+        - Diff view for revisions
+        - Accept/Reject per change
+        - Locked passages feature
+        - Iteration management (5 cycles default)
+        - Consistency enforcement during writing
+      </tasks>
+      <success_criteria>Can generate full manuscript with inline editing, get actionable feedback, iterate to quality threshold</success_criteria>
+    </step>
+    <step number="4">
+      <title>Phase 4: Polish and Export</title>
+      <tasks>
+        - Formatter Agent implementation
+        - DOCX export with docx.js (all presets)
+        - Formatting preset selection UI
+        - Front/back matter generation
+        - World-building wiki with 8 categories
+        - Wiki entry CRUD
+        - Auto-extraction from completed chapters
+        - Wiki consistency checking integration
+        - Writing statistics dashboard
+        - Progress visualizations (bar, line, pie, heat map charts)
+        - Session tracking
+        - Market analysis with web search
+        - Comparable titles display
+        - JSON export/import for backup
+      </tasks>
+      <success_criteria>Can export print-ready DOCX, wiki maintains consistency, statistics track progress accurately</success_criteria>
+    </step>
+    <step number="5">
+      <title>Phase 5: Refinement</title>
+      <tasks>
+        - Advanced relationship map (filters, sizing, edge labels)
+        - Additional genre templates
+        - Enhanced voice consistency checker
+        - Scene-character matrix view
+        - Performance optimizations
+        - Canvas rendering optimization (60 FPS with 100+ nodes)
+        - Keyboard shortcuts throughout
+        - Command palette
+        - Accessibility improvements (WCAG 2.1 AA)
+        - Error boundary and crash recovery
+        - Final UI polish
+      </tasks>
+      <success_criteria>Polished, performant application with all planned features and excellent UX</success_criteria>
+    </step>
+  </implementation_steps>
+
+  <performance_requirements>
+    - Initial load time: less than 3 seconds
+    - Chapter generation: less than 60 seconds for 2000 words
+    - Critique analysis: less than 45 seconds per chapter
+    - UI responsiveness: less than 100ms for interactions
+    - Auto-save frequency: Every 30 seconds
+    - Canvas rendering: 60 FPS with 100+ nodes
+  </performance_requirements>
+
+  <reliability_requirements>
+    - Data loss prevention: Zero tolerance (auto-save + local backup)
+    - Session recovery: Full recovery from browser crash
+    - Export success rate: 99.9%
+    - Claude SDK availability: Graceful handling of outages with clear error messages
+  </reliability_requirements>
+
+  <success_criteria>
+    <functionality>
+      - Can complete full novel workflow: spec to exported manuscript
+      - All 11 features (F1-F11) operational
+      - Multi-agent system working with specialized agents
+      - 3-option generation pattern throughout
+      - Quality score iteration loop functional (targeting 9.8/10)
+      - All export formats working (DOCX, Markdown, JSON)
+    </functionality>
+    <user_experience>
+      - First chapter generated in less than 1 hour from project start
+      - Complete novel draft in less than 40 hours of active use
+      - Quality score of 9.0+ achievable within 3 revision cycles
+      - Figma-inspired UI is clean and intuitive
+      - Keyboard shortcuts functional throughout
+      - All interactions have appropriate feedback
+    </user_experience>
+    <technical_quality>
+      - Local-first data persistence with IndexedDB
+      - Zero data loss during normal operation
+      - Export produces valid, properly formatted DOCX
+      - AI consistency errors less than 2 per chapter
+      - False positive warnings less than 10%
+      - No console errors in normal operation
+    </technical_quality>
+    <design_polish>
+      - Dark mode default with light mode option
+      - Responsive feedback for all async operations
+      - WCAG 2.1 AA accessibility compliance
+      - Professional, publishing-quality output
+      - Smooth animations throughout
+      - Consistent visual design language
+    </design_polish>
+  </success_criteria>
+
+  <appendix_genres>
+    Primary: Fantasy, Science Fiction, Mystery, Thriller, Romance, Horror, Literary Fiction, Historical Fiction, Contemporary Fiction, Young Adult, Middle Grade, Children's
+
+    Subgenres: Epic Fantasy, Urban Fantasy, Dark Fantasy, Portal Fantasy, Space Opera, Cyberpunk, Hard SF, Dystopian, Post-Apocalyptic, Cozy Mystery, Police Procedural, Amateur Sleuth, Noir, Psychological Thriller, Legal Thriller, Medical Thriller, Techno-Thriller, Contemporary Romance, Historical Romance, Paranormal Romance, Romantic Suspense, Romantic Comedy, Supernatural Horror, Psychological Horror, Gothic Horror, Body Horror, Cosmic Horror, Coming of Age, Family Drama, Upmarket Fiction, Southern Gothic, Magical Realism
+  </appendix_genres>
+
+  <appendix_style_authors>
+    Classic: Hemingway, Fitzgerald, Austen, Dickens, Bronte (C and E), Tolstoy, Dostoevsky, Woolf, Joyce, Faulkner, Steinbeck, Twain, Melville, Hawthorne
+
+    Contemporary Literary: Atwood, Morrison, McCarthy, Ishiguro, Murakami, Tartt, Franzen, Eugenides, Lahiri, Adichie, Mantel, McEwan, Toibin, Ferrante
+
+    Genre Masters: King (horror), Christie (mystery), Asimov (SF), Le Guin (fantasy/SF), Patterson (thriller), Nora Roberts (romance), Gaiman (fantasy), Sanderson (fantasy), Child (thriller), Grisham (legal), Clancy (techno-thriller), Koontz (horror), Steel (romance), Kellerman (mystery)
+
+    Voice/Style Distinctive: Pratchett (comic fantasy), Adams (absurdist), Palahniuk (transgressive), Welsh (dialect), Vonnegut (satirical), Thompson (gonzo), Rowling (accessible magic), Martin (epic grimdark), Rothfuss (lyrical fantasy), Butcher (urban fantasy)
+  </appendix_style_authors>
+</project_specification>
