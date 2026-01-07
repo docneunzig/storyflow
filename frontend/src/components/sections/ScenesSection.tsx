@@ -172,6 +172,7 @@ export function ScenesSection({ project }: SectionProps) {
                     <button
                       onClick={() => handleOpenModal(scene)}
                       className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
+                      aria-label="Edit scene"
                       title="Edit scene"
                     >
                       <Edit2 className="h-4 w-4 text-text-secondary" />
@@ -195,6 +196,7 @@ export function ScenesSection({ project }: SectionProps) {
                       <button
                         onClick={() => setDeleteConfirmId(scene.id)}
                         className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
+                        aria-label="Delete scene"
                         title="Delete scene"
                       >
                         <Trash2 className="h-4 w-4 text-error" />

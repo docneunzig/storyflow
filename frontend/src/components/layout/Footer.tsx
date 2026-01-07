@@ -27,7 +27,7 @@ export function Footer() {
   if (!currentProject) return null
 
   return (
-    <footer className="h-8 bg-surface border-t border-border flex items-center justify-between px-4 text-xs text-text-secondary">
+    <footer className="h-8 bg-surface border-t border-border flex items-center justify-between px-4 text-xs text-text-secondary" role="contentinfo" aria-label="Project statistics">
       <div className="flex items-center gap-6">
         {/* Word Count */}
         <span>

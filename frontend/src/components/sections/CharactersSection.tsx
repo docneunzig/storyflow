@@ -299,7 +299,7 @@ export function CharactersSection({ project }: SectionProps) {
         </div>
         <div className="flex items-center gap-3">
           {/* View Mode Toggle */}
-          <div className="flex items-center border border-border rounded-lg overflow-hidden">
+          <div className="flex items-center border border-border rounded-lg overflow-hidden" role="group" aria-label="View mode">
             <button
               onClick={() => setViewMode('cards')}
               className={`px-3 py-2 text-sm transition-colors ${
@@ -307,6 +307,8 @@ export function CharactersSection({ project }: SectionProps) {
                   ? 'bg-accent text-white'
                   : 'bg-surface-elevated text-text-secondary hover:text-text-primary'
               }`}
+              aria-label="Card view"
+              aria-pressed={viewMode === 'cards'}
             >
               <Users className="h-4 w-4" />
             </button>
@@ -317,6 +319,8 @@ export function CharactersSection({ project }: SectionProps) {
                   ? 'bg-accent text-white'
                   : 'bg-surface-elevated text-text-secondary hover:text-text-primary'
               }`}
+              aria-label="Relationships view"
+              aria-pressed={viewMode === 'relationships'}
             >
               <Link2 className="h-4 w-4" />
             </button>
@@ -515,6 +519,7 @@ export function CharactersSection({ project }: SectionProps) {
                         <button
                           onClick={() => handleOpenModal(character)}
                           className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
+                          aria-label="Edit character"
                           title="Edit character"
                         >
                           <Edit2 className="h-4 w-4 text-text-secondary" />
@@ -538,6 +543,7 @@ export function CharactersSection({ project }: SectionProps) {
                           <button
                             onClick={() => setDeleteConfirmId(character.id)}
                             className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
+                            aria-label="Delete character"
                             title="Delete character"
                           >
                             <Trash2 className="h-4 w-4 text-error" />
@@ -736,6 +742,7 @@ export function CharactersSection({ project }: SectionProps) {
                     <button
                       onClick={() => handleOpenRelationshipModal(rel)}
                       className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
+                      aria-label="Edit relationship"
                       title="Edit relationship"
                     >
                       <Edit2 className="h-4 w-4 text-text-secondary" />
@@ -743,6 +750,7 @@ export function CharactersSection({ project }: SectionProps) {
                     <button
                       onClick={() => handleDeleteRelationship(rel.sourceCharacterId, rel.targetCharacterId)}
                       className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
+                      aria-label="Delete relationship"
                       title="Delete relationship"
                     >
                       <Trash2 className="h-4 w-4 text-error" />

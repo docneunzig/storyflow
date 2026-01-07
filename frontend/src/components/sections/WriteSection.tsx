@@ -182,6 +182,7 @@ export function WriteSection({ project }: SectionProps) {
                           handleOpenModal(chapter)
                         }}
                         className="p-1 rounded hover:bg-surface transition-colors"
+                        aria-label="Edit chapter"
                         title="Edit chapter"
                       >
                         <Edit2 className="h-3.5 w-3.5 text-text-secondary" />
@@ -208,6 +209,7 @@ export function WriteSection({ project }: SectionProps) {
                             setDeleteConfirmId(chapter.id)
                           }}
                           className="p-1 rounded hover:bg-error/10 transition-colors"
+                          aria-label="Delete chapter"
                           title="Delete chapter"
                         >
                           <Trash2 className="h-3.5 w-3.5 text-error" />

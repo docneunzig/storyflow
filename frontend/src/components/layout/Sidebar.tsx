@@ -95,6 +95,8 @@ export function Sidebar({ projectId }: SidebarProps) {
             'fixed inset-y-0 left-0 z-50 w-64 bg-surface border-r border-border flex flex-col transform transition-transform duration-200 md:hidden',
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           )}
+          role="complementary"
+          aria-label="Sidebar navigation"
         >
           <div className="flex items-center justify-between p-4 border-b border-border">
             <span className="font-semibold text-text-primary">Navigation</span>
@@ -107,7 +109,7 @@ export function Sidebar({ projectId }: SidebarProps) {
             </button>
           </div>
 
-          <nav className="flex-1 py-4 overflow-y-auto">
+          <nav className="flex-1 py-4 overflow-y-auto" aria-label="Main navigation">
             <ul className="space-y-1 px-2">
               {navItems.map((item, index) => {
                 if (item.type === 'separator') {
@@ -154,8 +156,10 @@ export function Sidebar({ projectId }: SidebarProps) {
         'bg-surface border-r border-border flex flex-col transition-all duration-200',
         collapsed ? 'w-16' : 'w-56'
       )}
+      role="complementary"
+      aria-label="Sidebar navigation"
     >
-      <nav className="flex-1 py-4">
+      <nav className="flex-1 py-4" aria-label="Main navigation">
         <ul className="space-y-1 px-2">
           {navItems.map((item, index) => {
             if (item.type === 'separator') {

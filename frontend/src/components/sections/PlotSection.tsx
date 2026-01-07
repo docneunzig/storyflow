@@ -285,6 +285,7 @@ export function PlotSection({ project }: SectionProps) {
                       <button
                         onClick={() => handleOpenModal(beat)}
                         className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
+                        aria-label="Edit beat"
                         title="Edit beat"
                       >
                         <Edit2 className="h-4 w-4 text-text-secondary" />
@@ -309,6 +310,7 @@ export function PlotSection({ project }: SectionProps) {
                       <button
                         onClick={() => setDeleteConfirmId(beat.id)}
                         className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
+                        aria-label="Delete beat"
                         title="Delete beat"
                       >
                         <Trash2 className="h-4 w-4 text-error" />

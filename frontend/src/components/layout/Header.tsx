@@ -16,7 +16,7 @@ export function Header({ projectId }: HeaderProps) {
 
   return (
     <>
-      <header className="h-14 bg-surface border-b border-border flex items-center justify-between px-2 sm:px-4 overflow-hidden">
+      <header className="h-14 bg-surface border-b border-border flex items-center justify-between px-2 sm:px-4 overflow-hidden" role="banner" aria-label="Main header">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
           <Link to="/" className="flex items-center gap-2 text-text-primary hover:text-accent transition-colors flex-shrink-0">
             <Home className="h-5 w-5" />

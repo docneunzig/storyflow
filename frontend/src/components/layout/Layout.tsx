@@ -11,7 +11,7 @@ export function Layout() {
       <Header projectId={projectId} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar projectId={projectId} />
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-6" role="main" aria-label="Main content">
           <Outlet />
         </main>
       </div>
