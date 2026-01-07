@@ -1,9 +1,28 @@
+import { useMemo } from 'react'
 import { useProjectStore } from '@/stores/projectStore'
 import { formatWordCount } from '@/lib/utils'
 import { Keyboard } from 'lucide-react'
 
 export function Footer() {
-  const { currentProject, statistics } = useProjectStore()
+  const { currentProject } = useProjectStore()
+
+  // Compute statistics from current project data
+  const stats = useMemo(() => {
+    if (!currentProject) return null
+
+    const chapters = currentProject.chapters || []
+    const totalWords = chapters.reduce((sum, ch) => sum + (ch.wordCount || 0), 0)
+    const totalChapters = chapters.length
+    const completedChapters = chapters.filter(
+      ch => ch.status === 'final' || ch.status === 'locked'
+    ).length
+
+    return {
+      totalWords,
+      totalChapters,
+      completedChapters,
+    }
+  }, [currentProject])
 
   if (!currentProject) return null
 
@@ -12,20 +31,13 @@ export function Footer() {
       <div className="flex items-center gap-6">
         {/* Word Count */}
         <span>
-          {formatWordCount(statistics?.totalWords || 0)} words
+          {formatWordCount(stats?.totalWords || 0)} words
         </span>
 
         {/* Chapter Progress */}
         <span>
-          {statistics?.chaptersCompleted || 0}/{statistics?.totalChapters || 0} chapters
+          {stats?.completedChapters || 0}/{stats?.totalChapters || 0} chapters
         </span>
-
-        {/* Quality Score */}
-        {statistics?.averageQualityScore && (
-          <span>
-            Quality: {statistics.averageQualityScore.toFixed(1)}/10
-          </span>
-        )}
       </div>
 
       <div className="flex items-center gap-2">
