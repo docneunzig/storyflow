@@ -85,70 +85,107 @@ All 400 features have been created via the feature_create_bulk API, covering:
 - Initial commit with all project files
 - Branch renamed to 'main'
 
+---
+
+# Session 2: Core UI Implementation
+# Date: 2025-01-07
+
+## Summary
+Implemented core UI functionality including Specification form, Settings modal, and sidebar navigation.
+
+## Features Implemented & Passing
+
+### Sidebar Navigation (Features 16-25) - ALL PASSING
+- Specification link navigates correctly
+- Plot link navigates correctly
+- Characters link navigates correctly
+- Scenes link navigates correctly
+- Write link navigates correctly
+- Review link navigates correctly
+- Export link navigates correctly
+- Wiki link navigates correctly
+- Stats link navigates correctly
+- Market link navigates correctly
+
+### Header Features (Features 26-28) - ALL PASSING
+- Header project title displays correctly and updates in real-time
+- Settings button opens settings modal with theme toggle
+- Export button navigates to export page
+
+### Components Added/Updated
+
+1. **SpecificationSection.tsx** - Complete overhaul
+   - Full specification form with all fields from app_spec.txt
+   - Working Title and Author Name inputs
+   - Genre selection with multi-select chips
+   - Subgenre selection (dynamic based on genre)
+   - Target Audience selection
+   - Writing Style (author reference + custom notes)
+   - Tone input
+   - POV selection (5 options)
+   - Tense selection (Past/Present)
+   - Length targets (word count, chapter count, chapter length range)
+   - Setting types (multi-select)
+   - Time period input
+   - Themes (multi-select)
+   - Pacing slider (1-10)
+   - Complexity slider (1-10)
+   - Auto-save with debouncing
+   - Updates header title in real-time
+
+2. **SettingsModal.tsx** - NEW
+   - Theme toggle (dark/light mode)
+   - Keyboard shortcuts reference
+   - About section with version info
+   - Close with Escape key support
+   - Backdrop blur effect
+
+3. **Header.tsx** - Updated
+   - Settings button now opens SettingsModal
+   - Project title updates reactively from store
+
+4. **ExportSection.tsx** - Enhanced (from previous session)
+   - JSON export (full project backup)
+   - Markdown export (manuscript only)
+   - JSON import (restore from backup)
+   - Success/error toast notifications
+
 ## Current Feature Statistics
 - Total Features: 400
-- Passing: 0 (0%)
-- Pending: 400
+- Passing: 23 (5.8%)
+- Pending: 377
+
+## What Works End-to-End
+1. Create new project from home page
+2. Navigate between all sections using sidebar
+3. Edit project title in Specification form
+4. Header title updates automatically
+5. Open/close Settings modal
+6. Toggle dark/light theme
+7. Export project as JSON
+8. Export project as Markdown
+9. Import project from JSON backup
+10. Auto-save changes to IndexedDB
 
 ## Next Steps for Future Sessions
 
-### Priority 1: Core Infrastructure
-1. Implement IndexedDB persistence with Dexie.js
-2. Complete Novel Specification form (F1)
-3. Set up Claude Agent SDK integration
+### Immediate Priority
+1. Continue testing remaining navigation features
+2. Implement Character CRUD functionality
+3. Implement Scene CRUD functionality
+4. Add Plot framework selection and beat management
 
-### Priority 2: Basic Workflows
-4. Character CRUD with all properties
-5. Scene CRUD with timeline view
-6. Chapter management
+### Medium Priority
+5. Implement React Flow for plot canvas
+6. Add character relationship mapping
+7. Build scene timeline view
+8. Implement chapter management
 
-### Priority 3: AI Features
-7. Plot generation with 3-option pattern
-8. Character generation with archetypes
-9. Writing generation with inline actions
-
-### Priority 4: Advanced Features
-10. Critique system with 12 dimensions
-11. Improvement loop with diff view
-12. Export to DOCX with formatting
-
-## Technology Stack Implemented
-- Frontend: React 18, TypeScript, Vite, Tailwind CSS, Radix UI, Zustand
-- Backend: Node.js, Express, TypeScript
-- Planned: React Flow, Dexie.js, docx.js, Claude Agent SDK
-
-## File Structure
-```
-storyflow/
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── auth/
-│   │   │   ├── layout/
-│   │   │   ├── sections/
-│   │   │   └── ui/
-│   │   ├── hooks/
-│   │   ├── lib/
-│   │   ├── pages/
-│   │   ├── stores/
-│   │   ├── styles/
-│   │   └── types/
-│   ├── package.json
-│   ├── vite.config.ts
-│   ├── tailwind.config.js
-│   └── tsconfig.json
-├── backend/
-│   ├── src/
-│   │   ├── routes/
-│   │   ├── agents/
-│   │   ├── services/
-│   │   └── types/
-│   ├── package.json
-│   └── tsconfig.json
-├── init.sh
-├── README.md
-└── .gitignore
-```
+### Later Priority
+9. Claude Agent SDK integration for AI generation
+10. Writing editor with inline actions
+11. Critique system with quality scores
+12. DOCX export with formatting presets
 
 ## Notes for Next Agent
 - Features are stored in features.db SQLite database (accessed via MCP tools)
@@ -157,3 +194,5 @@ storyflow/
 - Never modify or delete existing features
 - Run `./init.sh` to set up the development environment
 - Frontend runs on port 5173, Backend on port 3001
+- IndexedDB (Dexie.js) is used for persistence - data is in browser storage
+- The test project title was changed to "Test Novel Title 12345" during testing

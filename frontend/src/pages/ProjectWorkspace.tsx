@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useProjectStore } from '@/stores/projectStore'
-import { Loader2 } from 'lucide-react'
+import { Loader2, AlertCircle, Home } from 'lucide-react'
 import { getProject } from '@/lib/db'
 
 // Section component imports (stubs for now)
@@ -49,6 +49,8 @@ export function ProjectWorkspace({ section }: ProjectWorkspaceProps) {
     }
   }
 
+  const { error } = useProjectStore()
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -57,10 +59,21 @@ export function ProjectWorkspace({ section }: ProjectWorkspaceProps) {
     )
   }
 
-  if (!currentProject) {
+  if (error || !currentProject) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-text-secondary">Loading project...</p>
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <AlertCircle className="h-12 w-12 text-error" />
+        <h2 className="text-xl font-semibold text-text-primary">Project Not Found</h2>
+        <p className="text-text-secondary text-center max-w-md">
+          {error || "The project you're looking for doesn't exist or may have been deleted."}
+        </p>
+        <Link
+          to="/"
+          className="btn-primary flex items-center gap-2 mt-4"
+        >
+          <Home className="h-4 w-4" />
+          Go to Projects
+        </Link>
       </div>
     )
   }
