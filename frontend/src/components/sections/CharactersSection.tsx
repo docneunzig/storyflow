@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square } from 'lucide-react'
+import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Project, Character, CharacterRole, CharacterRelationship } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
@@ -30,6 +30,10 @@ const RELATIONSHIP_COLORS: Record<string, string> = {
 }
 
 const ROLES: CharacterRole[] = ['protagonist', 'antagonist', 'supporting', 'minor']
+const STATUSES = ['alive', 'deceased', 'unknown'] as const
+type CharacterStatus = typeof STATUSES[number]
+type SortDirection = 'asc' | 'desc' | 'none'
+const PAGE_SIZE = 10
 
 export function CharactersSection({ project }: SectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -38,25 +42,63 @@ export function CharactersSection({ project }: SectionProps) {
   const [editingRelationship, setEditingRelationship] = useState<CharacterRelationship | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [roleFilter, setRoleFilter] = useState<CharacterRole | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<CharacterStatus | 'all'>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('none')
   const [viewMode, setViewMode] = useState<'cards' | 'relationships'>('cards')
   const [selectedCharacters, setSelectedCharacters] = useState<Set<string>>(new Set())
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
 
   // Define characters and filtered list early so they can be used in handlers
   const characters = project.characters || []
   const relationships = project.relationships || []
 
-  // Apply role filter and search
-  const filteredCharacters = characters.filter(c => {
-    const matchesRole = roleFilter === 'all' || c.role === roleFilter
-    const matchesSearch = searchQuery === '' ||
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.personalitySummary && c.personalitySummary.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (c.archetype && c.archetype.toLowerCase().includes(searchQuery.toLowerCase()))
-    return matchesRole && matchesSearch
-  })
+  // Apply role filter, status filter, search, and sorting
+  const filteredCharacters = characters
+    .filter(c => {
+      const matchesRole = roleFilter === 'all' || c.role === roleFilter
+      const matchesStatus = statusFilter === 'all' || c.status === statusFilter
+      const matchesSearch = searchQuery === '' ||
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (c.personalitySummary && c.personalitySummary.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (c.archetype && c.archetype.toLowerCase().includes(searchQuery.toLowerCase()))
+      return matchesRole && matchesStatus && matchesSearch
+    })
+    .sort((a, b) => {
+      if (sortDirection === 'none') return 0
+      const comparison = a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredCharacters.length / PAGE_SIZE)
+  const startIndex = (currentPage - 1) * PAGE_SIZE
+  const endIndex = startIndex + PAGE_SIZE
+  const paginatedCharacters = filteredCharacters.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change and current page would be invalid
+  const effectivePage = currentPage > totalPages ? 1 : currentPage
+  if (effectivePage !== currentPage && totalPages > 0) {
+    setCurrentPage(1)
+  }
+
+  // Handler to cycle through sort directions
+  const handleSortToggle = () => {
+    setSortDirection(prev => {
+      if (prev === 'none') return 'asc'
+      if (prev === 'asc') return 'desc'
+      return 'none'
+    })
+  }
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page)
+      setSelectedCharacters(new Set()) // Clear selection when changing pages
+    }
+  }
 
   const handleSaveCharacter = async (character: Character) => {
     try {
@@ -160,10 +202,10 @@ export function CharactersSection({ project }: SectionProps) {
   }
 
   const toggleSelectAll = () => {
-    if (selectedCharacters.size === filteredCharacters.length) {
+    if (selectedCharacters.size === paginatedCharacters.length) {
       setSelectedCharacters(new Set())
     } else {
-      setSelectedCharacters(new Set(filteredCharacters.map(c => c.id)))
+      setSelectedCharacters(new Set(paginatedCharacters.map(c => c.id)))
     }
   }
 
@@ -308,6 +350,36 @@ export function CharactersSection({ project }: SectionProps) {
               ))}
             </select>
           </div>
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as CharacterStatus | 'all')}
+            className="px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+            aria-label="Filter by status"
+          >
+            <option value="all">All Statuses</option>
+            {STATUSES.map(status => (
+              <option key={status} value={status}>
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </option>
+            ))}
+          </select>
+          {/* Sort Button */}
+          <button
+            onClick={handleSortToggle}
+            className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm transition-colors ${
+              sortDirection !== 'none'
+                ? 'bg-accent/10 border-accent/30 text-accent'
+                : 'bg-surface-elevated border-border text-text-secondary hover:text-text-primary'
+            }`}
+            aria-label={`Sort by name ${sortDirection === 'asc' ? 'ascending' : sortDirection === 'desc' ? 'descending' : 'off'}`}
+            title={`Sort by name: ${sortDirection === 'none' ? 'Off' : sortDirection === 'asc' ? 'A→Z' : 'Z→A'}`}
+          >
+            {sortDirection === 'none' && <ArrowUpDown className="h-4 w-4" />}
+            {sortDirection === 'asc' && <ArrowUp className="h-4 w-4" />}
+            {sortDirection === 'desc' && <ArrowDown className="h-4 w-4" />}
+            <span>Sort</span>
+          </button>
           <button
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
@@ -322,15 +394,15 @@ export function CharactersSection({ project }: SectionProps) {
         // Character Cards View
         <>
           {/* Bulk Selection Controls */}
-          {filteredCharacters.length > 0 && (
+          {paginatedCharacters.length > 0 && (
             <div className="flex items-center justify-between mb-4 p-3 bg-surface-elevated rounded-lg border border-border">
               <div className="flex items-center gap-3">
                 <button
                   onClick={toggleSelectAll}
                   className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
-                  aria-label={selectedCharacters.size === filteredCharacters.length ? "Deselect all" : "Select all"}
+                  aria-label={selectedCharacters.size === paginatedCharacters.length ? "Deselect all" : "Select all"}
                 >
-                  {selectedCharacters.size === filteredCharacters.length && filteredCharacters.length > 0 ? (
+                  {selectedCharacters.size === paginatedCharacters.length && paginatedCharacters.length > 0 ? (
                     <CheckSquare className="h-5 w-5 text-accent" />
                   ) : (
                     <Square className="h-5 w-5" />
@@ -398,15 +470,16 @@ export function CharactersSection({ project }: SectionProps) {
                 No characters match the current search or filter. Try adjusting your criteria.
               </p>
               <button
-                onClick={() => { setRoleFilter('all'); setSearchQuery(''); }}
+                onClick={() => { setRoleFilter('all'); setStatusFilter('all'); setSearchQuery(''); }}
                 className="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-surface-elevated transition-colors"
               >
                 Clear Filters
               </button>
             </div>
           ) : (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredCharacters.map(character => {
+              {paginatedCharacters.map(character => {
                 const charRelationships = getCharacterRelationships(character.id)
                 const isSelected = selectedCharacters.has(character.id)
                 return (
@@ -533,6 +606,52 @@ export function CharactersSection({ project }: SectionProps) {
                 )
               })}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-6 p-3 bg-surface-elevated rounded-lg border border-border">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg border border-border hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-colors ${
+                        currentPage === page
+                          ? 'bg-accent text-white'
+                          : 'border border-border hover:bg-surface'
+                      }`}
+                      aria-label={`Page ${page}`}
+                      aria-current={currentPage === page ? 'page' : undefined}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg border border-border hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+
+                <span className="ml-4 text-sm text-text-secondary">
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredCharacters.length)} of {filteredCharacters.length}
+                </span>
+              </div>
+            )}
+          </>
           )}
         </>
       ) : (

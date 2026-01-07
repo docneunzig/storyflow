@@ -87,6 +87,7 @@ export function ScenesSection({ project }: SectionProps) {
 
   const scenes = project.scenes || []
   const characters = project.characters || []
+  const chapters = project.chapters || []
   const worldbuildingEntries = project.worldbuildingEntries || []
   const locations = worldbuildingEntries.filter(entry => entry.category === 'locations')
 
@@ -262,6 +263,7 @@ export function ScenesSection({ project }: SectionProps) {
         editScene={editingScene}
         characters={characters}
         locations={locations}
+        chapters={chapters}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Film } from 'lucide-react'
-import type { Scene, ContentStatus, Character, WikiEntry } from '@/types/project'
+import type { Scene, ContentStatus, Character, WikiEntry, Chapter } from '@/types/project'
 import { generateId } from '@/lib/db'
 
 interface SceneModalProps {
@@ -10,6 +10,7 @@ interface SceneModalProps {
   editScene?: Scene | null
   characters?: Character[]
   locations?: WikiEntry[]
+  chapters?: Chapter[]
 }
 
 const STATUSES: ContentStatus[] = ['outline', 'drafted', 'revised', 'locked']
@@ -55,7 +56,7 @@ function createEmptyScene(): Omit<Scene, 'id'> {
   }
 }
 
-export function SceneModal({ isOpen, onClose, onSave, editScene, characters = [], locations = [] }: SceneModalProps) {
+export function SceneModal({ isOpen, onClose, onSave, editScene, characters = [], locations = [], chapters = [] }: SceneModalProps) {
   const [formData, setFormData] = useState<Omit<Scene, 'id'>>(createEmptyScene())
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -196,6 +197,21 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
                 </select>
               </div>
             </div>
+            {chapters.length > 0 && (
+              <div className="mt-4">
+                <label className="block text-sm text-text-primary mb-1">Chapter</label>
+                <select
+                  value={formData.chapterId || ''}
+                  onChange={(e) => handleChange('chapterId', e.target.value || null)}
+                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  <option value="">No chapter assigned</option>
+                  {chapters.sort((a, b) => a.number - b.number).map(ch => (
+                    <option key={ch.id} value={ch.id}>Chapter {ch.number}: {ch.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </section>
 
           {/* Setting */}

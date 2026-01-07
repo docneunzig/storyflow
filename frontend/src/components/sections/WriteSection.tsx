@@ -58,6 +58,19 @@ export function WriteSection({ project }: SectionProps) {
 
   const handleDeleteChapter = async (chapterId: string) => {
     try {
+      // Check for dependent scenes
+      const dependentScenes = (project.scenes || []).filter(s => s.chapterId === chapterId)
+      if (dependentScenes.length > 0) {
+        const sceneNames = dependentScenes.map(s => s.title).join(', ')
+        toast({
+          title: 'Cannot delete chapter',
+          description: `${dependentScenes.length} scene(s) are assigned to this chapter: ${sceneNames}. Remove them first.`,
+          variant: 'error'
+        })
+        setDeleteConfirmId(null)
+        return
+      }
+
       setSaveStatus('saving')
       const chapter = project.chapters.find(c => c.id === chapterId)
       const updatedChapters = project.chapters.filter(c => c.id !== chapterId)

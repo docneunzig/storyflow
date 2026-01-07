@@ -41,8 +41,21 @@ const THEMES = [
 ]
 
 const STYLE_AUTHORS = [
-  'Hemingway', 'Austen', 'King', 'Atwood', 'Rowling', 'McCarthy',
-  'Gaiman', 'Christie', 'Murakami', 'Pratchett', 'Sanderson', 'Martin'
+  // Classic
+  'Hemingway', 'Fitzgerald', 'Austen', 'Dickens', 'C. Bronte', 'E. Bronte',
+  'Tolstoy', 'Dostoevsky', 'Woolf', 'Joyce', 'Faulkner', 'Steinbeck',
+  'Twain', 'Melville', 'Hawthorne',
+  // Contemporary Literary
+  'Atwood', 'Morrison', 'McCarthy', 'Ishiguro', 'Murakami', 'Tartt',
+  'Franzen', 'Eugenides', 'Lahiri', 'Adichie', 'Mantel', 'McEwan',
+  'Toibin', 'Ferrante',
+  // Genre Masters
+  'King', 'Christie', 'Asimov', 'Le Guin', 'Patterson', 'Nora Roberts',
+  'Gaiman', 'Sanderson', 'Child', 'Grisham', 'Clancy', 'Koontz',
+  'Steel', 'Kellerman',
+  // Voice/Style Distinctive
+  'Pratchett', 'Adams', 'Palahniuk', 'Welsh', 'Vonnegut', 'Thompson',
+  'Rowling', 'Martin', 'Rothfuss', 'Butcher'
 ]
 
 // Genre templates with pre-filled defaults
