@@ -69,6 +69,7 @@ export function createEmptyProject(title: string, authorName: string = ''): Proj
     scenes: [],
     chapters: [],
     worldbuilding: null,
+    worldbuildingEntries: [],
     relationships: [],
     revisions: [],
     qualityScores: [],

@@ -10,6 +10,7 @@ export interface Project {
   scenes: Scene[]
   chapters: Chapter[]
   worldbuilding: WorldbuildingWiki | null
+  worldbuildingEntries: WikiEntry[]
   relationships: CharacterRelationship[]
   revisions: RevisionHistory[]
   qualityScores: ChapterQualityScore[]
