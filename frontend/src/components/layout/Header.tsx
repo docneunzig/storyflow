@@ -16,29 +16,29 @@ export function Header({ projectId }: HeaderProps) {
 
   return (
     <>
-      <header className="h-14 bg-surface border-b border-border flex items-center justify-between px-4">
-        <div className="flex items-center gap-4">
-          <Link to="/" className="flex items-center gap-2 text-text-primary hover:text-accent transition-colors">
+      <header className="h-14 bg-surface border-b border-border flex items-center justify-between px-2 sm:px-4 overflow-hidden">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+          <Link to="/" className="flex items-center gap-2 text-text-primary hover:text-accent transition-colors flex-shrink-0">
             <Home className="h-5 w-5" />
-            <span className="font-semibold">Storyflow</span>
+            <span className="font-semibold hidden sm:inline">Storyflow</span>
           </Link>
 
           {projectId && currentProject && (
             <>
-              <span className="text-text-secondary">/</span>
-              <h1 className="text-lg font-medium text-text-primary truncate max-w-md">
+              <span className="text-text-secondary hidden sm:inline">/</span>
+              <h1 className="text-sm sm:text-lg font-medium text-text-primary truncate">
                 {currentProject.metadata?.workingTitle || 'Untitled Project'}
               </h1>
             </>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           {/* Save Status */}
           {projectId && (
-            <div className="flex items-center gap-2 text-sm text-text-secondary mr-4">
+            <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-text-secondary mr-1 sm:mr-4">
               <Save className="h-4 w-4" />
-              <span>{saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : 'Unsaved'}</span>
+              <span className="hidden sm:inline">{saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : 'Unsaved'}</span>
             </div>
           )}
 
