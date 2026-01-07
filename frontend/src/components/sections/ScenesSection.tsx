@@ -87,6 +87,8 @@ export function ScenesSection({ project }: SectionProps) {
 
   const scenes = project.scenes || []
   const characters = project.characters || []
+  const worldbuildingEntries = project.worldbuildingEntries || []
+  const locations = worldbuildingEntries.filter(entry => entry.category === 'locations')
 
   // Get character name by ID
   const getCharacterName = (id: string | null) => {
@@ -259,6 +261,7 @@ export function ScenesSection({ project }: SectionProps) {
         onSave={handleSaveScene}
         editScene={editingScene}
         characters={characters}
+        locations={locations}
       />
     </div>
   )

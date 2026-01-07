@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Film } from 'lucide-react'
-import type { Scene, ContentStatus, Character } from '@/types/project'
+import type { Scene, ContentStatus, Character, WikiEntry } from '@/types/project'
 import { generateId } from '@/lib/db'
 
 interface SceneModalProps {
@@ -9,6 +9,7 @@ interface SceneModalProps {
   onSave: (scene: Scene) => void
   editScene?: Scene | null
   characters?: Character[]
+  locations?: WikiEntry[]
 }
 
 const STATUSES: ContentStatus[] = ['outline', 'drafted', 'revised', 'locked']
@@ -54,7 +55,7 @@ function createEmptyScene(): Omit<Scene, 'id'> {
   }
 }
 
-export function SceneModal({ isOpen, onClose, onSave, editScene, characters = [] }: SceneModalProps) {
+export function SceneModal({ isOpen, onClose, onSave, editScene, characters = [], locations = [] }: SceneModalProps) {
   const [formData, setFormData] = useState<Omit<Scene, 'id'>>(createEmptyScene())
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -222,6 +223,21 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
                 />
               </div>
             </div>
+            {locations.length > 0 && (
+              <div className="mt-4">
+                <label className="block text-sm text-text-primary mb-1">Location</label>
+                <select
+                  value={formData.locationId || ''}
+                  onChange={(e) => handleChange('locationId', e.target.value || null)}
+                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  <option value="">Select location...</option>
+                  {locations.map(loc => (
+                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </section>
 
           {/* POV Character */}
