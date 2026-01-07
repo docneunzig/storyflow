@@ -45,6 +45,130 @@ const STYLE_AUTHORS = [
   'Gaiman', 'Christie', 'Murakami', 'Pratchett', 'Sanderson', 'Martin'
 ]
 
+// Genre templates with pre-filled defaults
+interface GenreTemplate {
+  name: string
+  description: string
+  defaults: Partial<NovelSpecification>
+}
+
+const GENRE_TEMPLATES: GenreTemplate[] = [
+  {
+    name: 'Epic Fantasy',
+    description: 'Grand worldbuilding, multiple POVs, complex plots',
+    defaults: {
+      genre: ['Fantasy'],
+      subgenre: ['Epic Fantasy'],
+      targetAudience: 'Adult',
+      writingStyle: { reference: 'Sanderson', custom: '' },
+      pov: 'Multiple POV',
+      tense: 'Past',
+      targetWordCount: 120000,
+      targetChapterCount: 40,
+      chapterLengthRange: { min: 3000, max: 6000 },
+      settingType: ['Fantasy World'],
+      themes: ['Good vs Evil', 'Power', 'Redemption'],
+      pacing: 5,
+      complexity: 8,
+    }
+  },
+  {
+    name: 'Cozy Mystery',
+    description: 'Light-hearted, amateur sleuth, small community',
+    defaults: {
+      genre: ['Mystery'],
+      subgenre: ['Cozy Mystery'],
+      targetAudience: 'Adult',
+      writingStyle: { reference: 'Christie', custom: '' },
+      pov: 'First Person',
+      tense: 'Past',
+      targetWordCount: 65000,
+      targetChapterCount: 20,
+      chapterLengthRange: { min: 2500, max: 4000 },
+      settingType: ['Contemporary', 'Rural'],
+      themes: ['Justice', 'Family'],
+      pacing: 5,
+      complexity: 4,
+    }
+  },
+  {
+    name: 'Space Opera',
+    description: 'Grand space adventures, alien civilizations',
+    defaults: {
+      genre: ['Science Fiction'],
+      subgenre: ['Space Opera'],
+      targetAudience: 'Adult',
+      writingStyle: { reference: '', custom: 'cinematic, adventurous' },
+      pov: 'Third Limited',
+      tense: 'Past',
+      targetWordCount: 100000,
+      targetChapterCount: 30,
+      chapterLengthRange: { min: 3000, max: 5000 },
+      settingType: ['Space', 'Futuristic'],
+      themes: ['Survival', 'Freedom', 'Power'],
+      pacing: 7,
+      complexity: 6,
+    }
+  },
+  {
+    name: 'Contemporary Romance',
+    description: 'Modern love stories, emotional depth',
+    defaults: {
+      genre: ['Romance'],
+      subgenre: ['Contemporary Romance'],
+      targetAudience: 'Adult',
+      writingStyle: { reference: '', custom: 'warm, emotionally engaging' },
+      pov: 'First Person',
+      tense: 'Present',
+      targetWordCount: 75000,
+      targetChapterCount: 25,
+      chapterLengthRange: { min: 2000, max: 4000 },
+      settingType: ['Contemporary', 'Urban'],
+      themes: ['Love', 'Identity', 'Family'],
+      pacing: 6,
+      complexity: 4,
+    }
+  },
+  {
+    name: 'Psychological Thriller',
+    description: 'Mind games, unreliable narrators, suspense',
+    defaults: {
+      genre: ['Thriller'],
+      subgenre: ['Psychological Thriller'],
+      targetAudience: 'Adult',
+      writingStyle: { reference: '', custom: 'tense, unreliable perspective' },
+      pov: 'First Person',
+      tense: 'Present',
+      targetWordCount: 85000,
+      targetChapterCount: 30,
+      chapterLengthRange: { min: 2000, max: 4000 },
+      settingType: ['Contemporary'],
+      themes: ['Identity', 'Loss', 'Justice'],
+      pacing: 8,
+      complexity: 7,
+    }
+  },
+  {
+    name: 'YA Coming of Age',
+    description: 'Teen protagonists, first experiences, growth',
+    defaults: {
+      genre: ['Young Adult'],
+      subgenre: [],
+      targetAudience: 'YA',
+      writingStyle: { reference: 'Rowling', custom: '' },
+      pov: 'First Person',
+      tense: 'Past',
+      targetWordCount: 70000,
+      targetChapterCount: 25,
+      chapterLengthRange: { min: 2000, max: 4000 },
+      settingType: ['Contemporary'],
+      themes: ['Coming of Age', 'Identity', 'Family'],
+      pacing: 6,
+      complexity: 4,
+    }
+  },
+]
+
 const defaultSpecification: NovelSpecification = {
   genre: [],
   subgenre: [],
@@ -133,6 +257,14 @@ export function SpecificationSection({ project }: SectionProps) {
       : [...array, item]
   }
 
+  const applyTemplate = (template: GenreTemplate) => {
+    setSpec(prev => ({
+      ...prev,
+      ...template.defaults,
+    }))
+    setHasChanges(true)
+  }
+
   const availableSubgenres = spec.genre.flatMap(g => SUBGENRES[g] || [])
 
   return (
@@ -173,6 +305,31 @@ export function SpecificationSection({ project }: SectionProps) {
                 placeholder="Your name or pen name"
               />
             </div>
+          </div>
+        </section>
+
+        {/* Quick Start Templates */}
+        <section className="card p-6">
+          <h2 className="text-lg font-semibold text-text-primary mb-2">Quick Start Templates</h2>
+          <p className="text-sm text-text-secondary mb-4">
+            Choose a template to pre-fill settings for your genre. You can customize everything afterward.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {GENRE_TEMPLATES.map(template => (
+              <button
+                key={template.name}
+                onClick={() => applyTemplate(template)}
+                className="p-4 text-left bg-surface-elevated border border-border rounded-lg hover:border-accent hover:bg-surface transition-colors group"
+              >
+                <h3 className="font-medium text-text-primary group-hover:text-accent transition-colors">
+                  {template.name}
+                </h3>
+                <p className="text-xs text-text-secondary mt-1">
+                  {template.description}
+                </p>
+              </button>
+            ))}
           </div>
         </section>
 
