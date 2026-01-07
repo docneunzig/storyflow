@@ -1,11 +1,11 @@
 {
-  "id": "1767790014370-jlxdy30",
+  "id": "1767808810819-maueglr",
   "version": 1,
   "metadata": {
     "workingTitle": "Untitled Novel",
     "authorName": "",
-    "createdAt": "2026-01-07T12:46:54.369Z",
-    "lastModified": "2026-01-07T12:46:54.369Z",
+    "createdAt": "2026-01-07T18:00:10.819Z",
+    "lastModified": "2026-01-07T18:00:10.819Z",
     "currentPhase": "specification"
   },
   "specification": null,
@@ -14,14 +14,15 @@
   "scenes": [],
   "chapters": [],
   "worldbuilding": null,
+  "worldbuildingEntries": [],
   "relationships": [],
   "revisions": [],
   "qualityScores": [],
   "statistics": null,
   "marketAnalysis": null,
-  "createdAt": "2026-01-07T12:46:54.369Z",
-  "updatedAt": "2026-01-07T12:46:54.369Z",
+  "createdAt": "2026-01-07T18:00:10.819Z",
+  "updatedAt": "2026-01-07T18:00:10.819Z",
   "lastExportedAt": null,
-  "exportedAt": "2026-01-07T12:54:05.028Z",
+  "exportedAt": "2026-01-07T18:00:24.935Z",
   "exportVersion": "1.0"
 }

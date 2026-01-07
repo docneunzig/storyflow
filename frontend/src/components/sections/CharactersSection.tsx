@@ -504,8 +504,8 @@ export function CharactersSection({ project }: SectionProps) {
                         <div className="w-10 h-10 rounded-full bg-surface-elevated flex items-center justify-center">
                           <User className="h-5 w-5 text-text-secondary" />
                         </div>
-                        <div>
-                          <h3 className="font-medium text-text-primary">{character.name}</h3>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-medium text-text-primary truncate" title={character.name}>{character.name}</h3>
                           <span className={`inline-block text-xs px-2 py-0.5 rounded-full border ${ROLE_COLORS[character.role] || ROLE_COLORS.minor}`}>
                             {character.role.charAt(0).toUpperCase() + character.role.slice(1)}
                           </span>
@@ -700,16 +700,16 @@ export function CharactersSection({ project }: SectionProps) {
                   className="card flex items-center justify-between group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-surface-elevated flex items-center justify-center">
+                    <div className="flex items-center gap-3 min-w-0 flex-1 max-w-[200px]">
+                      <div className="w-8 h-8 rounded-full bg-surface-elevated flex items-center justify-center flex-shrink-0">
                         <User className="h-4 w-4 text-text-secondary" />
                       </div>
-                      <span className="font-medium text-text-primary">
+                      <span className="font-medium text-text-primary truncate" title={getCharacterName(rel.sourceCharacterId)}>
                         {getCharacterName(rel.sourceCharacterId)}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <ArrowRight className={`h-4 w-4 ${RELATIONSHIP_COLORS[rel.relationshipType]}`} />
                       <span className={`text-sm font-medium ${RELATIONSHIP_COLORS[rel.relationshipType]}`}>
                         {rel.relationshipType}
@@ -717,11 +717,11 @@ export function CharactersSection({ project }: SectionProps) {
                       <ArrowRight className={`h-4 w-4 ${RELATIONSHIP_COLORS[rel.relationshipType]}`} />
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-surface-elevated flex items-center justify-center">
+                    <div className="flex items-center gap-3 min-w-0 flex-1 max-w-[200px]">
+                      <div className="w-8 h-8 rounded-full bg-surface-elevated flex items-center justify-center flex-shrink-0">
                         <User className="h-4 w-4 text-text-secondary" />
                       </div>
-                      <span className="font-medium text-text-primary">
+                      <span className="font-medium text-text-primary truncate" title={getCharacterName(rel.targetCharacterId)}>
                         {getCharacterName(rel.targetCharacterId)}
                       </span>
                     </div>
