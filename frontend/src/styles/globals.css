@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* Theme colors driven by CSS variables */
 
 @layer base {
   :root {

@@ -277,13 +277,19 @@ export function PlotSection({ project }: SectionProps) {
 
                   {/* Actions */}
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
-                    <button
-                      onClick={() => handleOpenModal(beat)}
-                      className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
-                      title="Edit beat"
-                    >
-                      <Edit2 className="h-4 w-4 text-text-secondary" />
-                    </button>
+                    {beat.status === 'locked' ? (
+                      <span className="text-xs text-warning px-2 py-1 bg-warning/10 rounded" title="This beat is locked and cannot be edited">
+                        🔒 Locked
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenModal(beat)}
+                        className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
+                        title="Edit beat"
+                      >
+                        <Edit2 className="h-4 w-4 text-text-secondary" />
+                      </button>
+                    )}
                     {deleteConfirmId === beat.id ? (
                       <div className="flex items-center gap-1">
                         <button

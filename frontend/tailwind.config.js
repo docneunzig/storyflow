@@ -8,27 +8,34 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Dark mode colors
-        background: {
-          DEFAULT: '#0F0F0F',
-          light: '#FFFFFF',
-        },
+        // CSS variable-based colors for theme switching
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        card: 'hsl(var(--card))',
+        'card-foreground': 'hsl(var(--card-foreground))',
+        popover: 'hsl(var(--popover))',
+        'popover-foreground': 'hsl(var(--popover-foreground))',
+        primary: 'hsl(var(--primary))',
+        'primary-foreground': 'hsl(var(--primary-foreground))',
+        secondary: 'hsl(var(--secondary))',
+        'secondary-foreground': 'hsl(var(--secondary-foreground))',
+        muted: 'hsl(var(--muted))',
+        'muted-foreground': 'hsl(var(--muted-foreground))',
+        destructive: 'hsl(var(--destructive))',
+        'destructive-foreground': 'hsl(var(--destructive-foreground))',
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        // Semantic surface colors using CSS variables
         surface: {
-          DEFAULT: '#1A1A1A',
-          elevated: '#262626',
-          light: '#F5F5F5',
-          'elevated-light': '#FFFFFF',
-        },
-        border: {
-          DEFAULT: '#333333',
-          light: '#E5E5E5',
+          DEFAULT: 'hsl(var(--card))',
+          elevated: 'hsl(var(--muted))',
         },
         text: {
-          primary: '#FFFFFF',
-          secondary: '#A3A3A3',
-          'primary-light': '#171717',
-          'secondary-light': '#525252',
+          primary: 'hsl(var(--foreground))',
+          secondary: 'hsl(var(--muted-foreground))',
         },
+        // Static colors (same in both themes)
         accent: '#3B82F6',
         success: '#22C55E',
         warning: '#F59E0B',

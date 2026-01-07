@@ -1,0 +1,49 @@
+{
+  "id": "1767790216754-nnyqean",
+  "version": 1,
+  "metadata": {
+    "workingTitle": "Test Novel Title 12345",
+    "authorName": "",
+    "createdAt": "2026-01-07T12:50:16.754Z",
+    "lastModified": "2026-01-07T13:09:47.413Z",
+    "currentPhase": "specification"
+  },
+  "specification": {
+    "genre": [],
+    "subgenre": [],
+    "targetAudience": "Adult",
+    "writingStyle": {
+      "reference": "",
+      "custom": ""
+    },
+    "tone": "",
+    "pov": "Third Limited",
+    "tense": "Past",
+    "targetWordCount": 80000,
+    "targetChapterCount": 25,
+    "chapterLengthRange": {
+      "min": 2000,
+      "max": 5000
+    },
+    "settingType": [],
+    "timePeriod": "Present day",
+    "themes": [],
+    "pacing": 5,
+    "complexity": 5
+  },
+  "plot": null,
+  "characters": [],
+  "scenes": [],
+  "chapters": [],
+  "worldbuilding": null,
+  "relationships": [],
+  "revisions": [],
+  "qualityScores": [],
+  "statistics": null,
+  "marketAnalysis": null,
+  "createdAt": "2026-01-07T12:50:16.754Z",
+  "updatedAt": "2026-01-07T13:09:47.413Z",
+  "lastExportedAt": null,
+  "exportedAt": "2026-01-07T13:12:20.727Z",
+  "exportVersion": "1.0"
+}

@@ -103,8 +103,21 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
 
     // Validate
     const newErrors: Record<string, string> = {}
+
+    // Name validation
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required'
+    } else if (formData.name.trim().length > 100) {
+      newErrors.name = 'Name must be 100 characters or less'
+    }
+
+    // Age validation
+    if (formData.age !== null) {
+      if (formData.age < 0) {
+        newErrors.age = 'Age cannot be negative'
+      } else if (formData.age > 999) {
+        newErrors.age = 'Age must be 999 or less'
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -238,8 +251,13 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                   placeholder="Age"
                   min="0"
                   max="999"
-                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                  className={`w-full px-3 py-2 bg-surface-elevated border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent ${
+                    errors.age ? 'border-error' : 'border-border'
+                  }`}
                 />
+                {errors.age && (
+                  <p className="text-xs text-error mt-1">{errors.age}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm text-text-primary mb-1">Gender</label>

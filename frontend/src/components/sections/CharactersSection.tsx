@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight } from 'lucide-react'
+import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square } from 'lucide-react'
 import type { Project, Character, CharacterRole, CharacterRelationship } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
@@ -40,7 +40,23 @@ export function CharactersSection({ project }: SectionProps) {
   const [roleFilter, setRoleFilter] = useState<CharacterRole | 'all'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<'cards' | 'relationships'>('cards')
+  const [selectedCharacters, setSelectedCharacters] = useState<Set<string>>(new Set())
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
+
+  // Define characters and filtered list early so they can be used in handlers
+  const characters = project.characters || []
+  const relationships = project.relationships || []
+
+  // Apply role filter and search
+  const filteredCharacters = characters.filter(c => {
+    const matchesRole = roleFilter === 'all' || c.role === roleFilter
+    const matchesSearch = searchQuery === '' ||
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.personalitySummary && c.personalitySummary.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (c.archetype && c.archetype.toLowerCase().includes(searchQuery.toLowerCase()))
+    return matchesRole && matchesSearch
+  })
 
   const handleSaveCharacter = async (character: Character) => {
     try {
@@ -96,6 +112,58 @@ export function CharactersSection({ project }: SectionProps) {
       console.error('Failed to delete character:', error)
       toast({ title: 'Failed to delete character', variant: 'error' })
       setSaveStatus('unsaved')
+    }
+  }
+
+  const handleBulkDeleteCharacters = async () => {
+    if (selectedCharacters.size === 0) return
+
+    try {
+      setSaveStatus('saving')
+      const deleteCount = selectedCharacters.size
+      const updatedCharacters = project.characters.filter(c => !selectedCharacters.has(c.id))
+
+      // Cascade delete: Remove all relationships involving deleted characters
+      const updatedRelationships = (project.relationships || []).filter(
+        r => !selectedCharacters.has(r.sourceCharacterId) && !selectedCharacters.has(r.targetCharacterId)
+      )
+
+      await updateProject(project.id, {
+        characters: updatedCharacters,
+        relationships: updatedRelationships,
+      })
+      updateProjectStore(project.id, {
+        characters: updatedCharacters,
+        relationships: updatedRelationships,
+      })
+      setSaveStatus('saved')
+      setSelectedCharacters(new Set())
+      setBulkDeleteConfirm(false)
+      toast({ title: `${deleteCount} character(s) deleted`, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to bulk delete characters:', error)
+      toast({ title: 'Failed to delete characters', variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+  }
+
+  const toggleCharacterSelection = (characterId: string) => {
+    setSelectedCharacters(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(characterId)) {
+        newSet.delete(characterId)
+      } else {
+        newSet.add(characterId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedCharacters.size === filteredCharacters.length) {
+      setSelectedCharacters(new Set())
+    } else {
+      setSelectedCharacters(new Set(filteredCharacters.map(c => c.id)))
     }
   }
 
@@ -164,19 +232,6 @@ export function CharactersSection({ project }: SectionProps) {
     setEditingRelationship(relationship || null)
     setIsRelationshipModalOpen(true)
   }
-
-  const characters = project.characters || []
-  const relationships = project.relationships || []
-
-  // Apply role filter and search
-  const filteredCharacters = characters.filter(c => {
-    const matchesRole = roleFilter === 'all' || c.role === roleFilter
-    const matchesSearch = searchQuery === '' ||
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.personalitySummary && c.personalitySummary.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (c.archetype && c.archetype.toLowerCase().includes(searchQuery.toLowerCase()))
-    return matchesRole && matchesSearch
-  })
 
   // Get character name by ID
   const getCharacterName = (id: string) => {
@@ -266,6 +321,60 @@ export function CharactersSection({ project }: SectionProps) {
       {viewMode === 'cards' ? (
         // Character Cards View
         <>
+          {/* Bulk Selection Controls */}
+          {filteredCharacters.length > 0 && (
+            <div className="flex items-center justify-between mb-4 p-3 bg-surface-elevated rounded-lg border border-border">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={toggleSelectAll}
+                  className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+                  aria-label={selectedCharacters.size === filteredCharacters.length ? "Deselect all" : "Select all"}
+                >
+                  {selectedCharacters.size === filteredCharacters.length && filteredCharacters.length > 0 ? (
+                    <CheckSquare className="h-5 w-5 text-accent" />
+                  ) : (
+                    <Square className="h-5 w-5" />
+                  )}
+                  Select All
+                </button>
+                {selectedCharacters.size > 0 && (
+                  <span className="text-sm text-text-secondary">
+                    {selectedCharacters.size} selected
+                  </span>
+                )}
+              </div>
+              {selectedCharacters.size > 0 && (
+                <div className="flex items-center gap-2">
+                  {bulkDeleteConfirm ? (
+                    <>
+                      <span className="text-sm text-error mr-2">Delete {selectedCharacters.size} character(s)?</span>
+                      <button
+                        onClick={handleBulkDeleteCharacters}
+                        className="px-3 py-1.5 text-sm bg-error text-white rounded-lg hover:bg-error/90 transition-colors"
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        onClick={() => setBulkDeleteConfirm(false)}
+                        className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-surface transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setBulkDeleteConfirm(true)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-error/10 text-error rounded-lg hover:bg-error/20 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Selected
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {characters.length === 0 ? (
             <div className="card text-center py-12">
               <Users className="h-12 w-12 text-text-secondary mx-auto mb-4" />
@@ -299,13 +408,26 @@ export function CharactersSection({ project }: SectionProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredCharacters.map(character => {
                 const charRelationships = getCharacterRelationships(character.id)
+                const isSelected = selectedCharacters.has(character.id)
                 return (
                   <div
                     key={character.id}
-                    className="card hover:border-accent/50 transition-colors group"
+                    className={`card hover:border-accent/50 transition-colors group ${isSelected ? 'border-accent ring-1 ring-accent/50' : ''}`}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
+                        {/* Selection Checkbox */}
+                        <button
+                          onClick={() => toggleCharacterSelection(character.id)}
+                          className="flex-shrink-0"
+                          aria-label={isSelected ? `Deselect ${character.name}` : `Select ${character.name}`}
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="h-5 w-5 text-accent" />
+                          ) : (
+                            <Square className="h-5 w-5 text-text-secondary hover:text-text-primary transition-colors" />
+                          )}
+                        </button>
                         <div className="w-10 h-10 rounded-full bg-surface-elevated flex items-center justify-center">
                           <User className="h-5 w-5 text-text-secondary" />
                         </div>
