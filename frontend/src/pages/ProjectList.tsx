@@ -4,6 +4,12 @@ import { Plus, BookOpen, Trash2, Calendar } from 'lucide-react'
 import { useProjectStore } from '@/stores/projectStore'
 import { formatDate } from '@/lib/utils'
 import { toast } from '@/components/ui/Toaster'
+import {
+  getAllProjects,
+  createProject as dbCreateProject,
+  deleteProject as dbDeleteProject,
+  createEmptyProject,
+} from '@/lib/db'
 
 export function ProjectList() {
   const navigate = useNavigate()
@@ -16,11 +22,9 @@ export function ProjectList() {
   async function loadProjects() {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/projects')
-      if (response.ok) {
-        const data = await response.json()
-        setProjects(data)
-      }
+      // Load from IndexedDB (local storage)
+      const localProjects = await getAllProjects()
+      setProjects(localProjects)
     } catch (error) {
       console.error('Failed to load projects:', error)
       toast({ title: 'Error', description: 'Failed to load projects', variant: 'error' })
@@ -31,23 +35,11 @@ export function ProjectList() {
 
   async function createProject() {
     try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          metadata: {
-            workingTitle: 'Untitled Novel',
-            authorName: '',
-            currentPhase: 'specification',
-          },
-        }),
-      })
-
-      if (response.ok) {
-        const newProject = await response.json()
-        navigate(`/projects/${newProject.id}/specification`)
-        toast({ title: 'Success', description: 'Project created', variant: 'success' })
-      }
+      // Create project locally in IndexedDB
+      const newProject = createEmptyProject('Untitled Novel')
+      await dbCreateProject(newProject)
+      navigate(`/projects/${newProject.id}/specification`)
+      toast({ title: 'Success', description: 'Project created', variant: 'success' })
     } catch (error) {
       console.error('Failed to create project:', error)
       toast({ title: 'Error', description: 'Failed to create project', variant: 'error' })
@@ -60,11 +52,10 @@ export function ProjectList() {
     }
 
     try {
-      const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' })
-      if (response.ok) {
-        setProjects(projects.filter(p => p.id !== id))
-        toast({ title: 'Success', description: 'Project deleted', variant: 'success' })
-      }
+      // Delete from IndexedDB
+      await dbDeleteProject(id)
+      setProjects(projects.filter(p => p.id !== id))
+      toast({ title: 'Success', description: 'Project deleted', variant: 'success' })
     } catch (error) {
       console.error('Failed to delete project:', error)
       toast({ title: 'Error', description: 'Failed to delete project', variant: 'error' })

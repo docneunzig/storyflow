@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useProjectStore } from '@/stores/projectStore'
 import { Loader2 } from 'lucide-react'
+import { getProject } from '@/lib/db'
 
 // Section component imports (stubs for now)
 import { SpecificationSection } from '@/components/sections/SpecificationSection'
@@ -33,14 +34,12 @@ export function ProjectWorkspace({ section }: ProjectWorkspaceProps) {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await fetch(`/api/projects/${id}`)
-      if (response.ok) {
-        const data = await response.json()
-        setCurrentProject(data)
-      } else if (response.status === 404) {
-        setError('Project not found')
+      // Load from IndexedDB (local storage)
+      const project = await getProject(id)
+      if (project) {
+        setCurrentProject(project)
       } else {
-        setError('Failed to load project')
+        setError('Project not found')
       }
     } catch (error) {
       console.error('Failed to load project:', error)

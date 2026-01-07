@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { projectsRouter } from './routes/projects.js'
 import { aiRouter } from './routes/ai.js'
+import { requireAuth } from './middleware/auth.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -10,9 +11,11 @@ const PORT = process.env.PORT || 3001
 app.use(cors())
 app.use(express.json({ limit: '10mb' }))
 
-// Routes
-app.use('/api/projects', projectsRouter)
-app.use('/api/ai', aiRouter)
+// Public routes (no auth required)
+app.use('/api/ai', aiRouter) // Status endpoint needs to be accessible without auth
+
+// Protected routes (require auth)
+app.use('/api/projects', requireAuth, projectsRouter)
 
 // Health check
 app.get('/api/health', (req, res) => {

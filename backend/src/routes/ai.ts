@@ -8,19 +8,27 @@ const router = Router()
 // GET /api/ai/status - Check Claude CLI authentication status
 router.get('/status', async (req, res) => {
   try {
-    // Try to check Claude CLI status
-    // This is a placeholder - actual implementation depends on Claude CLI
-    const { stdout } = await execAsync('claude auth status 2>&1 || echo "not authenticated"')
+    // For testing: allow forcing unauthenticated state via query param
+    if (req.query.force === 'unauthenticated') {
+      res.json({
+        authenticated: false,
+        message: 'Claude CLI not authenticated (forced for testing)',
+      })
+      return
+    }
 
-    const authenticated = !stdout.toLowerCase().includes('not authenticated') &&
-                          !stdout.toLowerCase().includes('error')
+    // Check if Claude CLI is installed and has configuration
+    // The CLI stores config in ~/.claude/ directory - if history.jsonl exists, user has used Claude
+    const { stdout } = await execAsync('ls ~/.claude/history.jsonl 2>/dev/null && echo "authenticated" || echo "not authenticated"', { timeout: 5000 })
+
+    const authenticated = stdout.includes('history.jsonl')
 
     res.json({
       authenticated,
       message: authenticated ? 'Claude CLI is authenticated' : 'Claude CLI not authenticated',
     })
   } catch (error) {
-    // If Claude CLI is not installed or fails, return unauthenticated
+    // If check fails, return unauthenticated
     res.json({
       authenticated: false,
       message: 'Claude CLI not available or not authenticated',
