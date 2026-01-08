@@ -3,6 +3,7 @@ import { Toaster } from '@/components/ui/Toaster'
 import { Layout } from '@/components/layout/Layout'
 import { ProjectList } from '@/pages/ProjectList'
 import { ProjectWorkspace } from '@/pages/ProjectWorkspace'
+import { LogoutPage } from '@/pages/LogoutPage'
 import { AuthCheck } from '@/components/auth/AuthCheck'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
@@ -12,6 +13,9 @@ function App() {
       <BrowserRouter>
         <AuthCheck>
           <Routes>
+          {/* Logout page - outside auth check */}
+          <Route path="/logout" element={<LogoutPage />} />
+
           {/* Project list - home page */}
           <Route path="/" element={<ProjectList />} />
 

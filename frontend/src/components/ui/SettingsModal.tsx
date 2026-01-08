@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Moon, Sun, Keyboard } from 'lucide-react'
+import { X, Moon, Sun, Keyboard, LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useThemeStore } from '@/stores/themeStore'
 
 interface SettingsModalProps {
@@ -9,6 +10,27 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { theme, toggleTheme } = useThemeStore()
+  const navigate = useNavigate()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      // Clear session storage
+      sessionStorage.clear()
+      // Clear local storage auth-related items
+      localStorage.removeItem('storyflow-auth')
+      localStorage.removeItem('storyflow-session')
+      // Close modal
+      onClose()
+      // Navigate to logout page which shows unauthenticated state
+      navigate('/logout')
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   // Handle Escape key to close
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -107,6 +129,26 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 Version 0.1.0
               </p>
             </div>
+          </section>
+
+          {/* Account Section */}
+          <section>
+            <h3 className="text-sm font-medium text-text-secondary mb-3">Account</h3>
+            <button
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="w-full flex items-center gap-3 p-3 bg-surface-elevated rounded-lg hover:bg-red-500/10 hover:border-red-500/50 border border-transparent transition-colors text-left group"
+            >
+              <LogOut className="h-5 w-5 text-text-secondary group-hover:text-red-500" aria-hidden="true" />
+              <div>
+                <p className="text-text-primary font-medium group-hover:text-red-500">
+                  {isLoggingOut ? 'Signing out...' : 'Sign Out'}
+                </p>
+                <p className="text-sm text-text-secondary">
+                  Clear session and return to login
+                </p>
+              </div>
+            </button>
           </section>
         </div>
 
