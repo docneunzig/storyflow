@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import type { Project, NovelSpecification, TargetAudience, POV, Tense } from '@/types/project'
 import { updateProject as updateProjectInDb } from '@/lib/db'
 import { useProjectStore } from '@/stores/projectStore'
@@ -200,6 +201,40 @@ const defaultSpecification: NovelSpecification = {
   complexity: 5,
 }
 
+// Accordion section component for collapsible form sections
+interface AccordionSectionProps {
+  title: string
+  id: string
+  isExpanded: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}
+
+function AccordionSection({ title, id, isExpanded, onToggle, children }: AccordionSectionProps) {
+  return (
+    <section className="card overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full px-6 py-4 flex items-center justify-between hover:bg-surface-elevated/30 transition-colors"
+        aria-expanded={isExpanded}
+        aria-controls={`${id}-content`}
+      >
+        <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+        {isExpanded ? (
+          <ChevronUp className="h-5 w-5 text-text-secondary" aria-hidden="true" />
+        ) : (
+          <ChevronDown className="h-5 w-5 text-text-secondary" aria-hidden="true" />
+        )}
+      </button>
+      {isExpanded && (
+        <div id={`${id}-content`} className="px-6 pb-6">
+          {children}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export function SpecificationSection({ project }: SectionProps) {
   const { updateProject, setSaveStatus } = useProjectStore()
 
@@ -210,6 +245,27 @@ export function SpecificationSection({ project }: SectionProps) {
   )
   const [hasChanges, setHasChanges] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Accordion state - all sections expanded by default
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    basic: true,
+    templates: true,
+    genre: true,
+    audience: true,
+    style: true,
+    narrative: true,
+    length: true,
+    setting: true,
+    themes: true,
+    pacing: true,
+  })
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId],
+    }))
+  }
 
   // Validation function for numeric fields
   const validateNumericField = (
@@ -345,11 +401,14 @@ export function SpecificationSection({ project }: SectionProps) {
         Define all parameters that shape your novel before writing begins.
       </p>
 
-      <div className="space-y-8">
+      <div className="space-y-4">
         {/* Basic Information */}
-        <section className="card p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Basic Information</h2>
-
+        <AccordionSection
+          title="Basic Information"
+          id="basic"
+          isExpanded={expandedSections.basic}
+          onToggle={() => toggleSection('basic')}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
@@ -384,11 +443,15 @@ export function SpecificationSection({ project }: SectionProps) {
               />
             </div>
           </div>
-        </section>
+        </AccordionSection>
 
         {/* Quick Start Templates */}
-        <section className="card p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-2">Quick Start Templates</h2>
+        <AccordionSection
+          title="Quick Start Templates"
+          id="templates"
+          isExpanded={expandedSections.templates}
+          onToggle={() => toggleSection('templates')}
+        >
           <p className="text-sm text-text-secondary mb-4">
             Choose a template to pre-fill settings for your genre. You can customize everything afterward.
           </p>
@@ -409,12 +472,15 @@ export function SpecificationSection({ project }: SectionProps) {
               </button>
             ))}
           </div>
-        </section>
+        </AccordionSection>
 
         {/* Genre Selection */}
-        <section className="card p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Genre</h2>
-
+        <AccordionSection
+          title="Genre"
+          id="genre"
+          isExpanded={expandedSections.genre}
+          onToggle={() => toggleSection('genre')}
+        >
           <div className="mb-4">
             <label className="block text-sm font-medium text-text-secondary mb-2">
               Primary Genre(s)
@@ -458,12 +524,15 @@ export function SpecificationSection({ project }: SectionProps) {
               </div>
             </div>
           )}
-        </section>
+        </AccordionSection>
 
         {/* Target Audience */}
-        <section className="card p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Target Audience</h2>
-
+        <AccordionSection
+          title="Target Audience"
+          id="audience"
+          isExpanded={expandedSections.audience}
+          onToggle={() => toggleSection('audience')}
+        >
           <div className="flex flex-wrap gap-2">
             {TARGET_AUDIENCES.map(audience => (
               <button
@@ -479,12 +548,15 @@ export function SpecificationSection({ project }: SectionProps) {
               </button>
             ))}
           </div>
-        </section>
+        </AccordionSection>
 
         {/* Writing Style */}
-        <section className="card p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Writing Style</h2>
-
+        <AccordionSection
+          title="Writing Style"
+          id="style"
+          isExpanded={expandedSections.style}
+          onToggle={() => toggleSection('style')}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
@@ -528,12 +600,15 @@ export function SpecificationSection({ project }: SectionProps) {
               placeholder="e.g., Dark and gritty with moments of dark humor"
             />
           </div>
-        </section>
+        </AccordionSection>
 
         {/* Narrative Structure */}
-        <section className="card p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Narrative Structure</h2>
-
+        <AccordionSection
+          title="Narrative Structure"
+          id="narrative"
+          isExpanded={expandedSections.narrative}
+          onToggle={() => toggleSection('narrative')}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">
@@ -577,12 +652,15 @@ export function SpecificationSection({ project }: SectionProps) {
               </div>
             </div>
           </div>
-        </section>
+        </AccordionSection>
 
         {/* Length Targets */}
-        <section className="card p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Length Targets</h2>
-
+        <AccordionSection
+          title="Length Targets"
+          id="length"
+          isExpanded={expandedSections.length}
+          onToggle={() => toggleSection('length')}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
@@ -657,12 +735,15 @@ export function SpecificationSection({ project }: SectionProps) {
               />
             </div>
           </div>
-        </section>
+        </AccordionSection>
 
         {/* Setting */}
-        <section className="card p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Setting</h2>
-
+        <AccordionSection
+          title="Setting"
+          id="setting"
+          isExpanded={expandedSections.setting}
+          onToggle={() => toggleSection('setting')}
+        >
           <div className="mb-4">
             <label className="block text-sm font-medium text-text-secondary mb-2">
               Setting Type(s)
@@ -696,12 +777,15 @@ export function SpecificationSection({ project }: SectionProps) {
               placeholder="e.g., Present day, Victorian era, 2150 AD"
             />
           </div>
-        </section>
+        </AccordionSection>
 
         {/* Themes */}
-        <section className="card p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Themes</h2>
-
+        <AccordionSection
+          title="Themes"
+          id="themes"
+          isExpanded={expandedSections.themes}
+          onToggle={() => toggleSection('themes')}
+        >
           <div className="flex flex-wrap gap-2">
             {THEMES.map(theme => (
               <button
@@ -717,12 +801,15 @@ export function SpecificationSection({ project }: SectionProps) {
               </button>
             ))}
           </div>
-        </section>
+        </AccordionSection>
 
         {/* Pacing & Complexity */}
-        <section className="card p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Pacing & Complexity</h2>
-
+        <AccordionSection
+          title="Pacing & Complexity"
+          id="pacing"
+          isExpanded={expandedSections.pacing}
+          onToggle={() => toggleSection('pacing')}
+        >
           <div className="space-y-6">
             <div>
               <div className="flex justify-between text-sm text-text-secondary mb-2">
@@ -762,7 +849,7 @@ export function SpecificationSection({ project }: SectionProps) {
               </div>
             </div>
           </div>
-        </section>
+        </AccordionSection>
       </div>
     </div>
   )

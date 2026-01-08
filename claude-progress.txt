@@ -1502,3 +1502,108 @@ Added navigation shortcuts to Layout.tsx for quick section access:
 3. Browser native undo/redo works in text fields
 4. Georgia font correctly configured for manuscript text
 5. Many features still blocked on AI and React Flow implementation
+
+---
+
+# Session 17: Breadcrumb Navigation and Expandable Sections
+# Date: 2026-01-08
+
+## Summary
+Implemented breadcrumb navigation with current section display and expandable/collapsible sections in the Write view. Verified existing chapter outline sidebar functionality.
+
+## Features Implemented & Passing This Session
+
+### Feature #397: Chapter outline sidebar in editor - PASSING
+- Already implemented - verified existing functionality
+- Write section shows chapters in sidebar
+- "Scenes in this chapter" section shows scenes assigned to selected chapter
+- Clicking scene navigates to Scenes page
+- All steps verified with browser automation
+
+### Feature #399: Expandable chapter sections - PASSING (IMPLEMENTED)
+- Added collapsible "Scenes in this chapter" section
+- Added collapsible "Chapter Content" section
+- ChevronUp/ChevronDown icons indicate state
+- Click to toggle expand/collapse
+- ARIA attributes for accessibility (aria-expanded, aria-controls)
+
+### Feature #30: Breadcrumb navigation reflects current path - PASSING (IMPLEMENTED)
+- Added current section to breadcrumb (Storyflow / Project / Section)
+- Made project title clickable (navigates to specification)
+- Section name shown in accent color
+- Clicking Storyflow returns to home
+- Clicking project name returns to project specification
+
+## Features Skipped This Session (Dependencies Not Met)
+
+### AI-Dependent Features (Many skipped)
+- #398: AI suggestion panel in editor
+- #192-196: Plot generation and actions
+- #199-200: Plot consistency checking
+- #202: Character generate 3 options
+- #204: Voice consistency checker
+- #11, #15, #144, #186: AI loading states and error handling
+
+### Not Implemented Features
+- #10, #49: Logout functionality (local-first app, no auth)
+- #38, #40: URL-based pagination and deep linking
+- #70: Scene drag-and-drop reorder
+- #74: Lock passage in chapter
+- #97, #102, #103: Unsaved changes warning, URL query params
+- #112: Statistics dashboard updates
+- #115, #168, #169: Date picker features (no date inputs)
+- #117: Reset button
+- #131, #138: Email/server validation (local-first app)
+- #155: Tables on mobile (no tables)
+- #170-172: Concurrent editing edge cases
+- #180: DOCX export (shows "coming soon")
+- #185: React Flow canvas 100+ nodes
+- #197, #205: React Flow canvas for plot and relationships
+
+## Code Changes Made
+
+### Header.tsx
+- Added currentSection prop
+- Added formatSectionName helper function
+- Made project title a clickable link
+- Added current section display with accent color
+
+### Layout.tsx
+- Added useLocation hook
+- Added getCurrentSection function to extract section from URL
+- Passed currentSection to Header component
+
+### WriteSection.tsx
+- Added isScenesExpanded and isContentExpanded state
+- Added ChevronUp/ChevronDown icons
+- Made "Scenes in this chapter" section collapsible
+- Made "Chapter Content" section collapsible
+- Added ARIA attributes for accessibility
+
+## Current Feature Statistics
+- Total Features: 400
+- Passing: 249 (62.3%)
+- Pending: 151
+
+## Git Commits
+- "feat: add breadcrumb navigation and expandable chapter sections"
+
+## Notes for Next Session
+- Many remaining features require AI integration
+- DOCX export shows "coming soon"
+- Stats and Market dashboards show "coming soon"
+- React Flow canvas not implemented for plot/relationship visualization
+- Consider focusing on features that don't require these dependencies
+- Character form missing several spec fields (aliases, fears, secrets, etc.)
+
+## What Works End-to-End
+1. Full project CRUD with persistence
+2. Character, Scene, Chapter, Plot Beat, Wiki Entry CRUD
+3. Navigation with keyboard shortcuts (Cmd+1-7)
+4. Breadcrumb navigation showing current location
+5. Collapsible sections in Write view
+6. JSON and Markdown export
+7. Genre templates in specification
+8. Character relationships and cascade delete
+9. Scene-to-chapter and scene-to-plot-beat linking
+10. Search, filter, sort, and pagination for characters

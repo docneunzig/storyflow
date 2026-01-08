@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, BookOpen, Trash2, Calendar } from 'lucide-react'
+import { Plus, BookOpen, Trash2, Calendar, Search } from 'lucide-react'
 import { useProjectStore } from '@/stores/projectStore'
 import { formatDate } from '@/lib/utils'
 import { toast } from '@/components/ui/Toaster'
@@ -14,6 +14,14 @@ import {
 export function ProjectList() {
   const navigate = useNavigate()
   const { projects, setProjects, isLoading, setIsLoading } = useProjectStore()
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Filter projects by search query
+  const filteredProjects = projects.filter(project => {
+    if (!searchQuery.trim()) return true
+    const title = project.metadata?.workingTitle || 'Untitled'
+    return title.toLowerCase().includes(searchQuery.toLowerCase())
+  })
 
   useEffect(() => {
     let isCancelled = false
@@ -88,6 +96,21 @@ export function ProjectList() {
           </button>
         </div>
 
+        {/* Search Bar - shown when there are projects */}
+        {projects.length > 0 && (
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" aria-hidden="true" />
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-surface border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+              aria-label="Search projects"
+            />
+          </div>
+        )}
+
         {isLoading ? (
           <div className="text-center py-12">
             <div className="animate-pulse text-text-secondary">Loading projects...</div>
@@ -101,9 +124,15 @@ export function ProjectList() {
               Create Your First Novel
             </button>
           </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className="text-center py-16">
+            <Search className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
+            <h2 className="text-lg font-semibold text-text-primary mb-2">No matching projects</h2>
+            <p className="text-text-secondary">Try a different search term</p>
+          </div>
         ) : (
           <div className="grid gap-4">
-            {projects.map((project) => (
+            {filteredProjects.map((project) => (
               <div
                 key={project.id}
                 className="card-interactive flex items-center justify-between group"
