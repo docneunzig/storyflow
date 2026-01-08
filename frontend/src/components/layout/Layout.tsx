@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Outlet, useParams } from 'react-router-dom'
+import { Outlet, useParams, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { Footer } from './Footer'
@@ -8,8 +8,20 @@ import { SettingsModal } from '@/components/ui/SettingsModal'
 import { useProjectStore } from '@/stores/projectStore'
 import { toast } from '@/components/ui/Toaster'
 
+// Navigation sections mapped to number keys
+const NAV_SHORTCUTS: Record<string, string> = {
+  '1': 'specification',
+  '2': 'plot',
+  '3': 'characters',
+  '4': 'scenes',
+  '5': 'write',
+  '6': 'review',
+  '7': 'export',
+}
+
 export function Layout() {
   const { projectId } = useParams<{ projectId: string }>()
+  const navigate = useNavigate()
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const { saveStatus, setSaveStatus } = useProjectStore()
@@ -38,7 +50,17 @@ export function Layout() {
         toast({ title: 'Saving...', description: 'Saving your changes' })
       }
     }
-  }, [saveStatus])
+    // Cmd+1 through Cmd+7 - Navigate to sections
+    if ((e.metaKey || e.ctrlKey) && NAV_SHORTCUTS[e.key] && projectId) {
+      e.preventDefault()
+      navigate(`/projects/${projectId}/${NAV_SHORTCUTS[e.key]}`)
+    }
+    // Cmd+E - Navigate to Export
+    if ((e.metaKey || e.ctrlKey) && e.key === 'e' && projectId) {
+      e.preventDefault()
+      navigate(`/projects/${projectId}/export`)
+    }
+  }, [saveStatus, projectId, navigate])
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown)
