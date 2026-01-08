@@ -282,23 +282,65 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
             )}
           </section>
 
-          {/* POV Character */}
+          {/* Characters */}
           {characters.length > 0 && (
             <section>
-              <h3 className="text-sm font-medium text-text-secondary mb-3">Point of View</h3>
-              <div>
-                <label htmlFor="scene-pov" className="block text-sm text-text-primary mb-1">POV Character</label>
-                <select
-                  id="scene-pov"
-                  value={formData.povCharacterId || ''}
-                  onChange={(e) => handleChange('povCharacterId', e.target.value || null)}
-                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-                >
-                  <option value="">Select POV character...</option>
-                  {characters.map(char => (
-                    <option key={char.id} value={char.id}>{char.name}</option>
-                  ))}
-                </select>
+              <h3 className="text-sm font-medium text-text-secondary mb-3">Characters</h3>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="scene-pov" className="block text-sm text-text-primary mb-1">POV Character</label>
+                  <select
+                    id="scene-pov"
+                    value={formData.povCharacterId || ''}
+                    onChange={(e) => handleChange('povCharacterId', e.target.value || null)}
+                    className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                  >
+                    <option value="">Select POV character...</option>
+                    {characters.map(char => (
+                      <option key={char.id} value={char.id}>{char.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-text-primary mb-2">Other Characters Present</label>
+                  <p className="text-xs text-text-secondary mb-2">
+                    Select additional characters who appear in this scene (besides the POV character).
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {characters
+                      .filter(char => char.id !== formData.povCharacterId)
+                      .map(char => {
+                        const isPresent = formData.charactersPresent?.includes(char.id) || false
+                        return (
+                          <button
+                            key={char.id}
+                            type="button"
+                            onClick={() => {
+                              const currentPresent = formData.charactersPresent || []
+                              const newPresent = isPresent
+                                ? currentPresent.filter(id => id !== char.id)
+                                : [...currentPresent, char.id]
+                              handleChange('charactersPresent', newPresent)
+                            }}
+                            className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                              isPresent
+                                ? 'bg-accent/20 border-accent text-accent'
+                                : 'bg-surface-elevated border-border text-text-secondary hover:border-accent/50'
+                            }`}
+                          >
+                            {char.name}
+                          </button>
+                        )
+                      })}
+                  </div>
+                  {characters.filter(char => char.id !== formData.povCharacterId).length === 0 && (
+                    <p className="text-xs text-text-secondary italic">
+                      {formData.povCharacterId
+                        ? 'No other characters available. Create more characters to add them to scenes.'
+                        : 'Select a POV character first to see other available characters.'}
+                    </p>
+                  )}
+                </div>
               </div>
             </section>
           )}

@@ -47,8 +47,11 @@ export function ScenesSection({ project }: SectionProps) {
         toast({ title: `Scene "${scene.title}" created`, variant: 'success' })
       }
 
-      await updateProject(project.id, { scenes: updatedScenes })
-      updateProjectStore(project.id, { scenes: updatedScenes })
+      // Update character scenesPresent based on charactersPresent in scenes
+      const updatedCharacters = updateCharacterScenes(project.characters || [], updatedScenes)
+
+      await updateProject(project.id, { scenes: updatedScenes, characters: updatedCharacters })
+      updateProjectStore(project.id, { scenes: updatedScenes, characters: updatedCharacters })
       setSaveStatus('saved')
       setEditingScene(null)
     } catch (error) {
@@ -58,13 +61,41 @@ export function ScenesSection({ project }: SectionProps) {
     }
   }
 
+  // Update character scenesPresent arrays based on scene charactersPresent
+  const updateCharacterScenes = (characters: typeof project.characters, scenes: Scene[]) => {
+    return characters.map(char => {
+      // Find all scenes where this character is present (POV or in charactersPresent)
+      const presentInScenes = scenes
+        .filter(scene =>
+          scene.povCharacterId === char.id ||
+          scene.charactersPresent?.includes(char.id)
+        )
+        .map(scene => scene.id)
+
+      // Only update if scenesPresent has changed
+      const currentScenes = char.scenesPresent || []
+      const hasChanged =
+        currentScenes.length !== presentInScenes.length ||
+        !currentScenes.every(id => presentInScenes.includes(id))
+
+      if (hasChanged) {
+        return { ...char, scenesPresent: presentInScenes }
+      }
+      return char
+    })
+  }
+
   const handleDeleteScene = async (sceneId: string) => {
     try {
       setSaveStatus('saving')
       const scene = project.scenes.find(s => s.id === sceneId)
       const updatedScenes = project.scenes.filter(s => s.id !== sceneId)
-      await updateProject(project.id, { scenes: updatedScenes })
-      updateProjectStore(project.id, { scenes: updatedScenes })
+
+      // Update character scenesPresent to remove deleted scene
+      const updatedCharacters = updateCharacterScenes(project.characters || [], updatedScenes)
+
+      await updateProject(project.id, { scenes: updatedScenes, characters: updatedCharacters })
+      updateProjectStore(project.id, { scenes: updatedScenes, characters: updatedCharacters })
       setSaveStatus('saved')
       setDeleteConfirmId(null)
       toast({ title: `Scene "${scene?.title}" deleted`, variant: 'success' })
