@@ -25,6 +25,7 @@ export function Layout() {
   const location = useLocation()
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isFocusMode, setIsFocusMode] = useState(false)
   const { saveStatus, setSaveStatus } = useProjectStore()
 
   // Extract current section from URL path
@@ -72,7 +73,25 @@ export function Layout() {
       e.preventDefault()
       navigate(`/projects/${projectId}/export`)
     }
-  }, [saveStatus, projectId, navigate])
+    // F11 - Toggle focus mode (distraction-free writing)
+    if (e.key === 'F11') {
+      e.preventDefault()
+      const newMode = !isFocusMode
+      setIsFocusMode(newMode)
+      toast({
+        title: newMode ? 'Focus Mode' : 'Normal Mode',
+        description: newMode ? 'Press F11 or Escape to exit' : 'Sidebar and footer restored',
+      })
+    }
+    // Escape - Exit focus mode (in addition to closing modals)
+    if (e.key === 'Escape' && isFocusMode) {
+      setIsFocusMode(false)
+      toast({
+        title: 'Normal Mode',
+        description: 'Sidebar and footer restored',
+      })
+    }
+  }, [saveStatus, projectId, navigate, isFocusMode])
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown)
@@ -81,14 +100,21 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header projectId={projectId} currentSection={currentSection} />
+      {/* Header hidden in focus mode */}
+      {!isFocusMode && <Header projectId={projectId} currentSection={currentSection} />}
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar projectId={projectId} />
-        <main className="flex-1 overflow-auto p-6" role="main" aria-label="Main content">
+        {/* Sidebar hidden in focus mode */}
+        {!isFocusMode && <Sidebar projectId={projectId} />}
+        <main
+          className={`flex-1 overflow-auto ${isFocusMode ? 'p-12 max-w-4xl mx-auto' : 'p-6'}`}
+          role="main"
+          aria-label="Main content"
+        >
           <Outlet />
         </main>
       </div>
-      <Footer />
+      {/* Footer hidden in focus mode */}
+      {!isFocusMode && <Footer />}
 
       {/* Command Palette */}
       <CommandPalette
