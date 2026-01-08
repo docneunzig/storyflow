@@ -4,12 +4,14 @@ import { Layout } from '@/components/layout/Layout'
 import { ProjectList } from '@/pages/ProjectList'
 import { ProjectWorkspace } from '@/pages/ProjectWorkspace'
 import { AuthCheck } from '@/components/auth/AuthCheck'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthCheck>
-        <Routes>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthCheck>
+          <Routes>
           {/* Project list - home page */}
           <Route path="/" element={<ProjectList />} />
 
@@ -34,10 +36,11 @@ function App() {
 
           {/* 404 handler */}
           <Route path="*" element={<NotFound />} />
-        </Routes>
-      </AuthCheck>
-      <Toaster />
-    </BrowserRouter>
+          </Routes>
+        </AuthCheck>
+        <Toaster />
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 
