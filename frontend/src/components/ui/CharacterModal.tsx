@@ -274,9 +274,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
 
           {/* Content */}
           <form onSubmit={handleSubmit} className="p-4 space-y-6">
-          {/* Basic Information */}
+          {/* Basic Information / Identity */}
           <section>
-            <h3 className="text-sm font-medium text-text-secondary mb-3">Basic Information</h3>
+            <h3 className="text-sm font-medium text-text-secondary mb-3">Identity</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="character-name" className="block text-sm text-text-primary mb-1">
@@ -297,6 +297,17 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                 {errors.name && (
                   <p id="character-name-error" className="text-xs text-error mt-1" role="alert">{errors.name}</p>
                 )}
+              </div>
+              <div>
+                <label htmlFor="character-aliases" className="block text-sm text-text-primary mb-1">Aliases</label>
+                <input
+                  id="character-aliases"
+                  type="text"
+                  value={formData.aliases.join(', ')}
+                  onChange={(e) => handleChange('aliases', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                  placeholder="Nicknames, titles (comma-separated)"
+                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                />
               </div>
               <div>
                 <label htmlFor="character-role" className="block text-sm text-text-primary mb-1">Role</label>
@@ -403,6 +414,17 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                 className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
               />
             </div>
+            <div className="mt-4">
+              <label htmlFor="character-features" className="block text-sm text-text-primary mb-1">Distinguishing Features</label>
+              <input
+                id="character-features"
+                type="text"
+                value={formData.distinguishingFeatures.join(', ')}
+                onChange={(e) => handleChange('distinguishingFeatures', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                placeholder="Scars, tattoos, unique traits (comma-separated)"
+                className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </div>
           </section>
 
           {/* Psychology */}
@@ -420,6 +442,41 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                   className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                 />
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="character-strengths" className="block text-sm text-text-primary mb-1">Strengths</label>
+                  <input
+                    id="character-strengths"
+                    type="text"
+                    value={formData.strengths.join(', ')}
+                    onChange={(e) => handleChange('strengths', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                    placeholder="Brave, intelligent (comma-separated)"
+                    className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="character-flaws" className="block text-sm text-text-primary mb-1">Flaws</label>
+                  <input
+                    id="character-flaws"
+                    type="text"
+                    value={formData.flaws.join(', ')}
+                    onChange={(e) => handleChange('flaws', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                    placeholder="Stubborn, impulsive (comma-separated)"
+                    className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="character-fears" className="block text-sm text-text-primary mb-1">Fears</label>
+                  <input
+                    id="character-fears"
+                    type="text"
+                    value={formData.fears.join(', ')}
+                    onChange={(e) => handleChange('fears', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                    placeholder="Abandonment, failure (comma-separated)"
+                    className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
+              </div>
               <div>
                 <label htmlFor="character-misbelief" className="block text-sm text-text-primary mb-1">Misbelief (the lie they believe)</label>
                 <input
@@ -434,19 +491,116 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
             </div>
           </section>
 
+          {/* Desires & Needs */}
+          <section>
+            <h3 className="text-sm font-medium text-text-secondary mb-3">Desires & Needs</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="character-desires" className="block text-sm text-text-primary mb-1">Desires (wants)</label>
+                <input
+                  id="character-desires"
+                  type="text"
+                  value={formData.desires.join(', ')}
+                  onChange={(e) => handleChange('desires', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                  placeholder="External goals (comma-separated)"
+                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+              </div>
+              <div>
+                <label htmlFor="character-needs" className="block text-sm text-text-primary mb-1">Needs (internal)</label>
+                <input
+                  id="character-needs"
+                  type="text"
+                  value={formData.needs.join(', ')}
+                  onChange={(e) => handleChange('needs', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                  placeholder="Internal needs (comma-separated)"
+                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+              </div>
+            </div>
+          </section>
+
           {/* Background */}
           <section>
             <h3 className="text-sm font-medium text-text-secondary mb-3">Background</h3>
-            <div>
-              <label htmlFor="character-backstory" className="block text-sm text-text-primary mb-1">Backstory</label>
-              <textarea
-                id="character-backstory"
-                value={formData.backstory}
-                onChange={(e) => handleChange('backstory', e.target.value)}
-                placeholder="Character's history and background..."
-                rows={3}
-                className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-              />
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="character-backstory" className="block text-sm text-text-primary mb-1">Backstory</label>
+                <textarea
+                  id="character-backstory"
+                  value={formData.backstory}
+                  onChange={(e) => handleChange('backstory', e.target.value)}
+                  placeholder="Character's history and background..."
+                  rows={3}
+                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="character-experiences" className="block text-sm text-text-primary mb-1">Formative Experiences</label>
+                  <input
+                    id="character-experiences"
+                    type="text"
+                    value={formData.formativeExperiences.join(', ')}
+                    onChange={(e) => handleChange('formativeExperiences', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                    placeholder="Key life events (comma-separated)"
+                    className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="character-secrets" className="block text-sm text-text-primary mb-1">Secrets</label>
+                  <input
+                    id="character-secrets"
+                    type="text"
+                    value={formData.secrets.join(', ')}
+                    onChange={(e) => handleChange('secrets', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                    placeholder="Hidden truths (comma-separated)"
+                    className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Voice */}
+          <section>
+            <h3 className="text-sm font-medium text-text-secondary mb-3">Voice</h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="character-speech-patterns" className="block text-sm text-text-primary mb-1">Speech Patterns</label>
+                  <input
+                    id="character-speech-patterns"
+                    type="text"
+                    value={formData.speechPatterns}
+                    onChange={(e) => handleChange('speechPatterns', e.target.value)}
+                    placeholder="e.g., Formal, uses slang, stutters"
+                    className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="character-catchphrases" className="block text-sm text-text-primary mb-1">Catchphrases</label>
+                  <input
+                    id="character-catchphrases"
+                    type="text"
+                    value={formData.catchphrases.join(', ')}
+                    onChange={(e) => handleChange('catchphrases', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                    placeholder="Signature phrases (comma-separated)"
+                    className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="character-internal-voice" className="block text-sm text-text-primary mb-1">Internal Voice</label>
+                <textarea
+                  id="character-internal-voice"
+                  value={formData.internalVoice}
+                  onChange={(e) => handleChange('internalVoice', e.target.value)}
+                  placeholder="How they think, their inner monologue style..."
+                  rows={2}
+                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                />
+              </div>
             </div>
           </section>
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film } from 'lucide-react'
 import type { Project, Character, CharacterRole, CharacterRelationship, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
@@ -7,7 +7,7 @@ import { CharacterModal } from '@/components/ui/CharacterModal'
 import { RelationshipModal } from '@/components/ui/RelationshipModal'
 import { Inspector } from '@/components/layout/Inspector'
 import { toast } from '@/components/ui/Toaster'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 interface SectionProps {
   project: Project
@@ -39,21 +39,59 @@ const PAGE_SIZE = 10
 
 export function CharactersSection({ project }: SectionProps) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRelationshipModalOpen, setIsRelationshipModalOpen] = useState(false)
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null)
   const [editingRelationship, setEditingRelationship] = useState<CharacterRelationship | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-  const [roleFilter, setRoleFilter] = useState<CharacterRole | 'all'>('all')
-  const [statusFilter, setStatusFilter] = useState<CharacterStatus | 'all'>('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('none')
   const [viewMode, setViewMode] = useState<'cards' | 'relationships'>('cards')
   const [selectedCharacters, setSelectedCharacters] = useState<Set<string>>(new Set())
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
   const [inspectorCharacter, setInspectorCharacter] = useState<Character | null>(null)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
+
+  // Read filter state from URL query params
+  const roleFilter = (searchParams.get('role') as CharacterRole | 'all') || 'all'
+  const statusFilter = (searchParams.get('status') as CharacterStatus | 'all') || 'all'
+  const searchQuery = searchParams.get('search') || ''
+  const sortDirection = (searchParams.get('sort') as SortDirection) || 'none'
+  const currentPage = parseInt(searchParams.get('page') || '1', 10)
+
+  // Update URL params helper
+  const updateParams = useCallback((updates: Record<string, string | null>) => {
+    const newParams = new URLSearchParams(searchParams)
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '' || value === 'all' || value === 'none' || (key === 'page' && value === '1')) {
+        newParams.delete(key)
+      } else {
+        newParams.set(key, value)
+      }
+    })
+    setSearchParams(newParams, { replace: true })
+  }, [searchParams, setSearchParams])
+
+  // Filter change handlers that update URL
+  const setRoleFilter = useCallback((role: CharacterRole | 'all') => {
+    updateParams({ role: role === 'all' ? null : role, page: '1' })
+  }, [updateParams])
+
+  const setStatusFilter = useCallback((status: CharacterStatus | 'all') => {
+    updateParams({ status: status === 'all' ? null : status, page: '1' })
+  }, [updateParams])
+
+  const setSearchQuery = useCallback((query: string) => {
+    updateParams({ search: query || null, page: '1' })
+  }, [updateParams])
+
+  const setSortDirection = useCallback((direction: SortDirection) => {
+    updateParams({ sort: direction === 'none' ? null : direction })
+  }, [updateParams])
+
+  const setCurrentPage = useCallback((page: number) => {
+    updateParams({ page: page === 1 ? null : String(page) })
+  }, [updateParams])
 
   // Define characters and filtered list early so they can be used in handlers
   const characters = project.characters || []
@@ -90,11 +128,13 @@ export function CharactersSection({ project }: SectionProps) {
 
   // Handler to cycle through sort directions
   const handleSortToggle = () => {
-    setSortDirection(prev => {
-      if (prev === 'none') return 'asc'
-      if (prev === 'asc') return 'desc'
-      return 'none'
-    })
+    if (sortDirection === 'none') {
+      setSortDirection('asc')
+    } else if (sortDirection === 'asc') {
+      setSortDirection('desc')
+    } else {
+      setSortDirection('none')
+    }
   }
 
   const handlePageChange = (page: number) => {

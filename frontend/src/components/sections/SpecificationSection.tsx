@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
 import type { Project, NovelSpecification, TargetAudience, POV, Tense } from '@/types/project'
 import { updateProject as updateProjectInDb } from '@/lib/db'
 import { useProjectStore } from '@/stores/projectStore'
@@ -393,11 +393,28 @@ export function SpecificationSection({ project }: SectionProps) {
     setHasChanges(true)
   }
 
+  const handleReset = () => {
+    // Reset specification to defaults, keeping the title and author
+    setSpec(defaultSpecification)
+    setErrors({})
+    setHasChanges(true)
+  }
+
   const availableSubgenres = spec.genre.flatMap(g => SUBGENRES[g] || [])
 
   return (
     <div className="max-w-4xl pb-12">
-      <h1 className="text-2xl font-bold text-text-primary mb-2">Novel Specification</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-2xl font-bold text-text-primary">Novel Specification</h1>
+        <button
+          onClick={handleReset}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm border border-border rounded-lg text-text-secondary hover:text-text-primary hover:border-accent transition-colors"
+          title="Reset to default values"
+        >
+          <RotateCcw className="h-4 w-4" aria-hidden="true" />
+          Reset to Defaults
+        </button>
+      </div>
       <p className="text-text-secondary mb-8">
         Define all parameters that shape your novel before writing begins.
       </p>
