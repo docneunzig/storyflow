@@ -111,14 +111,14 @@ export function ScenesSection({ project }: SectionProps) {
           onClick={() => handleOpenModal()}
           className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4" aria-hidden="true" />
           New Scene
         </button>
       </div>
 
       {scenes.length === 0 ? (
         <div className="card text-center py-12">
-          <Film className="h-12 w-12 text-text-secondary mx-auto mb-4" />
+          <Film className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
           <h3 className="text-lg font-medium text-text-primary mb-2">No scenes yet</h3>
           <p className="text-text-secondary mb-4">
             Start building your story by creating scene blueprints.
@@ -127,7 +127,7 @@ export function ScenesSection({ project }: SectionProps) {
             onClick={() => handleOpenModal()}
             className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4" aria-hidden="true" />
             Create First Scene
           </button>
         </div>
@@ -161,7 +161,7 @@ export function ScenesSection({ project }: SectionProps) {
                         </span>
                         {scene.pacing && (
                           <span className={`text-xs ${PACING_COLORS[scene.pacing] || 'text-text-secondary'}`}>
-                            <Zap className="h-3 w-3 inline mr-0.5" />
+                            <Zap className="h-3 w-3 inline mr-0.5" aria-hidden="true" />
                             {scene.pacing}
                           </span>
                         )}
@@ -175,7 +175,7 @@ export function ScenesSection({ project }: SectionProps) {
                       aria-label="Edit scene"
                       title="Edit scene"
                     >
-                      <Edit2 className="h-4 w-4 text-text-secondary" />
+                      <Edit2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
                     </button>
                     {deleteConfirmId === scene.id ? (
                       <div className="flex items-center gap-1">
@@ -199,7 +199,7 @@ export function ScenesSection({ project }: SectionProps) {
                         aria-label="Delete scene"
                         title="Delete scene"
                       >
-                        <Trash2 className="h-4 w-4 text-error" />
+                        <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -214,13 +214,13 @@ export function ScenesSection({ project }: SectionProps) {
                 <div className="flex flex-wrap gap-2 text-xs">
                   {scene.timeInStory && (
                     <span className="flex items-center gap-1 text-text-secondary bg-surface-elevated px-2 py-0.5 rounded">
-                      <Clock className="h-3 w-3" />
+                      <Clock className="h-3 w-3" aria-hidden="true" />
                       {scene.timeInStory}
                     </span>
                   )}
                   {scene.sceneGoal && (
                     <span className="flex items-center gap-1 text-text-secondary bg-surface-elevated px-2 py-0.5 rounded">
-                      <Target className="h-3 w-3" />
+                      <Target className="h-3 w-3" aria-hidden="true" />
                       {scene.sceneGoal.length > 30 ? scene.sceneGoal.substring(0, 30) + '...' : scene.sceneGoal}
                     </span>
                   )}

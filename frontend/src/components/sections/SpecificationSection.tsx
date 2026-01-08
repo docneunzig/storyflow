@@ -232,6 +232,19 @@ export function SpecificationSection({ project }: SectionProps) {
   const saveChanges = useCallback(async () => {
     if (!hasChanges) return
 
+    // Validate title is required
+    if (!workingTitle.trim()) {
+      setErrors(prev => ({ ...prev, workingTitle: 'Title is required' }))
+      setSaveStatus('unsaved')
+      return
+    } else {
+      setErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors.workingTitle
+        return newErrors
+      })
+    }
+
     setSaveStatus('saving')
 
     const updates: Partial<Project> = {
@@ -337,9 +350,16 @@ export function SpecificationSection({ project }: SectionProps) {
                 type="text"
                 value={workingTitle}
                 onChange={(e) => handleTitleChange(e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none"
+                aria-invalid={errors.workingTitle ? 'true' : undefined}
+                aria-describedby={errors.workingTitle ? 'title-error' : undefined}
+                className={`w-full px-3 py-2 bg-surface border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none ${
+                  errors.workingTitle ? 'border-error' : 'border-border'
+                }`}
                 placeholder="Enter your novel's title"
               />
+              {errors.workingTitle && (
+                <p id="title-error" className="text-xs text-error mt-1" role="alert">{errors.workingTitle}</p>
+              )}
             </div>
 
             <div>

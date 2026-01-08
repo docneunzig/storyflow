@@ -44,7 +44,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
             aria-label="Close settings"
           >
-            <X className="h-5 w-5 text-text-secondary" />
+            <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
           </button>
         </div>
 
@@ -56,9 +56,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <div className="flex items-center justify-between p-3 bg-surface-elevated rounded-lg">
               <div className="flex items-center gap-3">
                 {theme === 'dark' ? (
-                  <Moon className="h-5 w-5 text-text-secondary" />
+                  <Moon className="h-5 w-5 text-text-secondary" aria-hidden="true" />
                 ) : (
-                  <Sun className="h-5 w-5 text-text-secondary" />
+                  <Sun className="h-5 w-5 text-text-secondary" aria-hidden="true" />
                 )}
                 <div>
                   <p className="text-text-primary font-medium">Theme</p>

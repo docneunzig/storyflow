@@ -159,7 +159,7 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
         {/* Header */}
         <div className="sticky top-0 bg-surface flex items-center justify-between p-4 border-b border-border z-10">
           <div className="flex items-center gap-2">
-            <User className="h-5 w-5 text-accent" />
+            <User className="h-5 w-5 text-accent" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-text-primary">
               {editCharacter ? 'Edit Character' : 'New Character'}
             </h2>
@@ -169,7 +169,7 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
             className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
             aria-label="Close modal"
           >
-            <X className="h-5 w-5 text-text-secondary" />
+            <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
           </button>
         </div>
 
@@ -180,25 +180,29 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
             <h3 className="text-sm font-medium text-text-secondary mb-3">Basic Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-text-primary mb-1">
+                <label htmlFor="character-name" className="block text-sm text-text-primary mb-1">
                   Name <span className="text-error">*</span>
                 </label>
                 <input
+                  id="character-name"
                   type="text"
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
                   placeholder="Character name"
+                  aria-invalid={errors.name ? 'true' : undefined}
+                  aria-describedby={errors.name ? 'character-name-error' : undefined}
                   className={`w-full px-3 py-2 bg-surface-elevated border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent ${
                     errors.name ? 'border-error' : 'border-border'
                   }`}
                 />
                 {errors.name && (
-                  <p className="text-xs text-error mt-1">{errors.name}</p>
+                  <p id="character-name-error" className="text-xs text-error mt-1" role="alert">{errors.name}</p>
                 )}
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Role</label>
+                <label htmlFor="character-role" className="block text-sm text-text-primary mb-1">Role</label>
                 <select
+                  id="character-role"
                   value={formData.role}
                   onChange={(e) => handleChange('role', e.target.value as CharacterRole)}
                   className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -211,8 +215,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Archetype</label>
+                <label htmlFor="character-archetype" className="block text-sm text-text-primary mb-1">Archetype</label>
                 <select
+                  id="character-archetype"
                   value={formData.archetype}
                   onChange={(e) => handleChange('archetype', e.target.value)}
                   className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -224,8 +229,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Status</label>
+                <label htmlFor="character-status" className="block text-sm text-text-primary mb-1">Status</label>
                 <select
+                  id="character-status"
                   value={formData.status}
                   onChange={(e) => handleChange('status', e.target.value as CharacterStatus)}
                   className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -245,25 +251,29 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
             <h3 className="text-sm font-medium text-text-secondary mb-3">Physical Attributes</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm text-text-primary mb-1">Age</label>
+                <label htmlFor="character-age" className="block text-sm text-text-primary mb-1">Age</label>
                 <input
+                  id="character-age"
                   type="number"
                   value={formData.age || ''}
                   onChange={(e) => handleChange('age', e.target.value ? parseInt(e.target.value) : null)}
                   placeholder="Age"
                   min="0"
                   max="999"
+                  aria-invalid={errors.age ? 'true' : undefined}
+                  aria-describedby={errors.age ? 'character-age-error' : undefined}
                   className={`w-full px-3 py-2 bg-surface-elevated border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent ${
                     errors.age ? 'border-error' : 'border-border'
                   }`}
                 />
                 {errors.age && (
-                  <p className="text-xs text-error mt-1">{errors.age}</p>
+                  <p id="character-age-error" className="text-xs text-error mt-1" role="alert">{errors.age}</p>
                 )}
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Gender</label>
+                <label htmlFor="character-gender" className="block text-sm text-text-primary mb-1">Gender</label>
                 <input
+                  id="character-gender"
                   type="text"
                   value={formData.gender}
                   onChange={(e) => handleChange('gender', e.target.value)}
@@ -272,8 +282,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="block text-sm text-text-primary mb-1">Vocabulary Level</label>
+                <label htmlFor="character-vocabulary" className="block text-sm text-text-primary mb-1">Vocabulary Level</label>
                 <input
+                  id="character-vocabulary"
                   type="text"
                   value={formData.vocabularyLevel}
                   onChange={(e) => handleChange('vocabularyLevel', e.target.value)}
@@ -283,8 +294,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-sm text-text-primary mb-1">Physical Description</label>
+              <label htmlFor="character-physical-description" className="block text-sm text-text-primary mb-1">Physical Description</label>
               <textarea
+                id="character-physical-description"
                 value={formData.physicalDescription}
                 onChange={(e) => handleChange('physicalDescription', e.target.value)}
                 placeholder="Describe the character's appearance..."
@@ -299,8 +311,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
             <h3 className="text-sm font-medium text-text-secondary mb-3">Psychology</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-text-primary mb-1">Personality Summary</label>
+                <label htmlFor="character-personality" className="block text-sm text-text-primary mb-1">Personality Summary</label>
                 <textarea
+                  id="character-personality"
                   value={formData.personalitySummary}
                   onChange={(e) => handleChange('personalitySummary', e.target.value)}
                   placeholder="Brief personality overview..."
@@ -309,8 +322,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                 />
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Misbelief (the lie they believe)</label>
+                <label htmlFor="character-misbelief" className="block text-sm text-text-primary mb-1">Misbelief (the lie they believe)</label>
                 <input
+                  id="character-misbelief"
                   type="text"
                   value={formData.misbelief}
                   onChange={(e) => handleChange('misbelief', e.target.value)}
@@ -325,8 +339,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
           <section>
             <h3 className="text-sm font-medium text-text-secondary mb-3">Background</h3>
             <div>
-              <label className="block text-sm text-text-primary mb-1">Backstory</label>
+              <label htmlFor="character-backstory" className="block text-sm text-text-primary mb-1">Backstory</label>
               <textarea
+                id="character-backstory"
                 value={formData.backstory}
                 onChange={(e) => handleChange('backstory', e.target.value)}
                 placeholder="Character's history and background..."
@@ -341,8 +356,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
             <h3 className="text-sm font-medium text-text-secondary mb-3">Character Arc</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-text-primary mb-1">Arc Description</label>
+                <label htmlFor="character-arc" className="block text-sm text-text-primary mb-1">Arc Description</label>
                 <input
+                  id="character-arc"
                   type="text"
                   value={formData.characterArc}
                   onChange={(e) => handleChange('characterArc', e.target.value)}
@@ -351,8 +367,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                 />
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Arc Catalyst</label>
+                <label htmlFor="character-catalyst" className="block text-sm text-text-primary mb-1">Arc Catalyst</label>
                 <input
+                  id="character-catalyst"
                   type="text"
                   value={formData.arcCatalyst}
                   onChange={(e) => handleChange('arcCatalyst', e.target.value)}
@@ -366,7 +383,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
           {/* Notes */}
           <section>
             <h3 className="text-sm font-medium text-text-secondary mb-3">Notes</h3>
+            <label htmlFor="character-notes" className="sr-only">Additional Notes</label>
             <textarea
+              id="character-notes"
               value={formData.userNotes}
               onChange={(e) => handleChange('userNotes', e.target.value)}
               placeholder="Any additional notes about this character..."

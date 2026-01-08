@@ -310,7 +310,7 @@ export function CharactersSection({ project }: SectionProps) {
               aria-label="Card view"
               aria-pressed={viewMode === 'cards'}
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-4 w-4" aria-hidden="true" />
             </button>
             <button
               onClick={() => setViewMode('relationships')}
@@ -322,12 +322,12 @@ export function CharactersSection({ project }: SectionProps) {
               aria-label="Relationships view"
               aria-pressed={viewMode === 'relationships'}
             >
-              <Link2 className="h-4 w-4" />
+              <Link2 className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" aria-hidden="true" />
             <input
               type="text"
               value={searchQuery}
@@ -339,7 +339,7 @@ export function CharactersSection({ project }: SectionProps) {
           </div>
           {/* Role Filter */}
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-text-secondary" />
+            <Filter className="h-4 w-4 text-text-secondary" aria-hidden="true" />
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value as CharacterRole | 'all')}
@@ -379,16 +379,16 @@ export function CharactersSection({ project }: SectionProps) {
             aria-label={`Sort by name ${sortDirection === 'asc' ? 'ascending' : sortDirection === 'desc' ? 'descending' : 'off'}`}
             title={`Sort by name: ${sortDirection === 'none' ? 'Off' : sortDirection === 'asc' ? 'A→Z' : 'Z→A'}`}
           >
-            {sortDirection === 'none' && <ArrowUpDown className="h-4 w-4" />}
-            {sortDirection === 'asc' && <ArrowUp className="h-4 w-4" />}
-            {sortDirection === 'desc' && <ArrowDown className="h-4 w-4" />}
+            {sortDirection === 'none' && <ArrowUpDown className="h-4 w-4" aria-hidden="true" />}
+            {sortDirection === 'asc' && <ArrowUp className="h-4 w-4" aria-hidden="true" />}
+            {sortDirection === 'desc' && <ArrowDown className="h-4 w-4" aria-hidden="true" />}
             <span>Sort</span>
           </button>
           <button
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4" aria-hidden="true" />
             New Character
           </button>
         </div>
@@ -407,9 +407,9 @@ export function CharactersSection({ project }: SectionProps) {
                   aria-label={selectedCharacters.size === paginatedCharacters.length ? "Deselect all" : "Select all"}
                 >
                   {selectedCharacters.size === paginatedCharacters.length && paginatedCharacters.length > 0 ? (
-                    <CheckSquare className="h-5 w-5 text-accent" />
+                    <CheckSquare className="h-5 w-5 text-accent" aria-hidden="true" />
                   ) : (
-                    <Square className="h-5 w-5" />
+                    <Square className="h-5 w-5" aria-hidden="true" />
                   )}
                   Select All
                 </button>
@@ -442,7 +442,7 @@ export function CharactersSection({ project }: SectionProps) {
                       onClick={() => setBulkDeleteConfirm(true)}
                       className="flex items-center gap-2 px-3 py-1.5 text-sm bg-error/10 text-error rounded-lg hover:bg-error/20 transition-colors"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
                       Delete Selected
                     </button>
                   )}
@@ -453,7 +453,7 @@ export function CharactersSection({ project }: SectionProps) {
 
           {characters.length === 0 ? (
             <div className="card text-center py-12">
-              <Users className="h-12 w-12 text-text-secondary mx-auto mb-4" />
+              <Users className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
               <h3 className="text-lg font-medium text-text-primary mb-2">No characters yet</h3>
               <p className="text-text-secondary mb-4">
                 Start building your cast of characters by creating your first one.
@@ -462,13 +462,13 @@ export function CharactersSection({ project }: SectionProps) {
                 onClick={() => handleOpenModal()}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4" aria-hidden="true" />
                 Create First Character
               </button>
             </div>
           ) : filteredCharacters.length === 0 ? (
             <div className="card text-center py-12">
-              <Search className="h-12 w-12 text-text-secondary mx-auto mb-4" />
+              <Search className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
               <h3 className="text-lg font-medium text-text-primary mb-2">No matching characters</h3>
               <p className="text-text-secondary mb-4">
                 No characters match the current search or filter. Try adjusting your criteria.
@@ -500,13 +500,13 @@ export function CharactersSection({ project }: SectionProps) {
                           aria-label={isSelected ? `Deselect ${character.name}` : `Select ${character.name}`}
                         >
                           {isSelected ? (
-                            <CheckSquare className="h-5 w-5 text-accent" />
+                            <CheckSquare className="h-5 w-5 text-accent" aria-hidden="true" />
                           ) : (
-                            <Square className="h-5 w-5 text-text-secondary hover:text-text-primary transition-colors" />
+                            <Square className="h-5 w-5 text-text-secondary hover:text-text-primary transition-colors" aria-hidden="true" />
                           )}
                         </button>
                         <div className="w-10 h-10 rounded-full bg-surface-elevated flex items-center justify-center">
-                          <User className="h-5 w-5 text-text-secondary" />
+                          <User className="h-5 w-5 text-text-secondary" aria-hidden="true" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="font-medium text-text-primary truncate" title={character.name}>{character.name}</h3>
@@ -522,7 +522,7 @@ export function CharactersSection({ project }: SectionProps) {
                           aria-label="Edit character"
                           title="Edit character"
                         >
-                          <Edit2 className="h-4 w-4 text-text-secondary" />
+                          <Edit2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
                         </button>
                         {deleteConfirmId === character.id ? (
                           <div className="flex items-center gap-1">
@@ -546,7 +546,7 @@ export function CharactersSection({ project }: SectionProps) {
                             aria-label="Delete character"
                             title="Delete character"
                           >
-                            <Trash2 className="h-4 w-4 text-error" />
+                            <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
                           </button>
                         )}
                       </div>
@@ -622,7 +622,7 @@ export function CharactersSection({ project }: SectionProps) {
                   className="p-2 rounded-lg border border-border hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Previous page"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 </button>
 
                 <div className="flex items-center gap-1">
@@ -649,7 +649,7 @@ export function CharactersSection({ project }: SectionProps) {
                   className="p-2 rounded-lg border border-border hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Next page"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
 
                 <span className="ml-4 text-sm text-text-secondary">
@@ -670,14 +670,14 @@ export function CharactersSection({ project }: SectionProps) {
               disabled={characters.length < 2}
               className="flex items-center gap-2 px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4" aria-hidden="true" />
               Add Relationship
             </button>
           </div>
 
           {characters.length < 2 ? (
             <div className="card text-center py-12">
-              <Users className="h-12 w-12 text-text-secondary mx-auto mb-4" />
+              <Users className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
               <h3 className="text-lg font-medium text-text-primary mb-2">Need more characters</h3>
               <p className="text-text-secondary mb-4">
                 Create at least 2 characters to start defining relationships between them.
@@ -685,7 +685,7 @@ export function CharactersSection({ project }: SectionProps) {
             </div>
           ) : relationships.length === 0 ? (
             <div className="card text-center py-12">
-              <Link2 className="h-12 w-12 text-text-secondary mx-auto mb-4" />
+              <Link2 className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
               <h3 className="text-lg font-medium text-text-primary mb-2">No relationships yet</h3>
               <p className="text-text-secondary mb-4">
                 Define how your characters relate to each other.
@@ -694,7 +694,7 @@ export function CharactersSection({ project }: SectionProps) {
                 onClick={() => handleOpenRelationshipModal()}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4" aria-hidden="true" />
                 Add First Relationship
               </button>
             </div>
@@ -708,7 +708,7 @@ export function CharactersSection({ project }: SectionProps) {
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-3 min-w-0 flex-1 max-w-[200px]">
                       <div className="w-8 h-8 rounded-full bg-surface-elevated flex items-center justify-center flex-shrink-0">
-                        <User className="h-4 w-4 text-text-secondary" />
+                        <User className="h-4 w-4 text-text-secondary" aria-hidden="true" />
                       </div>
                       <span className="font-medium text-text-primary truncate" title={getCharacterName(rel.sourceCharacterId)}>
                         {getCharacterName(rel.sourceCharacterId)}
@@ -716,16 +716,16 @@ export function CharactersSection({ project }: SectionProps) {
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <ArrowRight className={`h-4 w-4 ${RELATIONSHIP_COLORS[rel.relationshipType]}`} />
+                      <ArrowRight className={`h-4 w-4 ${RELATIONSHIP_COLORS[rel.relationshipType]}`} aria-hidden="true" />
                       <span className={`text-sm font-medium ${RELATIONSHIP_COLORS[rel.relationshipType]}`}>
                         {rel.relationshipType}
                       </span>
-                      <ArrowRight className={`h-4 w-4 ${RELATIONSHIP_COLORS[rel.relationshipType]}`} />
+                      <ArrowRight className={`h-4 w-4 ${RELATIONSHIP_COLORS[rel.relationshipType]}`} aria-hidden="true" />
                     </div>
 
                     <div className="flex items-center gap-3 min-w-0 flex-1 max-w-[200px]">
                       <div className="w-8 h-8 rounded-full bg-surface-elevated flex items-center justify-center flex-shrink-0">
-                        <User className="h-4 w-4 text-text-secondary" />
+                        <User className="h-4 w-4 text-text-secondary" aria-hidden="true" />
                       </div>
                       <span className="font-medium text-text-primary truncate" title={getCharacterName(rel.targetCharacterId)}>
                         {getCharacterName(rel.targetCharacterId)}
@@ -745,7 +745,7 @@ export function CharactersSection({ project }: SectionProps) {
                       aria-label="Edit relationship"
                       title="Edit relationship"
                     >
-                      <Edit2 className="h-4 w-4 text-text-secondary" />
+                      <Edit2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
                     </button>
                     <button
                       onClick={() => handleDeleteRelationship(rel.sourceCharacterId, rel.targetCharacterId)}
@@ -753,7 +753,7 @@ export function CharactersSection({ project }: SectionProps) {
                       aria-label="Delete relationship"
                       title="Delete relationship"
                     >
-                      <Trash2 className="h-4 w-4 text-error" />
+                      <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
                     </button>
                   </div>
                 </div>

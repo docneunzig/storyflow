@@ -91,19 +91,21 @@ export function RelationshipModal({
           </h2>
           <button
             onClick={onClose}
+            aria-label="Close modal"
             className="p-1.5 rounded-lg hover:bg-surface-elevated transition-colors"
           >
-            <X className="h-5 w-5 text-text-secondary" />
+            <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Source Character */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="rel-source" className="block text-sm font-medium text-text-primary mb-1">
               From Character *
             </label>
             <select
+              id="rel-source"
               value={sourceCharacterId}
               onChange={(e) => setSourceCharacterId(e.target.value)}
               className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -118,10 +120,11 @@ export function RelationshipModal({
 
           {/* Relationship Type */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="rel-type" className="block text-sm font-medium text-text-primary mb-1">
               Relationship Type *
             </label>
             <select
+              id="rel-type"
               value={relationshipType}
               onChange={(e) => setRelationshipType(e.target.value as RelationshipType)}
               className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -136,10 +139,11 @@ export function RelationshipModal({
 
           {/* Target Character */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="rel-target" className="block text-sm font-medium text-text-primary mb-1">
               To Character *
             </label>
             <select
+              id="rel-target"
               value={targetCharacterId}
               onChange={(e) => setTargetCharacterId(e.target.value)}
               className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -154,10 +158,11 @@ export function RelationshipModal({
 
           {/* Dynamic Description */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="rel-description" className="block text-sm font-medium text-text-primary mb-1">
               Description
             </label>
             <textarea
+              id="rel-description"
               value={dynamicDescription}
               onChange={(e) => setDynamicDescription(e.target.value)}
               placeholder="Describe the nature of their relationship..."
@@ -168,10 +173,11 @@ export function RelationshipModal({
 
           {/* Evolution */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="rel-evolution" className="block text-sm font-medium text-text-primary mb-1">
               Evolution (how does it change?)
             </label>
             <textarea
+              id="rel-evolution"
               value={evolution}
               onChange={(e) => setEvolution(e.target.value)}
               placeholder="How does this relationship evolve throughout the story?"

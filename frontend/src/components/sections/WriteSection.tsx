@@ -121,7 +121,7 @@ export function WriteSection({ project }: SectionProps) {
               className="p-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
               title="New Chapter"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
           <p className="text-xs text-text-secondary">
@@ -132,7 +132,7 @@ export function WriteSection({ project }: SectionProps) {
         <div className="flex-1 overflow-y-auto">
           {chapters.length === 0 ? (
             <div className="p-4 text-center">
-              <BookOpen className="h-8 w-8 text-text-secondary mx-auto mb-2" />
+              <BookOpen className="h-8 w-8 text-text-secondary mx-auto mb-2" aria-hidden="true" />
               <p className="text-sm text-text-secondary mb-3">No chapters yet</p>
               <button
                 onClick={() => handleOpenModal()}
@@ -160,7 +160,7 @@ export function WriteSection({ project }: SectionProps) {
                           Ch. {chapter.number}
                         </span>
                         {chapter.status === 'locked' && (
-                          <Lock className="h-3 w-3 text-purple-400" />
+                          <Lock className="h-3 w-3 text-purple-400" aria-hidden="true" />
                         )}
                       </div>
                       <h3 className="font-medium text-text-primary text-sm truncate">
@@ -185,7 +185,7 @@ export function WriteSection({ project }: SectionProps) {
                         aria-label="Edit chapter"
                         title="Edit chapter"
                       >
-                        <Edit2 className="h-3.5 w-3.5 text-text-secondary" />
+                        <Edit2 className="h-3.5 w-3.5 text-text-secondary" aria-hidden="true" />
                       </button>
                       {deleteConfirmId === chapter.id ? (
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -212,7 +212,7 @@ export function WriteSection({ project }: SectionProps) {
                           aria-label="Delete chapter"
                           title="Delete chapter"
                         >
-                          <Trash2 className="h-3.5 w-3.5 text-error" />
+                          <Trash2 className="h-3.5 w-3.5 text-error" aria-hidden="true" />
                         </button>
                       )}
                     </div>
@@ -266,7 +266,7 @@ export function WriteSection({ project }: SectionProps) {
                 </div>
               ) : (
                 <div className="max-w-3xl mx-auto text-center py-12">
-                  <FileText className="h-12 w-12 text-text-secondary mx-auto mb-4" />
+                  <FileText className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
                   <h3 className="text-lg font-medium text-text-primary mb-2">
                     No content yet
                   </h3>
@@ -286,7 +286,7 @@ export function WriteSection({ project }: SectionProps) {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <BookOpen className="h-16 w-16 text-text-secondary mx-auto mb-4" />
+              <BookOpen className="h-16 w-16 text-text-secondary mx-auto mb-4" aria-hidden="true" />
               <h2 className="text-xl font-semibold text-text-primary mb-2">
                 {chapters.length === 0 ? 'Start Writing Your Novel' : 'Select a Chapter'}
               </h2>
@@ -300,7 +300,7 @@ export function WriteSection({ project }: SectionProps) {
                   onClick={() => handleOpenModal()}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4" aria-hidden="true" />
                   Create First Chapter
                 </button>
               )}

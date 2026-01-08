@@ -41,7 +41,7 @@ export function Footer() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Keyboard className="h-3 w-3" />
+        <Keyboard className="h-3 w-3" aria-hidden="true" />
         <span>Press Cmd+/ for shortcuts</span>
       </div>
     </footer>

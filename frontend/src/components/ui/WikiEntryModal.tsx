@@ -99,7 +99,7 @@ export function WikiEntryModal({
         {/* Header */}
         <div className="sticky top-0 bg-surface border-b border-border px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <BookOpen className="h-5 w-5 text-accent" />
+            <BookOpen className="h-5 w-5 text-accent" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-text-primary">
               {editEntry ? 'Edit Wiki Entry' : 'New Wiki Entry'}
             </h2>
@@ -109,7 +109,7 @@ export function WikiEntryModal({
             className="p-1.5 rounded-lg hover:bg-surface-elevated transition-colors"
             aria-label="Close modal"
           >
-            <X className="h-5 w-5 text-text-secondary" />
+            <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
           </button>
         </div>
 
@@ -117,15 +117,16 @@ export function WikiEntryModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Category */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
+            <span id="wiki-category-label" className="block text-sm font-medium text-text-primary mb-2">
               Category *
-            </label>
-            <div className="grid grid-cols-2 gap-2">
+            </span>
+            <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="wiki-category-label">
               {WIKI_CATEGORIES.map(cat => (
                 <button
                   key={cat.value}
                   type="button"
                   onClick={() => setCategory(cat.value)}
+                  aria-pressed={category === cat.value}
                   className={`p-2 rounded-lg border text-left transition-colors ${
                     category === cat.value
                       ? 'border-accent bg-accent/10'
@@ -141,10 +142,11 @@ export function WikiEntryModal({
 
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="wiki-name" className="block text-sm font-medium text-text-primary mb-1">
               Name *
             </label>
             <input
+              id="wiki-name"
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
@@ -156,10 +158,11 @@ export function WikiEntryModal({
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="wiki-description" className="block text-sm font-medium text-text-primary mb-1">
               Description *
             </label>
             <textarea
+              id="wiki-description"
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="Describe this entry in detail..."
@@ -171,11 +174,12 @@ export function WikiEntryModal({
 
           {/* Tags */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="wiki-tag-input" className="block text-sm font-medium text-text-primary mb-1">
               Tags
             </label>
             <div className="flex gap-2 mb-2">
               <input
+                id="wiki-tag-input"
                 type="text"
                 value={tagInput}
                 onChange={e => setTagInput(e.target.value)}
@@ -187,9 +191,10 @@ export function WikiEntryModal({
                 type="button"
                 onClick={handleAddTag}
                 disabled={!tagInput.trim()}
+                aria-label="Add tag"
                 className="px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
             {tags.length > 0 && (
@@ -203,9 +208,10 @@ export function WikiEntryModal({
                     <button
                       type="button"
                       onClick={() => handleRemoveTag(tag)}
+                      aria-label={`Remove ${tag} tag`}
                       className="hover:text-error transition-colors"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-3 w-3" aria-hidden="true" />
                     </button>
                   </span>
                 ))}

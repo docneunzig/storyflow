@@ -16,22 +16,34 @@ export function ProjectList() {
   const { projects, setProjects, isLoading, setIsLoading } = useProjectStore()
 
   useEffect(() => {
-    loadProjects()
-  }, [])
+    let isCancelled = false
 
-  async function loadProjects() {
-    setIsLoading(true)
-    try {
-      // Load from IndexedDB (local storage)
-      const localProjects = await getAllProjects()
-      setProjects(localProjects)
-    } catch (error) {
-      console.error('Failed to load projects:', error)
-      toast({ title: 'Error', description: 'Failed to load projects', variant: 'error' })
-    } finally {
-      setIsLoading(false)
+    async function loadProjects() {
+      setIsLoading(true)
+      try {
+        // Load from IndexedDB (local storage)
+        const localProjects = await getAllProjects()
+        // Check if component unmounted while loading
+        if (isCancelled) return
+        setProjects(localProjects)
+      } catch (error) {
+        // Check if component unmounted while loading
+        if (isCancelled) return
+        console.error('Failed to load projects:', error)
+        toast({ title: 'Error', description: 'Failed to load projects', variant: 'error' })
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false)
+        }
+      }
     }
-  }
+
+    loadProjects()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [])
 
   async function createProject() {
     try {
@@ -71,7 +83,7 @@ export function ProjectList() {
             <p className="text-text-secondary mt-1">AI-Powered Novel Writing Assistant</p>
           </div>
           <button onClick={createProject} className="btn-primary flex items-center gap-2">
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4" aria-hidden="true" />
             New Project
           </button>
         </div>
@@ -82,7 +94,7 @@ export function ProjectList() {
           </div>
         ) : projects.length === 0 ? (
           <div className="text-center py-16">
-            <BookOpen className="h-16 w-16 text-text-secondary mx-auto mb-4" />
+            <BookOpen className="h-16 w-16 text-text-secondary mx-auto mb-4" aria-hidden="true" />
             <h2 className="text-xl font-semibold text-text-primary mb-2">No projects yet</h2>
             <p className="text-text-secondary mb-6">Create your first novel project to get started</p>
             <button onClick={createProject} className="btn-primary">
@@ -100,14 +112,14 @@ export function ProjectList() {
                   to={`/projects/${project.id}/specification`}
                   className="flex-1 flex items-center gap-4"
                 >
-                  <BookOpen className="h-8 w-8 text-accent flex-shrink-0" />
+                  <BookOpen className="h-8 w-8 text-accent flex-shrink-0" aria-hidden="true" />
                   <div>
                     <h3 className="font-semibold text-text-primary group-hover:text-accent transition-colors">
                       {project.metadata?.workingTitle || 'Untitled'}
                     </h3>
                     <div className="flex items-center gap-4 text-sm text-text-secondary mt-1">
                       <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
+                        <Calendar className="h-3 w-3" aria-hidden="true" />
                         {formatDate(project.updatedAt)}
                       </span>
                       <span className="capitalize">{project.metadata?.currentPhase || 'specification'}</span>
@@ -126,7 +138,7 @@ export function ProjectList() {
                   className="p-2 text-text-secondary hover:text-error opacity-0 group-hover:opacity-100 transition-all"
                   aria-label="Delete project"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             ))}

@@ -173,7 +173,7 @@ export function PlotBeatModal({
         {/* Header */}
         <div className="sticky top-0 bg-surface border-b border-border px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Target className="h-5 w-5 text-accent" />
+            <Target className="h-5 w-5 text-accent" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-text-primary">
               {editBeat ? 'Edit Plot Beat' : 'New Plot Beat'}
             </h2>
@@ -183,7 +183,7 @@ export function PlotBeatModal({
             className="p-1.5 rounded-lg hover:bg-surface-elevated transition-colors"
             aria-label="Close modal"
           >
-            <X className="h-5 w-5 text-text-secondary" />
+            <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
           </button>
         </div>
 
@@ -191,10 +191,11 @@ export function PlotBeatModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="beat-title" className="block text-sm font-medium text-text-primary mb-1">
               Beat Title *
             </label>
             <input
+              id="beat-title"
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
@@ -207,10 +208,11 @@ export function PlotBeatModal({
           {/* Framework Position (if not freeform) */}
           {framework !== 'Freeform' && positions.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
+              <label htmlFor="beat-framework" className="block text-sm font-medium text-text-primary mb-1">
                 Framework Position
               </label>
               <select
+                id="beat-framework"
                 value={frameworkPosition}
                 onChange={e => setFrameworkPosition(e.target.value)}
                 className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -224,10 +226,11 @@ export function PlotBeatModal({
 
           {/* Summary */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="beat-summary" className="block text-sm font-medium text-text-primary mb-1">
               Summary *
             </label>
             <textarea
+              id="beat-summary"
               value={summary}
               onChange={e => setSummary(e.target.value)}
               placeholder="Brief description of what happens in this beat..."
@@ -239,10 +242,11 @@ export function PlotBeatModal({
 
           {/* Detailed Description */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="beat-description" className="block text-sm font-medium text-text-primary mb-1">
               Detailed Description
             </label>
             <textarea
+              id="beat-description"
               value={detailedDescription}
               onChange={e => setDetailedDescription(e.target.value)}
               placeholder="More detailed notes about this plot point..."
@@ -255,10 +259,11 @@ export function PlotBeatModal({
           <div className="grid grid-cols-2 gap-4">
             {/* Timeline Position */}
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
+              <label htmlFor="beat-timeline" className="block text-sm font-medium text-text-primary mb-1">
                 Timeline Position
               </label>
               <input
+                id="beat-timeline"
                 type="number"
                 value={timelinePosition}
                 onChange={e => setTimelinePosition(parseInt(e.target.value) || 1)}
@@ -269,10 +274,11 @@ export function PlotBeatModal({
 
             {/* Status */}
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
+              <label htmlFor="beat-status" className="block text-sm font-medium text-text-primary mb-1">
                 Status
               </label>
               <select
+                id="beat-status"
                 value={status}
                 onChange={e => setStatus(e.target.value as ContentStatus)}
                 className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -289,15 +295,16 @@ export function PlotBeatModal({
           {/* Characters Involved */}
           {characters.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">
+              <span id="beat-characters-label" className="block text-sm font-medium text-text-primary mb-2">
                 Characters Involved
-              </label>
-              <div className="flex flex-wrap gap-2">
+              </span>
+              <div className="flex flex-wrap gap-2" role="group" aria-labelledby="beat-characters-label">
                 {characters.map(char => (
                   <button
                     key={char.id}
                     type="button"
                     onClick={() => toggleCharacter(char.id)}
+                    aria-pressed={charactersInvolved.includes(char.id)}
                     className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
                       charactersInvolved.includes(char.id)
                         ? 'bg-accent text-white border-accent'
@@ -313,10 +320,11 @@ export function PlotBeatModal({
 
           {/* Location */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="beat-location" className="block text-sm font-medium text-text-primary mb-1">
               Location
             </label>
             <input
+              id="beat-location"
               type="text"
               value={location}
               onChange={e => setLocation(e.target.value)}
@@ -328,10 +336,11 @@ export function PlotBeatModal({
           {/* Emotional Arc & Stakes */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
+              <label htmlFor="beat-emotional-arc" className="block text-sm font-medium text-text-primary mb-1">
                 Emotional Arc
               </label>
               <input
+                id="beat-emotional-arc"
                 type="text"
                 value={emotionalArc}
                 onChange={e => setEmotionalArc(e.target.value)}
@@ -340,10 +349,11 @@ export function PlotBeatModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
+              <label htmlFor="beat-stakes" className="block text-sm font-medium text-text-primary mb-1">
                 Stakes
               </label>
               <input
+                id="beat-stakes"
                 type="text"
                 value={stakes}
                 onChange={e => setStakes(e.target.value)}
@@ -356,10 +366,11 @@ export function PlotBeatModal({
           {/* Chapter Target & Word Count */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
+              <label htmlFor="beat-chapter" className="block text-sm font-medium text-text-primary mb-1">
                 Target Chapter
               </label>
               <input
+                id="beat-chapter"
                 type="number"
                 value={chapterTarget || ''}
                 onChange={e => setChapterTarget(e.target.value ? parseInt(e.target.value) : null)}
@@ -369,10 +380,11 @@ export function PlotBeatModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
+              <label htmlFor="beat-word-count" className="block text-sm font-medium text-text-primary mb-1">
                 Estimated Words
               </label>
               <input
+                id="beat-word-count"
                 type="number"
                 value={wordCountEstimate}
                 onChange={e => setWordCountEstimate(parseInt(e.target.value) || 0)}
@@ -385,10 +397,11 @@ export function PlotBeatModal({
 
           {/* User Notes */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
+            <label htmlFor="beat-notes" className="block text-sm font-medium text-text-primary mb-1">
               Notes
             </label>
             <textarea
+              id="beat-notes"
               value={userNotes}
               onChange={e => setUserNotes(e.target.value)}
               placeholder="Personal notes about this beat..."

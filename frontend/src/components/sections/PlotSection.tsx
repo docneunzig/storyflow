@@ -144,7 +144,7 @@ export function PlotSection({ project }: SectionProps) {
           onClick={() => handleOpenModal()}
           className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4" aria-hidden="true" />
           Add Beat
         </button>
       </div>
@@ -152,7 +152,7 @@ export function PlotSection({ project }: SectionProps) {
       {/* Framework Selection */}
       <div className="card mb-6">
         <h3 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-2">
-          <Layers className="h-4 w-4 text-accent" />
+          <Layers className="h-4 w-4 text-accent" aria-hidden="true" />
           Plot Framework
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -176,7 +176,7 @@ export function PlotSection({ project }: SectionProps) {
       {/* Plot Beats */}
       {sortedBeats.length === 0 ? (
         <div className="card text-center py-12">
-          <Target className="h-12 w-12 text-text-secondary mx-auto mb-4" />
+          <Target className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
           <h3 className="text-lg font-medium text-text-primary mb-2">No plot beats yet</h3>
           <p className="text-text-secondary mb-4">
             Start building your plot structure by adding story beats.
@@ -185,7 +185,7 @@ export function PlotSection({ project }: SectionProps) {
             onClick={() => handleOpenModal()}
             className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4" aria-hidden="true" />
             Create First Beat
           </button>
         </div>
@@ -236,19 +236,19 @@ export function PlotSection({ project }: SectionProps) {
                       <div className="flex flex-wrap gap-2 text-xs">
                         {beat.charactersInvolved.length > 0 && (
                           <span className="flex items-center gap-1 text-text-secondary bg-surface-elevated px-2 py-0.5 rounded">
-                            <Users className="h-3 w-3" />
+                            <Users className="h-3 w-3" aria-hidden="true" />
                             {beat.charactersInvolved.map(id => getCharacterName(id)).join(', ')}
                           </span>
                         )}
                         {beat.location && (
                           <span className="flex items-center gap-1 text-text-secondary bg-surface-elevated px-2 py-0.5 rounded">
-                            <MapPin className="h-3 w-3" />
+                            <MapPin className="h-3 w-3" aria-hidden="true" />
                             {beat.location}
                           </span>
                         )}
                         {beat.chapterTarget && (
                           <span className="flex items-center gap-1 text-text-secondary bg-surface-elevated px-2 py-0.5 rounded">
-                            <BookOpen className="h-3 w-3" />
+                            <BookOpen className="h-3 w-3" aria-hidden="true" />
                             Ch. {beat.chapterTarget}
                           </span>
                         )}
@@ -288,7 +288,7 @@ export function PlotSection({ project }: SectionProps) {
                         aria-label="Edit beat"
                         title="Edit beat"
                       >
-                        <Edit2 className="h-4 w-4 text-text-secondary" />
+                        <Edit2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
                       </button>
                     )}
                     {deleteConfirmId === beat.id ? (
@@ -313,7 +313,7 @@ export function PlotSection({ project }: SectionProps) {
                         aria-label="Delete beat"
                         title="Delete beat"
                       >
-                        <Trash2 className="h-4 w-4 text-error" />
+                        <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
                       </button>
                     )}
                   </div>

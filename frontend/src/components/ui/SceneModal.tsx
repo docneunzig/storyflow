@@ -133,7 +133,7 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
         {/* Header */}
         <div className="sticky top-0 bg-surface flex items-center justify-between p-4 border-b border-border z-10">
           <div className="flex items-center gap-2">
-            <Film className="h-5 w-5 text-accent" />
+            <Film className="h-5 w-5 text-accent" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-text-primary">
               {editScene ? 'Edit Scene' : 'New Scene'}
             </h2>
@@ -143,7 +143,7 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
             className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
             aria-label="Close modal"
           >
-            <X className="h-5 w-5 text-text-secondary" />
+            <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
           </button>
         </div>
 
@@ -154,25 +154,29 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
             <h3 className="text-sm font-medium text-text-secondary mb-3">Basic Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-sm text-text-primary mb-1">
+                <label htmlFor="scene-title" className="block text-sm text-text-primary mb-1">
                   Title <span className="text-error">*</span>
                 </label>
                 <input
+                  id="scene-title"
                   type="text"
                   value={formData.title}
                   onChange={(e) => handleChange('title', e.target.value)}
                   placeholder="Scene title"
+                  aria-invalid={errors.title ? 'true' : undefined}
+                  aria-describedby={errors.title ? 'scene-title-error' : undefined}
                   className={`w-full px-3 py-2 bg-surface-elevated border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent ${
                     errors.title ? 'border-error' : 'border-border'
                   }`}
                 />
                 {errors.title && (
-                  <p className="text-xs text-error mt-1">{errors.title}</p>
+                  <p id="scene-title-error" className="text-xs text-error mt-1" role="alert">{errors.title}</p>
                 )}
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Status</label>
+                <label htmlFor="scene-status" className="block text-sm text-text-primary mb-1">Status</label>
                 <select
+                  id="scene-status"
                   value={formData.status}
                   onChange={(e) => handleChange('status', e.target.value as ContentStatus)}
                   className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -185,8 +189,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Pacing</label>
+                <label htmlFor="scene-pacing" className="block text-sm text-text-primary mb-1">Pacing</label>
                 <select
+                  id="scene-pacing"
                   value={formData.pacing}
                   onChange={(e) => handleChange('pacing', e.target.value)}
                   className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -199,8 +204,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
             </div>
             {chapters.length > 0 && (
               <div className="mt-4">
-                <label className="block text-sm text-text-primary mb-1">Chapter</label>
+                <label htmlFor="scene-chapter" className="block text-sm text-text-primary mb-1">Chapter</label>
                 <select
+                  id="scene-chapter"
                   value={formData.chapterId || ''}
                   onChange={(e) => handleChange('chapterId', e.target.value || null)}
                   className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -219,8 +225,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
             <h3 className="text-sm font-medium text-text-secondary mb-3">Setting</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-text-primary mb-1">Time in Story</label>
+                <label htmlFor="scene-time" className="block text-sm text-text-primary mb-1">Time in Story</label>
                 <input
+                  id="scene-time"
                   type="text"
                   value={formData.timeInStory}
                   onChange={(e) => handleChange('timeInStory', e.target.value)}
@@ -229,8 +236,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
                 />
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Weather/Atmosphere</label>
+                <label htmlFor="scene-weather" className="block text-sm text-text-primary mb-1">Weather/Atmosphere</label>
                 <input
+                  id="scene-weather"
                   type="text"
                   value={formData.weatherAtmosphere}
                   onChange={(e) => handleChange('weatherAtmosphere', e.target.value)}
@@ -241,8 +249,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
             </div>
             {locations.length > 0 && (
               <div className="mt-4">
-                <label className="block text-sm text-text-primary mb-1">Location</label>
+                <label htmlFor="scene-location" className="block text-sm text-text-primary mb-1">Location</label>
                 <select
+                  id="scene-location"
                   value={formData.locationId || ''}
                   onChange={(e) => handleChange('locationId', e.target.value || null)}
                   className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -261,8 +270,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
             <section>
               <h3 className="text-sm font-medium text-text-secondary mb-3">Point of View</h3>
               <div>
-                <label className="block text-sm text-text-primary mb-1">POV Character</label>
+                <label htmlFor="scene-pov" className="block text-sm text-text-primary mb-1">POV Character</label>
                 <select
+                  id="scene-pov"
                   value={formData.povCharacterId || ''}
                   onChange={(e) => handleChange('povCharacterId', e.target.value || null)}
                   className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -281,8 +291,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
             <h3 className="text-sm font-medium text-text-secondary mb-3">Content</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-text-primary mb-1">Summary</label>
+                <label htmlFor="scene-summary" className="block text-sm text-text-primary mb-1">Summary</label>
                 <textarea
+                  id="scene-summary"
                   value={formData.summary}
                   onChange={(e) => handleChange('summary', e.target.value)}
                   placeholder="Brief scene summary..."
@@ -291,8 +302,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
                 />
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Scene Goal</label>
+                <label htmlFor="scene-goal" className="block text-sm text-text-primary mb-1">Scene Goal</label>
                 <input
+                  id="scene-goal"
                   type="text"
                   value={formData.sceneGoal}
                   onChange={(e) => handleChange('sceneGoal', e.target.value)}
@@ -308,8 +320,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
             <h3 className="text-sm font-medium text-text-secondary mb-3">Conflict</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-text-primary mb-1">Conflict Type</label>
+                <label htmlFor="scene-conflict-type" className="block text-sm text-text-primary mb-1">Conflict Type</label>
                 <select
+                  id="scene-conflict-type"
                   value={formData.conflictType}
                   onChange={(e) => handleChange('conflictType', e.target.value)}
                   className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -321,8 +334,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Est. Word Count</label>
+                <label htmlFor="scene-word-count" className="block text-sm text-text-primary mb-1">Est. Word Count</label>
                 <input
+                  id="scene-word-count"
                   type="number"
                   value={formData.estimatedWordCount}
                   onChange={(e) => handleChange('estimatedWordCount', parseInt(e.target.value) || 0)}
@@ -333,8 +347,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-sm text-text-primary mb-1">Conflict Description</label>
+              <label htmlFor="scene-conflict-desc" className="block text-sm text-text-primary mb-1">Conflict Description</label>
               <textarea
+                id="scene-conflict-desc"
                 value={formData.conflictDescription}
                 onChange={(e) => handleChange('conflictDescription', e.target.value)}
                 placeholder="Describe the conflict in this scene..."
@@ -349,8 +364,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
             <h3 className="text-sm font-medium text-text-secondary mb-3">Emotional Arc</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-text-primary mb-1">Opening Emotion</label>
+                <label htmlFor="scene-opening-emotion" className="block text-sm text-text-primary mb-1">Opening Emotion</label>
                 <input
+                  id="scene-opening-emotion"
                   type="text"
                   value={formData.openingEmotion}
                   onChange={(e) => handleChange('openingEmotion', e.target.value)}
@@ -359,8 +375,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
                 />
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Closing Emotion</label>
+                <label htmlFor="scene-closing-emotion" className="block text-sm text-text-primary mb-1">Closing Emotion</label>
                 <input
+                  id="scene-closing-emotion"
                   type="text"
                   value={formData.closingEmotion}
                   onChange={(e) => handleChange('closingEmotion', e.target.value)}
@@ -370,8 +387,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-sm text-text-primary mb-1">Tone</label>
+              <label htmlFor="scene-tone" className="block text-sm text-text-primary mb-1">Tone</label>
               <input
+                id="scene-tone"
                 type="text"
                 value={formData.tone}
                 onChange={(e) => handleChange('tone', e.target.value)}
@@ -386,8 +404,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
             <h3 className="text-sm font-medium text-text-secondary mb-3">Scene Hooks</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-text-primary mb-1">Opening Hook</label>
+                <label htmlFor="scene-opening-hook" className="block text-sm text-text-primary mb-1">Opening Hook</label>
                 <input
+                  id="scene-opening-hook"
                   type="text"
                   value={formData.openingHook}
                   onChange={(e) => handleChange('openingHook', e.target.value)}
@@ -396,8 +415,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
                 />
               </div>
               <div>
-                <label className="block text-sm text-text-primary mb-1">Closing Hook</label>
+                <label htmlFor="scene-closing-hook" className="block text-sm text-text-primary mb-1">Closing Hook</label>
                 <input
+                  id="scene-closing-hook"
                   type="text"
                   value={formData.closingHook}
                   onChange={(e) => handleChange('closingHook', e.target.value)}
@@ -411,7 +431,9 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
           {/* Notes */}
           <section>
             <h3 className="text-sm font-medium text-text-secondary mb-3">Notes</h3>
+            <label htmlFor="scene-notes" className="sr-only">Additional Notes</label>
             <textarea
+              id="scene-notes"
               value={formData.userNotes}
               onChange={(e) => handleChange('userNotes', e.target.value)}
               placeholder="Any additional notes about this scene..."

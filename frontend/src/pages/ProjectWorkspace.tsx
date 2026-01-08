@@ -25,29 +25,41 @@ export function ProjectWorkspace({ section }: ProjectWorkspaceProps) {
   const { currentProject, setCurrentProject, isLoading, setIsLoading, setError } = useProjectStore()
 
   useEffect(() => {
+    let isCancelled = false
+
+    async function loadProject(id: string) {
+      setIsLoading(true)
+      setError(null)
+      try {
+        // Load from IndexedDB (local storage)
+        const project = await getProject(id)
+        // Check if navigation happened while loading
+        if (isCancelled) return
+        if (project) {
+          setCurrentProject(project)
+        } else {
+          setError('Project not found')
+        }
+      } catch (error) {
+        // Check if navigation happened while loading
+        if (isCancelled) return
+        console.error('Failed to load project:', error)
+        setError('Failed to load project')
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
     if (projectId && (!currentProject || currentProject.id !== projectId)) {
       loadProject(projectId)
     }
-  }, [projectId])
 
-  async function loadProject(id: string) {
-    setIsLoading(true)
-    setError(null)
-    try {
-      // Load from IndexedDB (local storage)
-      const project = await getProject(id)
-      if (project) {
-        setCurrentProject(project)
-      } else {
-        setError('Project not found')
-      }
-    } catch (error) {
-      console.error('Failed to load project:', error)
-      setError('Failed to load project')
-    } finally {
-      setIsLoading(false)
+    return () => {
+      isCancelled = true
     }
-  }
+  }, [projectId])
 
   const { error } = useProjectStore()
 

@@ -19,7 +19,7 @@ export function Header({ projectId }: HeaderProps) {
       <header className="h-14 bg-surface border-b border-border flex items-center justify-between px-2 sm:px-4 overflow-hidden" role="banner" aria-label="Main header">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
           <Link to="/" className="flex items-center gap-2 text-text-primary hover:text-accent transition-colors flex-shrink-0">
-            <Home className="h-5 w-5" />
+            <Home className="h-5 w-5" aria-hidden="true" />
             <span className="font-semibold hidden sm:inline">Storyflow</span>
           </Link>
 
@@ -37,7 +37,7 @@ export function Header({ projectId }: HeaderProps) {
           {/* Save Status */}
           {projectId && (
             <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-text-secondary mr-1 sm:mr-4">
-              <Save className="h-4 w-4" />
+              <Save className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">{saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : 'Unsaved'}</span>
             </div>
           )}
@@ -49,9 +49,9 @@ export function Header({ projectId }: HeaderProps) {
             aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {theme === 'dark' ? (
-              <Sun className="h-5 w-5 text-text-secondary" />
+              <Sun className="h-5 w-5 text-text-secondary" aria-hidden="true" />
             ) : (
-              <Moon className="h-5 w-5 text-text-secondary" />
+              <Moon className="h-5 w-5 text-text-secondary" aria-hidden="true" />
             )}
           </button>
 
@@ -62,7 +62,7 @@ export function Header({ projectId }: HeaderProps) {
               className="p-2 rounded-md hover:bg-surface-elevated transition-colors"
               aria-label="Export"
             >
-              <Download className="h-5 w-5 text-text-secondary" />
+              <Download className="h-5 w-5 text-text-secondary" aria-hidden="true" />
             </Link>
           )}
 
@@ -72,7 +72,7 @@ export function Header({ projectId }: HeaderProps) {
             className="p-2 rounded-md hover:bg-surface-elevated transition-colors"
             aria-label="Settings"
           >
-            <Settings className="h-5 w-5 text-text-secondary" />
+            <Settings className="h-5 w-5 text-text-secondary" aria-hidden="true" />
           </button>
         </div>
       </header>

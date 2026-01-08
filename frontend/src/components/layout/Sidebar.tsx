@@ -78,7 +78,7 @@ export function Sidebar({ projectId }: SidebarProps) {
           className="fixed top-3 left-2 z-40 p-2 bg-surface border border-border rounded-lg shadow-lg md:hidden"
           aria-label="Open navigation menu"
         >
-          <Menu className="h-5 w-5 text-text-primary" />
+          <Menu className="h-5 w-5 text-text-primary" aria-hidden="true" />
         </button>
 
         {/* Mobile overlay */}
@@ -131,7 +131,7 @@ export function Sidebar({ projectId }: SidebarProps) {
                         )
                       }
                     >
-                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <Icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                       <span className="flex-1">{item.label}</span>
                       {item.shortcut && (
                         <kbd className="text-xs text-text-secondary bg-surface-elevated px-1.5 py-0.5 rounded">
@@ -180,8 +180,9 @@ export function Sidebar({ projectId }: SidebarProps) {
                     )
                   }
                   title={collapsed ? item.label : undefined}
+                  aria-label={collapsed ? item.label : undefined}
                 >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  <Icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                   {!collapsed && (
                     <>
                       <span className="flex-1">{item.label}</span>
@@ -205,9 +206,9 @@ export function Sidebar({ projectId }: SidebarProps) {
         aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         {collapsed ? (
-          <ChevronRight className="h-5 w-5 text-text-secondary" />
+          <ChevronRight className="h-5 w-5 text-text-secondary" aria-hidden="true" />
         ) : (
-          <ChevronLeft className="h-5 w-5 text-text-secondary" />
+          <ChevronLeft className="h-5 w-5 text-text-secondary" aria-hidden="true" />
         )}
       </button>
     </aside>

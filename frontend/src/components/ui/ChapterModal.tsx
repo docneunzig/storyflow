@@ -103,7 +103,7 @@ export function ChapterModal({ isOpen, onClose, onSave, editChapter, nextChapter
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-accent" />
+            <BookOpen className="h-5 w-5 text-accent" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-text-primary">
               {editChapter ? 'Edit Chapter' : 'New Chapter'}
             </h2>
@@ -113,7 +113,7 @@ export function ChapterModal({ isOpen, onClose, onSave, editChapter, nextChapter
             className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
             aria-label="Close modal"
           >
-            <X className="h-5 w-5 text-text-secondary" />
+            <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
           </button>
         </div>
 
@@ -121,10 +121,11 @@ export function ChapterModal({ isOpen, onClose, onSave, editChapter, nextChapter
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-text-primary mb-1">
+              <label htmlFor="chapter-number" className="block text-sm text-text-primary mb-1">
                 Chapter Number
               </label>
               <input
+                id="chapter-number"
                 type="number"
                 value={formData.number}
                 onChange={(e) => handleChange('number', parseInt(e.target.value) || 1)}
@@ -134,8 +135,9 @@ export function ChapterModal({ isOpen, onClose, onSave, editChapter, nextChapter
               />
             </div>
             <div>
-              <label className="block text-sm text-text-primary mb-1">Status</label>
+              <label htmlFor="chapter-status" className="block text-sm text-text-primary mb-1">Status</label>
               <select
+                id="chapter-status"
                 value={formData.status}
                 onChange={(e) => handleChange('status', e.target.value as ChapterStatus)}
                 className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -150,28 +152,32 @@ export function ChapterModal({ isOpen, onClose, onSave, editChapter, nextChapter
           </div>
 
           <div>
-            <label className="block text-sm text-text-primary mb-1">
+            <label htmlFor="chapter-title" className="block text-sm text-text-primary mb-1">
               Title <span className="text-error">*</span>
             </label>
             <input
+              id="chapter-title"
               type="text"
               value={formData.title}
               onChange={(e) => handleChange('title', e.target.value)}
               placeholder="Chapter title"
+              aria-invalid={errors.title ? 'true' : undefined}
+              aria-describedby={errors.title ? 'chapter-title-error' : undefined}
               className={`w-full px-3 py-2 bg-surface-elevated border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent ${
                 errors.title ? 'border-error' : 'border-border'
               }`}
             />
             {errors.title && (
-              <p className="text-xs text-error mt-1">{errors.title}</p>
+              <p id="chapter-title-error" className="text-xs text-error mt-1" role="alert">{errors.title}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm text-text-primary mb-1">
+            <label htmlFor="chapter-content" className="block text-sm text-text-primary mb-1">
               Content
             </label>
             <textarea
+              id="chapter-content"
               value={formData.content}
               onChange={(e) => {
                 const content = e.target.value
