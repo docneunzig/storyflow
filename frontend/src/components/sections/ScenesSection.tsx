@@ -1,10 +1,13 @@
-import { useState, useRef } from 'react'
-import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft, GripVertical } from 'lucide-react'
-import type { Project, Scene } from '@/types/project'
+import { useState, useMemo } from 'react'
+import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft, GripVertical, LayoutGrid, LayoutList, Layers } from 'lucide-react'
+import type { Project, Scene, Chapter } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
 import { SceneModal } from '@/components/ui/SceneModal'
+import { SceneTimeline } from '@/components/ui/SceneTimeline'
 import { toast } from '@/components/ui/Toaster'
+
+type ViewMode = 'cards' | 'timeline' | 'chapters'
 
 interface SectionProps {
   project: Project
@@ -30,6 +33,7 @@ export function ScenesSection({ project }: SectionProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [draggedSceneId, setDraggedSceneId] = useState<string | null>(null)
   const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('cards')
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
 
   // Drag and drop handlers
@@ -193,6 +197,54 @@ export function ScenesSection({ project }: SectionProps) {
   const worldbuildingEntries = project.worldbuildingEntries || []
   const locations = worldbuildingEntries.filter(entry => entry.category === 'locations')
 
+  // Group scenes by chapter for chapter view
+  const chapterGroups = useMemo(() => {
+    const groups: { chapter: Chapter | null; scenes: Scene[]; wordCount: number }[] = []
+
+    // Create a map of chapter ID to scenes
+    const chapterSceneMap = new Map<string | null, Scene[]>()
+    chapterSceneMap.set(null, []) // Unassigned scenes
+
+    chapters.forEach(ch => {
+      chapterSceneMap.set(ch.id, [])
+    })
+
+    scenes.forEach(scene => {
+      const chapterId = scene.chapterId || null
+      const existing = chapterSceneMap.get(chapterId)
+      if (existing) {
+        existing.push(scene)
+      } else {
+        // Chapter not found, add to unassigned
+        chapterSceneMap.get(null)?.push(scene)
+      }
+    })
+
+    // Convert to array sorted by chapter number
+    chapters.sort((a, b) => a.number - b.number).forEach(ch => {
+      const chapterScenes = chapterSceneMap.get(ch.id) || []
+      if (chapterScenes.length > 0) {
+        groups.push({
+          chapter: ch,
+          scenes: chapterScenes,
+          wordCount: chapterScenes.reduce((sum, s) => sum + s.estimatedWordCount, 0)
+        })
+      }
+    })
+
+    // Add unassigned scenes at the end
+    const unassignedScenes = chapterSceneMap.get(null) || []
+    if (unassignedScenes.length > 0) {
+      groups.push({
+        chapter: null,
+        scenes: unassignedScenes,
+        wordCount: unassignedScenes.reduce((sum, s) => sum + s.estimatedWordCount, 0)
+      })
+    }
+
+    return groups
+  }, [scenes, chapters])
+
   // Get character name by ID
   const getCharacterName = (id: string | null) => {
     if (!id) return null
@@ -263,15 +315,171 @@ export function ScenesSection({ project }: SectionProps) {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Scene Timeline View */}
-          <div className="flex items-center gap-4 mb-4">
+          {/* Scene stats and view toggle */}
+          <div className="flex items-center justify-between mb-4">
             <span className="text-sm text-text-secondary">
               {scenes.length} scene{scenes.length !== 1 ? 's' : ''} |
               {' '}{scenes.reduce((acc, s) => acc + s.estimatedWordCount, 0).toLocaleString()} estimated words
             </span>
+
+            {/* View mode toggle */}
+            <div className="flex items-center gap-1 bg-surface-elevated rounded-lg p-1 border border-border">
+              <button
+                onClick={() => setViewMode('cards')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                  viewMode === 'cards'
+                    ? 'bg-accent text-white'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface'
+                }`}
+                aria-label="Card view"
+              >
+                <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Cards</span>
+              </button>
+              <button
+                onClick={() => setViewMode('timeline')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                  viewMode === 'timeline'
+                    ? 'bg-accent text-white'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface'
+                }`}
+                aria-label="Timeline view"
+              >
+                <LayoutList className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Timeline</span>
+              </button>
+              <button
+                onClick={() => setViewMode('chapters')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                  viewMode === 'chapters'
+                    ? 'bg-accent text-white'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface'
+                }`}
+                aria-label="Chapter grouping view"
+              >
+                <Layers className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Chapters</span>
+              </button>
+            </div>
           </div>
 
+          {/* Timeline View */}
+          {viewMode === 'timeline' && (
+            <SceneTimeline
+              scenes={scenes}
+              chapters={chapters}
+              characters={characters}
+              onSceneClick={(scene) => handleOpenModal(scene)}
+            />
+          )}
+
+          {/* Chapter Grouping View */}
+          {viewMode === 'chapters' && (
+            <div className="space-y-6">
+              {chapterGroups.length === 0 ? (
+                <div className="text-center py-8 text-text-secondary">
+                  <p>No scenes to display. Create scenes and assign them to chapters.</p>
+                </div>
+              ) : (
+                chapterGroups.map((group) => (
+                  <div key={group.chapter?.id || 'unassigned'} className="card">
+                    {/* Chapter header */}
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          group.chapter ? 'bg-accent/20' : 'bg-text-secondary/20'
+                        }`}>
+                          <BookOpen className={`h-5 w-5 ${group.chapter ? 'text-accent' : 'text-text-secondary'}`} />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-text-primary">
+                            {group.chapter
+                              ? `Chapter ${group.chapter.number}: ${group.chapter.title}`
+                              : 'Unassigned Scenes'
+                            }
+                          </h3>
+                          <p className="text-sm text-text-secondary">
+                            {group.scenes.length} scene{group.scenes.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-semibold text-text-primary">
+                          {group.wordCount.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-text-secondary">estimated words</p>
+                      </div>
+                    </div>
+
+                    {/* Scenes list */}
+                    <div className="space-y-3">
+                      {group.scenes.map((scene, idx) => (
+                        <div
+                          key={scene.id}
+                          onClick={() => handleOpenModal(scene)}
+                          className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated cursor-pointer transition-colors group"
+                        >
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-medium">
+                              {idx + 1}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-text-primary truncate">{scene.title}</h4>
+                              <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[scene.status] || STATUS_COLORS.outline}`}>
+                                {scene.status}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-text-secondary">
+                              {scene.timeInStory && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {scene.timeInStory}
+                                </span>
+                              )}
+                              {getCharacterName(scene.povCharacterId) && (
+                                <span className="text-accent">
+                                  POV: {getCharacterName(scene.povCharacterId)}
+                                </span>
+                              )}
+                              {scene.pacing && (
+                                <span className={`flex items-center gap-1 ${PACING_COLORS[scene.pacing] || ''}`}>
+                                  <Zap className="h-3 w-3" />
+                                  {scene.pacing}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 text-right">
+                            <span className="text-sm text-text-secondary">
+                              ~{scene.estimatedWordCount.toLocaleString()} words
+                            </span>
+                          </div>
+                          <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Edit2 className="h-4 w-4 text-text-secondary" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {/* Total word count summary */}
+              <div className="card bg-surface-elevated">
+                <div className="flex items-center justify-between">
+                  <span className="text-text-secondary">Total Estimated Words</span>
+                  <span className="text-xl font-bold text-text-primary">
+                    {scenes.reduce((sum, s) => sum + s.estimatedWordCount, 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Scene Cards */}
+          {viewMode === 'cards' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {scenes.map((scene, index) => (
               <div
@@ -447,6 +655,7 @@ export function ScenesSection({ project }: SectionProps) {
               </div>
             ))}
           </div>
+          )}
         </div>
       )}
 

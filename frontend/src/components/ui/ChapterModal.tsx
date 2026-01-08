@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, BookOpen } from 'lucide-react'
+import { X, BookOpen, Sparkles } from 'lucide-react'
 import type { Chapter, ChapterStatus } from '@/types/project'
 import { generateId } from '@/lib/db'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { AIProgressModal } from '@/components/ui/AIProgressModal'
 
 interface ChapterModalProps {
   isOpen: boolean
@@ -29,6 +31,18 @@ function createEmptyChapter(chapterNumber: number): Omit<Chapter, 'id'> {
 export function ChapterModal({ isOpen, onClose, onSave, editChapter, nextChapterNumber = 1 }: ChapterModalProps) {
   const [formData, setFormData] = useState<Omit<Chapter, 'id'>>(createEmptyChapter(nextChapterNumber))
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showAIProgress, setShowAIProgress] = useState(false)
+
+  const {
+    status: aiStatus,
+    progress: aiProgress,
+    message: aiMessage,
+    error: aiError,
+    isGenerating,
+    generate,
+    cancel,
+    reset: resetAI,
+  } = useAIGeneration()
 
   // Reset form when modal opens/closes or editChapter changes
   useEffect(() => {
@@ -40,8 +54,45 @@ export function ChapterModal({ isOpen, onClose, onSave, editChapter, nextChapter
         setFormData(createEmptyChapter(nextChapterNumber))
       }
       setErrors({})
+      resetAI()
+      setShowAIProgress(false)
     }
-  }, [isOpen, editChapter, nextChapterNumber])
+  }, [isOpen, editChapter, nextChapterNumber, resetAI])
+
+  // Handle AI generation for chapter content
+  const handleAIGenerate = useCallback(async () => {
+    if (!formData.title.trim()) {
+      setErrors({ title: 'Please enter a title before generating content' })
+      return
+    }
+
+    setShowAIProgress(true)
+
+    const result = await generate({
+      agentTarget: 'chapter',
+      action: 'generate-chapter',
+      context: {
+        title: formData.title,
+        chapterNumber: formData.number,
+        synopsis: formData.content || 'A new chapter begins.',
+      },
+    })
+
+    if (result) {
+      // Update content with generated result
+      const wordCount = result.trim() ? result.trim().split(/\s+/).length : 0
+      setFormData(prev => ({
+        ...prev,
+        content: result,
+        wordCount,
+      }))
+    }
+  }, [formData.title, formData.number, formData.content, generate])
+
+  const handleCloseAIProgress = useCallback(() => {
+    setShowAIProgress(false)
+    resetAI()
+  }, [resetAI])
 
   // Handle Escape key to close
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -173,9 +224,21 @@ export function ChapterModal({ isOpen, onClose, onSave, editChapter, nextChapter
           </div>
 
           <div>
-            <label htmlFor="chapter-content" className="block text-sm text-text-primary mb-1">
-              Content
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="chapter-content" className="block text-sm text-text-primary">
+                Content
+              </label>
+              <button
+                type="button"
+                onClick={handleAIGenerate}
+                disabled={isGenerating}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Generate chapter content with AI"
+              >
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                Generate with AI
+              </button>
+            </div>
             <textarea
               id="chapter-content"
               value={formData.content}
@@ -185,7 +248,7 @@ export function ChapterModal({ isOpen, onClose, onSave, editChapter, nextChapter
                 handleChange('content', content)
                 handleChange('wordCount', wordCount)
               }}
-              placeholder="Start writing your chapter..."
+              placeholder="Start writing your chapter or use AI to generate content..."
               rows={8}
               className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none font-serif"
             />
@@ -212,6 +275,18 @@ export function ChapterModal({ isOpen, onClose, onSave, editChapter, nextChapter
           </button>
         </div>
       </div>
+
+      {/* AI Progress Modal */}
+      <AIProgressModal
+        isOpen={showAIProgress}
+        onClose={handleCloseAIProgress}
+        onCancel={cancel}
+        status={aiStatus}
+        progress={aiProgress}
+        message={aiMessage}
+        error={aiError}
+        title="Generating Chapter Content"
+      />
     </div>
   )
 }
