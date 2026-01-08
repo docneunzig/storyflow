@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, ChevronLeft, User, Film, Link2, X } from 'lucide-react'
+import { ChevronRight, ChevronLeft, User, Film, Link2, X, Edit2, Trash2 } from 'lucide-react'
 import type { Character, Scene, CharacterRelationship } from '@/types/project'
 
 interface InspectorProps {
@@ -10,6 +10,8 @@ interface InspectorProps {
   onClose: () => void
   onNavigateToScene?: (sceneId: string) => void
   onNavigateToCharacter?: (characterId: string) => void
+  onEditCharacter?: (character: Character) => void
+  onDeleteCharacter?: (characterId: string) => void
 }
 
 export function Inspector({
@@ -20,8 +22,11 @@ export function Inspector({
   onClose,
   onNavigateToScene,
   onNavigateToCharacter,
+  onEditCharacter,
+  onDeleteCharacter,
 }: InspectorProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
 
   if (!selectedCharacter) {
     return null
@@ -129,6 +134,50 @@ export function Inspector({
               <span className="text-text-secondary/70">Status:</span>{' '}
               <span className="capitalize">{selectedCharacter.status}</span>
             </p>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div>
+          <h3 className="text-sm font-medium text-text-primary mb-3">Quick Actions</h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onEditCharacter?.(selectedCharacter)}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors text-sm"
+              aria-label="Edit character"
+            >
+              <Edit2 className="h-4 w-4" aria-hidden="true" />
+              Edit
+            </button>
+            {deleteConfirm ? (
+              <div className="flex-1 flex gap-1">
+                <button
+                  onClick={() => {
+                    onDeleteCharacter?.(selectedCharacter.id)
+                    setDeleteConfirm(false)
+                    onClose()
+                  }}
+                  className="flex-1 px-2 py-2 bg-error text-white rounded-lg hover:bg-error/90 transition-colors text-xs"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => setDeleteConfirm(false)}
+                  className="flex-1 px-2 py-2 border border-border rounded-lg hover:bg-surface-elevated transition-colors text-xs"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setDeleteConfirm(true)}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-error/10 text-error border border-error/30 rounded-lg hover:bg-error/20 transition-colors text-sm"
+                aria-label="Delete character"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                Delete
+              </button>
+            )}
           </div>
         </div>
 

@@ -823,6 +823,14 @@ export function CharactersSection({ project }: SectionProps) {
             onClose={() => setInspectorCharacter(null)}
             onNavigateToScene={handleNavigateToScene}
             onNavigateToCharacter={handleNavigateToCharacter}
+            onEditCharacter={(character) => {
+              handleOpenModal(character)
+              setInspectorCharacter(null)
+            }}
+            onDeleteCharacter={(characterId) => {
+              handleDeleteCharacter(characterId)
+              setInspectorCharacter(null)
+            }}
           />
         </div>
       )}
