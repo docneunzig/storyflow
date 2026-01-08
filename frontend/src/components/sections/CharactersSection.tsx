@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film } from 'lucide-react'
+import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film, GitBranch, List } from 'lucide-react'
 import type { Project, Character, CharacterRole, CharacterRelationship, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
 import { CharacterModal } from '@/components/ui/CharacterModal'
 import { RelationshipModal } from '@/components/ui/RelationshipModal'
+import { RelationshipMap } from '@/components/ui/RelationshipMap'
 import { Inspector } from '@/components/layout/Inspector'
 import { toast } from '@/components/ui/Toaster'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 
 interface SectionProps {
   project: Project
@@ -40,13 +41,14 @@ const PAGE_SIZE = 10
 export function CharactersSection({ project }: SectionProps) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const { characterId: deepLinkCharacterId } = useParams<{ characterId?: string }>()
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRelationshipModalOpen, setIsRelationshipModalOpen] = useState(false)
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null)
   const [editingRelationship, setEditingRelationship] = useState<CharacterRelationship | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'cards' | 'relationships'>('cards')
+  const [viewMode, setViewMode] = useState<'cards' | 'relationships' | 'map'>('cards')
   const [selectedCharacters, setSelectedCharacters] = useState<Set<string>>(new Set())
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
   const [inspectorCharacter, setInspectorCharacter] = useState<Character | null>(null)
@@ -96,6 +98,16 @@ export function CharactersSection({ project }: SectionProps) {
   // Define characters and filtered list early so they can be used in handlers
   const characters = project.characters || []
   const relationships = project.relationships || []
+
+  // Handle deep linking - auto-open inspector for character specified in URL
+  useEffect(() => {
+    if (deepLinkCharacterId && characters.length > 0) {
+      const character = characters.find(c => c.id === deepLinkCharacterId)
+      if (character) {
+        setInspectorCharacter(character)
+      }
+    }
+  }, [deepLinkCharacterId, characters])
 
   // Apply role filter, status filter, search, and sorting
   const filteredCharacters = characters
@@ -405,6 +417,7 @@ export function CharactersSection({ project }: SectionProps) {
               }`}
               aria-label="Card view"
               aria-pressed={viewMode === 'cards'}
+              title="Character Cards"
             >
               <Users className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -415,10 +428,24 @@ export function CharactersSection({ project }: SectionProps) {
                   ? 'bg-accent text-white'
                   : 'bg-surface-elevated text-text-secondary hover:text-text-primary'
               }`}
-              aria-label="Relationships view"
+              aria-label="Relationships list view"
               aria-pressed={viewMode === 'relationships'}
+              title="Relationships List"
             >
-              <Link2 className="h-4 w-4" aria-hidden="true" />
+              <List className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`px-3 py-2 text-sm transition-colors ${
+                viewMode === 'map'
+                  ? 'bg-accent text-white'
+                  : 'bg-surface-elevated text-text-secondary hover:text-text-primary'
+              }`}
+              aria-label="Relationship map view"
+              aria-pressed={viewMode === 'map'}
+              title="Relationship Map (React Flow)"
+            >
+              <GitBranch className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
           {/* Search */}
@@ -490,7 +517,32 @@ export function CharactersSection({ project }: SectionProps) {
         </div>
       </div>
 
-      {viewMode === 'cards' ? (
+      {viewMode === 'map' ? (
+        // React Flow Relationship Map View
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-text-primary">Character Relationship Map</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-text-secondary">
+                {characters.length} characters, {relationships.length} relationships
+              </span>
+              <button
+                onClick={() => handleOpenRelationshipModal()}
+                disabled={characters.length < 2}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add Relationship
+              </button>
+            </div>
+          </div>
+          <RelationshipMap
+            characters={characters}
+            relationships={relationships}
+            onNodeClick={(character) => setInspectorCharacter(character)}
+          />
+        </div>
+      ) : viewMode === 'cards' ? (
         // Character Cards View
         <>
           {/* Bulk Selection Controls */}

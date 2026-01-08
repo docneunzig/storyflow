@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft, GripVertical } from 'lucide-react'
 import type { Project, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
@@ -28,7 +28,77 @@ export function ScenesSection({ project }: SectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingScene, setEditingScene] = useState<Scene | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [draggedSceneId, setDraggedSceneId] = useState<string | null>(null)
+  const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
+
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, sceneId: string) => {
+    setDraggedSceneId(sceneId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', sceneId)
+    // Add a slight delay to allow the drag image to be set
+    setTimeout(() => {
+      const element = e.target as HTMLElement
+      element.style.opacity = '0.5'
+    }, 0)
+  }
+
+  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    const element = e.target as HTMLElement
+    element.style.opacity = '1'
+    setDraggedSceneId(null)
+    setDragOverSceneId(null)
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, sceneId: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (sceneId !== draggedSceneId) {
+      setDragOverSceneId(sceneId)
+    }
+  }
+
+  const handleDragLeave = () => {
+    setDragOverSceneId(null)
+  }
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetSceneId: string) => {
+    e.preventDefault()
+    const draggedId = e.dataTransfer.getData('text/plain')
+
+    if (!draggedId || draggedId === targetSceneId) {
+      setDraggedSceneId(null)
+      setDragOverSceneId(null)
+      return
+    }
+
+    const scenes = project.scenes || []
+    const draggedIndex = scenes.findIndex(s => s.id === draggedId)
+    const targetIndex = scenes.findIndex(s => s.id === targetSceneId)
+
+    if (draggedIndex === -1 || targetIndex === -1) return
+
+    // Reorder scenes
+    const newScenes = [...scenes]
+    const [draggedScene] = newScenes.splice(draggedIndex, 1)
+    newScenes.splice(targetIndex, 0, draggedScene)
+
+    try {
+      setSaveStatus('saving')
+      await updateProject(project.id, { scenes: newScenes })
+      updateProjectStore(project.id, { scenes: newScenes })
+      setSaveStatus('saved')
+      toast({ title: 'Scene order updated', variant: 'success' })
+    } catch (error) {
+      console.error('Failed to reorder scenes:', error)
+      toast({ title: 'Failed to reorder scenes', variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+
+    setDraggedSceneId(null)
+    setDragOverSceneId(null)
+  }
 
   const handleSaveScene = async (scene: Scene) => {
     try {
@@ -206,12 +276,25 @@ export function ScenesSection({ project }: SectionProps) {
             {scenes.map((scene, index) => (
               <div
                 key={scene.id}
-                className="card hover:border-accent/50 transition-colors group"
+                draggable
+                onDragStart={(e) => handleDragStart(e, scene.id)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleDragOver(e, scene.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, scene.id)}
+                className={`card hover:border-accent/50 transition-all group cursor-move ${
+                  draggedSceneId === scene.id ? 'opacity-50' : ''
+                } ${
+                  dragOverSceneId === scene.id ? 'border-accent border-2 scale-[1.02]' : ''
+                }`}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent font-medium text-sm">
-                      {index + 1}
+                    <div className="flex items-center gap-1">
+                      <GripVertical className="h-4 w-4 text-text-secondary opacity-50 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
+                      <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent font-medium text-sm">
+                        {index + 1}
+                      </div>
                     </div>
                     <div>
                       <h3 className="font-medium text-text-primary">{scene.title}</h3>
