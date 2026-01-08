@@ -277,6 +277,15 @@ export function SpecificationSection({ project }: SectionProps) {
     return () => clearTimeout(timeout)
   }, [hasChanges, saveChanges])
 
+  // Listen for manual save trigger (Cmd+S)
+  useEffect(() => {
+    const handleManualSave = () => {
+      saveChanges()
+    }
+    window.addEventListener('storyflow:save', handleManualSave)
+    return () => window.removeEventListener('storyflow:save', handleManualSave)
+  }, [saveChanges])
+
   const handleTitleChange = (value: string) => {
     setWorkingTitle(value)
     setHasChanges(true)
