@@ -1150,3 +1150,140 @@ Verified functional UI components including sliders, toggle switches, plot beat 
 - AI-powered features still pending implementation
 - Continue with remaining UI component features
 - Consider adding more form validation features
+
+---
+
+# Session 13: Data Relationships and Display Features
+# Date: 2026-01-08
+
+## Summary
+Implemented scene-to-plot-beat linking, chapter-scene relationship display, cascade delete for character references in scenes, and verified subgenre filtering. Crossed the 50% milestone (202/400 features passing).
+
+## Features Implemented & Passing This Session
+
+### Feature #337: Scene card shows key info - PASSING (Previous Session)
+- Scene cards display title, status, pacing, summary
+- Chapter assignment shown with BookOpen icon
+- POV character displayed
+- Word count estimates shown
+
+### Feature #338: Related items in inspector - PASSING (Previous Session)
+- Inspector panel shows character details
+- Related scenes listed (where character is POV or present)
+- Relationships displayed with navigation links
+
+### Feature #339: Quick actions in inspector - PASSING (Previous Session)
+- Edit button opens character modal
+- Delete button with confirmation dialog
+- Both actions work correctly
+
+### Feature #345: Character deletion affects scenes - PASSING
+- Implemented cascade delete for character references
+- When character is deleted, scenes are updated:
+  - povCharacterId cleared if it matches deleted character
+  - charactersPresent array filtered to remove deleted character
+- Verified by deleting Marcus Shadowbane and confirming scene no longer shows POV reference
+
+### Feature #346: Scene links to plot beat - PASSING
+- Added plotBeatId selector to SceneModal
+- Plot beats sorted by timeline position in dropdown
+- Scene cards display linked plot beat with GitBranch icon in warning color
+- Link persists after refresh
+
+### Feature #347: Chapter contains scenes correctly - PASSING
+- WriteSection now displays scenes assigned to selected chapter
+- Chapter header shows: "[X] words (Y scenes, ~Z est.)"
+- "Scenes in this chapter" section lists all assigned scenes
+- Each scene shows title and estimated word count
+
+### Feature #350: Subgenre options depend on genre - PASSING
+- Verified existing implementation in SpecificationSection
+- availableSubgenres computed from selected genres
+- Selecting Fantasy shows: Epic Fantasy, Urban Fantasy, Dark Fantasy, Portal Fantasy
+- Selecting Mystery adds: Cozy Mystery, Police Procedural, Amateur Sleuth, Noir
+- Deselecting genre removes its subgenres from display
+
+## Features Skipped (AI-Dependent)
+
+### Features #340-344: AI Content Generation
+- AI generates consistent character voice - SKIPPED
+- AI respects story setting - SKIPPED
+- AI follows POV setting - SKIPPED
+- AI follows tense setting - SKIPPED
+- Plot beat ordering preserved (drag-and-drop) - SKIPPED
+
+### Features #348-349: Consistency Warnings
+- Consistency warning displayed prominently - SKIPPED
+- Consistency warning has resolution options - SKIPPED
+- Requires AI-powered analysis
+
+### Features #351-357: AI Agent Features
+- Target audience affects suggestions - SKIPPED
+- Theme tracking throughout story - SKIPPED
+- Orchestrator routes to correct agent - SKIPPED
+- Agent communication uses structured JSON - SKIPPED
+- Writer agent receives full context - SKIPPED
+- Critic agent compares to bestsellers - SKIPPED
+- Consistency agent tracks established facts - SKIPPED
+
+### Features #358-361: Other Features
+- Formatter agent applies correct styles - SKIPPED (DOCX export not implemented)
+- Session logging optional - SKIPPED
+- Projected completion calculated - SKIPPED
+- Error boundary catches crashes - SKIPPED (not implemented)
+
+## Code Changes Made
+
+### CharactersSection.tsx
+Added cascade delete for scenes:
+```typescript
+// Cascade delete: Remove character references from scenes
+const updatedScenes = (project.scenes || []).map(scene => {
+  const updates: Partial<typeof scene> = {}
+  if (scene.povCharacterId === characterId) {
+    updates.povCharacterId = null
+  }
+  if (scene.charactersPresent?.includes(characterId)) {
+    updates.charactersPresent = scene.charactersPresent.filter(id => id !== characterId)
+  }
+  if (Object.keys(updates).length > 0) {
+    return { ...scene, ...updates }
+  }
+  return scene
+})
+```
+
+### SceneModal.tsx
+- Added PlotBeat import and plotBeats prop
+- Added Linked Plot Beat selector in Basic Information section
+- Plot beats sorted by timelinePosition
+
+### ScenesSection.tsx
+- Added plotBeats extraction from project.plot?.beats
+- Added getPlotBeatInfo helper function
+- Added GitBranch icon for plot beat display
+- Scene cards show linked plot beat in warning color
+
+### WriteSection.tsx
+- Added Film icon and Scene import
+- Added chapterScenes and scenesWordCount computed values
+- Chapter header shows scene count and estimated word count
+- Added "Scenes in this chapter" section with scene list
+
+## Current Feature Statistics
+- Total Features: 400
+- Passing: 202 (50.5%)
+- Pending: 198
+
+## Milestone Achieved! 🎉
+Crossed the 50% completion mark (202/400 features passing).
+
+## Git Commits
+- "feat: add scene-plot linking, chapter-scene display, and cascade delete"
+
+## Notes for Next Session
+- Many remaining features are AI-dependent
+- Consider implementing Error Boundary for crash recovery
+- React Flow canvas still needs implementation
+- Stats and Market sections show "coming soon"
+- Continue with UI features that don't require AI
