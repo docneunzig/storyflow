@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch } from 'lucide-react'
+import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft } from 'lucide-react'
 import type { Project, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
@@ -150,6 +150,12 @@ export function ScenesSection({ project }: SectionProps) {
       title: beat.title,
       frameworkPosition: beat.frameworkPosition
     }
+  }
+
+  // Get scene title by ID
+  const getSceneTitle = (id: string) => {
+    const scene = scenes.find(s => s.id === id)
+    return scene?.title || null
   }
 
   return (
@@ -317,6 +323,44 @@ export function ScenesSection({ project }: SectionProps) {
                     )}
                   </div>
                 )}
+
+                {/* Setup/Payoff Connections */}
+                {((scene.setupFor && scene.setupFor.length > 0) || (scene.payoffFor && scene.payoffFor.length > 0)) && (
+                  <div className="mt-3 pt-3 border-t border-border text-xs">
+                    {scene.setupFor && scene.setupFor.length > 0 && (
+                      <div className="flex items-center gap-1 flex-wrap mb-1">
+                        <span className="flex items-center gap-1 text-success">
+                          <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                          Sets up:
+                        </span>
+                        {scene.setupFor.map(id => {
+                          const title = getSceneTitle(id)
+                          return title ? (
+                            <span key={id} className="bg-success/10 text-success px-1.5 py-0.5 rounded">
+                              {title}
+                            </span>
+                          ) : null
+                        })}
+                      </div>
+                    )}
+                    {scene.payoffFor && scene.payoffFor.length > 0 && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className="flex items-center gap-1 text-warning">
+                          <ArrowLeft className="h-3 w-3" aria-hidden="true" />
+                          Pays off:
+                        </span>
+                        {scene.payoffFor.map(id => {
+                          const title = getSceneTitle(id)
+                          return title ? (
+                            <span key={id} className="bg-warning/10 text-warning px-1.5 py-0.5 rounded">
+                              {title}
+                            </span>
+                          ) : null
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -333,6 +377,7 @@ export function ScenesSection({ project }: SectionProps) {
         locations={locations}
         chapters={chapters}
         plotBeats={plotBeats}
+        allScenes={scenes}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
-import type { Project, Character, CharacterRole, CharacterRelationship } from '@/types/project'
+import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film } from 'lucide-react'
+import type { Project, Character, CharacterRole, CharacterRelationship, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
 import { CharacterModal } from '@/components/ui/CharacterModal'
@@ -306,6 +306,12 @@ export function CharactersSection({ project }: SectionProps) {
   const getCharacterName = (id: string) => {
     const char = characters.find(c => c.id === id)
     return char?.name || 'Unknown'
+  }
+
+  // Get scene info by ID
+  const getSceneInfo = (sceneId: string): Scene | null => {
+    const scenes = project.scenes || []
+    return scenes.find(s => s.id === sceneId) || null
   }
 
   // Get relationships for a character
@@ -785,28 +791,53 @@ export function CharactersSection({ project }: SectionProps) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {rel.dynamicDescription && (
-                      <span className="text-xs text-text-secondary mr-2 max-w-xs truncate">
-                        {rel.dynamicDescription}
-                      </span>
+                  <div className="flex items-center gap-2">
+                    {/* Key Scenes */}
+                    {rel.keyScenes && rel.keyScenes.length > 0 && (
+                      <div className="flex items-center gap-1 mr-2">
+                        <Film className="h-3 w-3 text-warning" aria-hidden="true" />
+                        {rel.keyScenes.slice(0, 2).map(sceneId => {
+                          const sceneInfo = getSceneInfo(sceneId)
+                          if (!sceneInfo) return null
+                          return (
+                            <button
+                              key={sceneId}
+                              onClick={() => handleNavigateToScene(sceneId)}
+                              className="px-1.5 py-0.5 text-xs bg-warning/10 text-warning rounded hover:bg-warning/20 transition-colors"
+                              title={`Go to scene: ${sceneInfo.title}`}
+                            >
+                              {sceneInfo.title.length > 12 ? sceneInfo.title.substring(0, 12) + '...' : sceneInfo.title}
+                            </button>
+                          )
+                        })}
+                        {rel.keyScenes.length > 2 && (
+                          <span className="text-xs text-text-secondary">+{rel.keyScenes.length - 2}</span>
+                        )}
+                      </div>
                     )}
-                    <button
-                      onClick={() => handleOpenRelationshipModal(rel)}
-                      className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
-                      aria-label="Edit relationship"
-                      title="Edit relationship"
-                    >
-                      <Edit2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteRelationship(rel.sourceCharacterId, rel.targetCharacterId)}
-                      className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
-                      aria-label="Delete relationship"
-                      title="Delete relationship"
-                    >
-                      <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
-                    </button>
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {rel.dynamicDescription && (
+                        <span className="text-xs text-text-secondary mr-2 max-w-xs truncate">
+                          {rel.dynamicDescription}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleOpenRelationshipModal(rel)}
+                        className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
+                        aria-label="Edit relationship"
+                        title="Edit relationship"
+                      >
+                        <Edit2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteRelationship(rel.sourceCharacterId, rel.targetCharacterId)}
+                        className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
+                        aria-label="Delete relationship"
+                        title="Delete relationship"
+                      >
+                        <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -832,6 +863,7 @@ export function CharactersSection({ project }: SectionProps) {
         }}
         onSave={handleSaveRelationship}
         characters={characters}
+        scenes={project.scenes || []}
         existingRelationship={editingRelationship}
       />
 

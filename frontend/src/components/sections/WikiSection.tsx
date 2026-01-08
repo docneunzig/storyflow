@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, BookOpen, Edit2, Trash2, Tag, Filter, Link2 } from 'lucide-react'
+import { Plus, BookOpen, Edit2, Trash2, Tag, Filter, Link2, FileText } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { Project, WikiEntry, WikiCategory, Character } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
@@ -158,6 +158,38 @@ export function WikiSection({ project }: SectionProps) {
     return WIKI_CATEGORIES.find(c => c.value === cat)?.label || cat
   }
 
+  // Get chapter info by ID
+  const getChapterInfo = (chapterId: string) => {
+    const chapters = project.chapters || []
+    const chapter = chapters.find(c => c.id === chapterId)
+    if (!chapter) return null
+    return { id: chapter.id, number: chapter.number, title: chapter.title }
+  }
+
+  // Navigate to chapter in Write section
+  const handleNavigateToChapter = (chapterId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigate(`/projects/${project.id}/write/${chapterId}`)
+  }
+
+  // Get wiki entry info by ID
+  const getWikiEntryInfo = (entryId: string) => {
+    const entry = wikiEntries.find(e => e.id === entryId)
+    if (!entry) return null
+    return { id: entry.id, name: entry.name, category: entry.category }
+  }
+
+  // Navigate to related entry (scroll to it)
+  const handleNavigateToEntry = (entryId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const element = document.getElementById(`wiki-entry-${entryId}`)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      element.classList.add('ring-2', 'ring-accent')
+      setTimeout(() => element.classList.remove('ring-2', 'ring-accent'), 2000)
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -259,7 +291,8 @@ export function WikiSection({ project }: SectionProps) {
                       return (
                       <div
                         key={entry.id}
-                        className={`card hover:border-accent/50 transition-colors group ${isAutoLinked ? 'cursor-pointer border-purple-500/30' : ''}`}
+                        id={`wiki-entry-${entry.id}`}
+                        className={`card hover:border-accent/50 transition-all duration-300 group ${isAutoLinked ? 'cursor-pointer border-purple-500/30' : ''}`}
                         onClick={isAutoLinked && linkedEntry.linkedCharacterId ? () => handleCharacterClick(linkedEntry.linkedCharacterId!) : undefined}
                         role={isAutoLinked ? 'button' : undefined}
                         tabIndex={isAutoLinked ? 0 : undefined}
@@ -349,6 +382,56 @@ export function WikiSection({ project }: SectionProps) {
                             )}
                           </div>
                         )}
+
+                        {/* Source Chapters */}
+                        {entry.sourceChapters && entry.sourceChapters.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-border">
+                            <div className="flex items-center gap-1 flex-wrap text-xs">
+                              <span className="flex items-center gap-1 text-text-secondary">
+                                <FileText className="h-3 w-3" aria-hidden="true" />
+                                Sources:
+                              </span>
+                              {entry.sourceChapters.map(chapterId => {
+                                const chapterInfo = getChapterInfo(chapterId)
+                                if (!chapterInfo) return null
+                                return (
+                                  <button
+                                    key={chapterId}
+                                    onClick={(e) => handleNavigateToChapter(chapterId, e)}
+                                    className="px-1.5 py-0.5 bg-success/10 text-success rounded hover:bg-success/20 transition-colors"
+                                  >
+                                    Ch. {chapterInfo.number}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Related Entries */}
+                        {entry.relatedEntries && entry.relatedEntries.length > 0 && (
+                          <div className={`mt-2 pt-2 ${entry.sourceChapters && entry.sourceChapters.length > 0 ? '' : 'border-t border-border'}`}>
+                            <div className="flex items-center gap-1 flex-wrap text-xs">
+                              <span className="flex items-center gap-1 text-text-secondary">
+                                <Link2 className="h-3 w-3" aria-hidden="true" />
+                                Related:
+                              </span>
+                              {entry.relatedEntries.map(relatedId => {
+                                const relatedInfo = getWikiEntryInfo(relatedId)
+                                if (!relatedInfo) return null
+                                return (
+                                  <button
+                                    key={relatedId}
+                                    onClick={(e) => handleNavigateToEntry(relatedId, e)}
+                                    className="px-1.5 py-0.5 bg-purple-500/10 text-purple-400 rounded hover:bg-purple-500/20 transition-colors"
+                                  >
+                                    {relatedInfo.name}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       )
                     })}
@@ -366,6 +449,8 @@ export function WikiSection({ project }: SectionProps) {
         onClose={handleCloseModal}
         onSave={handleSaveEntry}
         editEntry={editingEntry}
+        chapters={project.chapters || []}
+        wikiEntries={wikiEntries}
       />
     </div>
   )

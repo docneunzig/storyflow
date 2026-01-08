@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
-import type { Character, CharacterRelationship, RelationshipType } from '@/types/project'
+import { X, Film } from 'lucide-react'
+import type { Character, CharacterRelationship, RelationshipType, Scene } from '@/types/project'
 import { generateId } from '@/lib/db'
 
 interface RelationshipModalProps {
@@ -8,6 +8,7 @@ interface RelationshipModalProps {
   onClose: () => void
   onSave: (relationship: CharacterRelationship) => void
   characters: Character[]
+  scenes?: Scene[]
   existingRelationship?: CharacterRelationship | null
   preselectedCharacterId?: string
 }
@@ -28,6 +29,7 @@ export function RelationshipModal({
   onClose,
   onSave,
   characters,
+  scenes = [],
   existingRelationship,
   preselectedCharacterId,
 }: RelationshipModalProps) {
@@ -36,6 +38,7 @@ export function RelationshipModal({
   const [relationshipType, setRelationshipType] = useState<RelationshipType>('friend')
   const [dynamicDescription, setDynamicDescription] = useState('')
   const [evolution, setEvolution] = useState('')
+  const [keyScenes, setKeyScenes] = useState<string[]>([])
 
   useEffect(() => {
     if (isOpen) {
@@ -45,12 +48,14 @@ export function RelationshipModal({
         setRelationshipType(existingRelationship.relationshipType)
         setDynamicDescription(existingRelationship.dynamicDescription)
         setEvolution(existingRelationship.evolution)
+        setKeyScenes(existingRelationship.keyScenes || [])
       } else {
         setSourceCharacterId(preselectedCharacterId || '')
         setTargetCharacterId('')
         setRelationshipType('friend')
         setDynamicDescription('')
         setEvolution('')
+        setKeyScenes([])
       }
     }
   }, [isOpen, existingRelationship, preselectedCharacterId])
@@ -68,7 +73,7 @@ export function RelationshipModal({
       relationshipType,
       dynamicDescription,
       evolution,
-      keyScenes: existingRelationship?.keyScenes || [],
+      keyScenes,
     }
 
     onSave(relationship)
@@ -185,6 +190,44 @@ export function RelationshipModal({
               className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
             />
           </div>
+
+          {/* Key Scenes */}
+          {scenes.length > 0 && (
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-text-primary mb-2">
+                <Film className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+                Key Scenes
+              </label>
+              <p className="text-xs text-text-secondary mb-2">
+                Select scenes that are important for this relationship.
+              </p>
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                {scenes.map(scene => {
+                  const isSelected = keyScenes.includes(scene.id)
+                  return (
+                    <button
+                      key={scene.id}
+                      type="button"
+                      onClick={() => {
+                        setKeyScenes(prev =>
+                          isSelected
+                            ? prev.filter(id => id !== scene.id)
+                            : [...prev, scene.id]
+                        )
+                      }}
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                        isSelected
+                          ? 'bg-warning/20 border-warning text-warning'
+                          : 'bg-surface-elevated border-border text-text-secondary hover:border-warning/50'
+                      }`}
+                    >
+                      {scene.title}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Preview */}
           {sourceCharacter && targetCharacter && (

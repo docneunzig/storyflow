@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { X, BookOpen, Plus } from 'lucide-react'
-import type { WikiEntry, WikiCategory } from '@/types/project'
+import { X, BookOpen, Plus, FileText, Link2 } from 'lucide-react'
+import type { WikiEntry, WikiCategory, Chapter } from '@/types/project'
 import { generateId } from '@/lib/db'
 
 interface WikiEntryModalProps {
@@ -9,6 +9,8 @@ interface WikiEntryModalProps {
   onSave: (entry: WikiEntry) => void
   editEntry?: WikiEntry | null
   preselectedCategory?: WikiCategory
+  chapters?: Chapter[]
+  wikiEntries?: WikiEntry[]
 }
 
 const WIKI_CATEGORIES: { value: WikiCategory; label: string; description: string }[] = [
@@ -28,12 +30,16 @@ export function WikiEntryModal({
   onSave,
   editEntry,
   preselectedCategory,
+  chapters = [],
+  wikiEntries = [],
 }: WikiEntryModalProps) {
   const [category, setCategory] = useState<WikiCategory>('locations')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
+  const [sourceChapters, setSourceChapters] = useState<string[]>([])
+  const [relatedEntries, setRelatedEntries] = useState<string[]>([])
 
   useEffect(() => {
     if (isOpen) {
@@ -42,15 +48,22 @@ export function WikiEntryModal({
         setName(editEntry.name)
         setDescription(editEntry.description)
         setTags(editEntry.tags)
+        setSourceChapters(editEntry.sourceChapters || [])
+        setRelatedEntries(editEntry.relatedEntries || [])
       } else {
         setCategory(preselectedCategory || 'locations')
         setName('')
         setDescription('')
         setTags([])
+        setSourceChapters([])
+        setRelatedEntries([])
       }
       setTagInput('')
     }
   }, [isOpen, editEntry, preselectedCategory])
+
+  // Filter out the current entry from available entries for linking
+  const availableRelatedEntries = wikiEntries.filter(e => e.id !== editEntry?.id)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,8 +75,8 @@ export function WikiEntryModal({
       category,
       name: name.trim(),
       description: description.trim(),
-      relatedEntries: editEntry?.relatedEntries || [],
-      sourceChapters: editEntry?.sourceChapters || [],
+      relatedEntries,
+      sourceChapters,
       tags,
     }
 
@@ -218,6 +231,85 @@ export function WikiEntryModal({
               </div>
             )}
           </div>
+
+          {/* Source Chapters */}
+          {chapters.length > 0 && (
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-text-primary mb-2">
+                <FileText className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+                Source Chapters
+              </label>
+              <p className="text-xs text-text-secondary mb-2">
+                Select chapters where this information is introduced or referenced.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {chapters
+                  .sort((a, b) => a.number - b.number)
+                  .map(chapter => {
+                    const isSelected = sourceChapters.includes(chapter.id)
+                    return (
+                      <button
+                        key={chapter.id}
+                        type="button"
+                        onClick={() => {
+                          setSourceChapters(prev =>
+                            isSelected
+                              ? prev.filter(id => id !== chapter.id)
+                              : [...prev, chapter.id]
+                          )
+                        }}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                          isSelected
+                            ? 'bg-success/20 border-success text-success'
+                            : 'bg-surface-elevated border-border text-text-secondary hover:border-success/50'
+                        }`}
+                      >
+                        Ch. {chapter.number}: {chapter.title}
+                      </button>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* Related Entries */}
+          {availableRelatedEntries.length > 0 && (
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-text-primary mb-2">
+                <Link2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+                Related Wiki Entries
+              </label>
+              <p className="text-xs text-text-secondary mb-2">
+                Link this entry to other wiki entries that are related.
+              </p>
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                {availableRelatedEntries.map(entry => {
+                  const isSelected = relatedEntries.includes(entry.id)
+                  const categoryLabel = WIKI_CATEGORIES.find(c => c.value === entry.category)?.label || entry.category
+                  return (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => {
+                        setRelatedEntries(prev =>
+                          isSelected
+                            ? prev.filter(id => id !== entry.id)
+                            : [...prev, entry.id]
+                        )
+                      }}
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                        isSelected
+                          ? 'bg-purple-500/20 border-purple-500 text-purple-400'
+                          : 'bg-surface-elevated border-border text-text-secondary hover:border-purple-500/50'
+                      }`}
+                    >
+                      {entry.name} <span className="text-xs opacity-60">({categoryLabel})</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-border">

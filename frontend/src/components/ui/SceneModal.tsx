@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Film } from 'lucide-react'
+import { X, Film, Link2, ArrowRight, ArrowLeft } from 'lucide-react'
 import type { Scene, ContentStatus, Character, WikiEntry, Chapter, PlotBeat } from '@/types/project'
 import { generateId } from '@/lib/db'
 
@@ -12,6 +12,7 @@ interface SceneModalProps {
   locations?: WikiEntry[]
   chapters?: Chapter[]
   plotBeats?: PlotBeat[]
+  allScenes?: Scene[]
 }
 
 const STATUSES: ContentStatus[] = ['outline', 'drafted', 'revised', 'locked']
@@ -57,7 +58,7 @@ function createEmptyScene(): Omit<Scene, 'id'> {
   }
 }
 
-export function SceneModal({ isOpen, onClose, onSave, editScene, characters = [], locations = [], chapters = [], plotBeats = [] }: SceneModalProps) {
+export function SceneModal({ isOpen, onClose, onSave, editScene, characters = [], locations = [], chapters = [], plotBeats = [], allScenes = [] }: SceneModalProps) {
   const [formData, setFormData] = useState<Omit<Scene, 'id'>>(createEmptyScene())
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -486,6 +487,101 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
               </div>
             </div>
           </section>
+
+          {/* Scene Connections - Setup & Payoff */}
+          {allScenes.length > 0 && (
+            <section>
+              <h3 className="text-sm font-medium text-text-secondary mb-3">
+                <span className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4" aria-hidden="true" />
+                  Scene Connections
+                </span>
+              </h3>
+              <p className="text-xs text-text-secondary mb-4">
+                Link scenes together to track setup and payoff relationships. A "setup" plants information that will pay off later; a "payoff" delivers on earlier setups.
+              </p>
+
+              {/* This scene is a SETUP for... */}
+              <div className="mb-4">
+                <label className="flex items-center gap-2 text-sm text-text-primary mb-2">
+                  <ArrowRight className="h-3.5 w-3.5 text-success" aria-hidden="true" />
+                  This scene sets up payoffs in:
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {allScenes
+                    .filter(scene => scene.id !== editScene?.id)
+                    .map(scene => {
+                      const isSelected = formData.setupFor?.includes(scene.id) || false
+                      return (
+                        <button
+                          key={scene.id}
+                          type="button"
+                          onClick={() => {
+                            const current = formData.setupFor || []
+                            const updated = isSelected
+                              ? current.filter(id => id !== scene.id)
+                              : [...current, scene.id]
+                            handleChange('setupFor', updated)
+                          }}
+                          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                            isSelected
+                              ? 'bg-success/20 border-success text-success'
+                              : 'bg-surface-elevated border-border text-text-secondary hover:border-success/50'
+                          }`}
+                        >
+                          {scene.title}
+                        </button>
+                      )
+                    })}
+                </div>
+                {allScenes.filter(scene => scene.id !== editScene?.id).length === 0 && (
+                  <p className="text-xs text-text-secondary italic">
+                    Create more scenes to link setup/payoff relationships.
+                  </p>
+                )}
+              </div>
+
+              {/* This scene is a PAYOFF for... */}
+              <div>
+                <label className="flex items-center gap-2 text-sm text-text-primary mb-2">
+                  <ArrowLeft className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
+                  This scene pays off setups from:
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {allScenes
+                    .filter(scene => scene.id !== editScene?.id)
+                    .map(scene => {
+                      const isSelected = formData.payoffFor?.includes(scene.id) || false
+                      return (
+                        <button
+                          key={scene.id}
+                          type="button"
+                          onClick={() => {
+                            const current = formData.payoffFor || []
+                            const updated = isSelected
+                              ? current.filter(id => id !== scene.id)
+                              : [...current, scene.id]
+                            handleChange('payoffFor', updated)
+                          }}
+                          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                            isSelected
+                              ? 'bg-warning/20 border-warning text-warning'
+                              : 'bg-surface-elevated border-border text-text-secondary hover:border-warning/50'
+                          }`}
+                        >
+                          {scene.title}
+                        </button>
+                      )
+                    })}
+                </div>
+                {allScenes.filter(scene => scene.id !== editScene?.id).length === 0 && (
+                  <p className="text-xs text-text-secondary italic">
+                    Create more scenes to link setup/payoff relationships.
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Notes */}
           <section>
