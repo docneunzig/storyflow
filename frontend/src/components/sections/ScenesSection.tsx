@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen } from 'lucide-react'
+import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch } from 'lucide-react'
 import type { Project, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
@@ -88,6 +88,7 @@ export function ScenesSection({ project }: SectionProps) {
   const scenes = project.scenes || []
   const characters = project.characters || []
   const chapters = project.chapters || []
+  const plotBeats = project.plot?.beats || []
   const worldbuildingEntries = project.worldbuildingEntries || []
   const locations = worldbuildingEntries.filter(entry => entry.category === 'locations')
 
@@ -106,6 +107,17 @@ export function ScenesSection({ project }: SectionProps) {
     return {
       number: chapter.number,
       title: chapter.title
+    }
+  }
+
+  // Get plot beat info by ID
+  const getPlotBeatInfo = (id: string | null) => {
+    if (!id) return null
+    const beat = plotBeats.find(b => b.id === id)
+    if (!beat) return null
+    return {
+      title: beat.title,
+      frameworkPosition: beat.frameworkPosition
     }
   }
 
@@ -246,6 +258,12 @@ export function ScenesSection({ project }: SectionProps) {
                       Ch. {getChapterInfo(scene.chapterId)?.number}: {getChapterInfo(scene.chapterId)?.title}
                     </span>
                   )}
+                  {getPlotBeatInfo(scene.plotBeatId) && (
+                    <span className="flex items-center gap-1 text-warning bg-warning/10 px-2 py-0.5 rounded">
+                      <GitBranch className="h-3 w-3" aria-hidden="true" />
+                      {getPlotBeatInfo(scene.plotBeatId)?.title}
+                    </span>
+                  )}
                   <span className="text-text-secondary bg-surface-elevated px-2 py-0.5 rounded">
                     ~{scene.estimatedWordCount.toLocaleString()} words
                   </span>
@@ -283,6 +301,7 @@ export function ScenesSection({ project }: SectionProps) {
         characters={characters}
         locations={locations}
         chapters={chapters}
+        plotBeats={plotBeats}
       />
     </div>
   )

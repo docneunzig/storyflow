@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Plus, BookOpen, Edit2, Trash2, FileText, Lock } from 'lucide-react'
-import type { Project, Chapter } from '@/types/project'
+import { Plus, BookOpen, Edit2, Trash2, FileText, Lock, Film } from 'lucide-react'
+import type { Project, Chapter, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
 import { ChapterModal } from '@/components/ui/ChapterModal'
@@ -100,6 +100,7 @@ export function WriteSection({ project }: SectionProps) {
   }
 
   const chapters = project.chapters || []
+  const scenes = project.scenes || []
   const totalWords = chapters.reduce((acc, c) => acc + c.wordCount, 0)
   const nextChapterNumber = chapters.length > 0
     ? Math.max(...chapters.map(c => c.number)) + 1
@@ -108,6 +109,12 @@ export function WriteSection({ project }: SectionProps) {
   const selectedChapter = selectedChapterId
     ? chapters.find(c => c.id === selectedChapterId)
     : null
+
+  // Get scenes assigned to the selected chapter
+  const chapterScenes = selectedChapterId
+    ? scenes.filter(s => s.chapterId === selectedChapterId)
+    : []
+  const scenesWordCount = chapterScenes.reduce((acc, s) => acc + s.estimatedWordCount, 0)
 
   return (
     <div className="h-full flex">
@@ -242,10 +249,15 @@ export function WriteSection({ project }: SectionProps) {
                     {selectedChapter.title}
                   </h2>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-text-secondary">
-                    {selectedChapter.wordCount.toLocaleString()} words
-                  </span>
+                <div className="flex items-center gap-3">
+                  <div className="text-sm text-text-secondary">
+                    <span>{selectedChapter.wordCount.toLocaleString()} words</span>
+                    {chapterScenes.length > 0 && (
+                      <span className="ml-2 text-accent">
+                        ({chapterScenes.length} scene{chapterScenes.length !== 1 ? 's' : ''}, ~{scenesWordCount.toLocaleString()} est.)
+                      </span>
+                    )}
+                  </div>
                   <button
                     onClick={() => handleOpenModal(selectedChapter)}
                     className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-surface-elevated transition-colors"
@@ -255,6 +267,29 @@ export function WriteSection({ project }: SectionProps) {
                 </div>
               </div>
             </div>
+
+            {/* Chapter Scenes */}
+            {chapterScenes.length > 0 && (
+              <div className="px-6 py-4 border-b border-border bg-surface-elevated/30">
+                <h3 className="text-sm font-medium text-text-secondary mb-3 flex items-center gap-2">
+                  <Film className="h-4 w-4" aria-hidden="true" />
+                  Scenes in this chapter
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {chapterScenes.map(scene => (
+                    <div
+                      key={scene.id}
+                      className="px-3 py-2 bg-surface border border-border rounded-lg text-sm"
+                    >
+                      <span className="text-text-primary">{scene.title}</span>
+                      <span className="text-text-secondary ml-2">
+                        ~{scene.estimatedWordCount.toLocaleString()} words
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Chapter Content */}
             <div className="flex-1 overflow-y-auto p-6">

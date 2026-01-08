@@ -143,13 +143,36 @@ export function CharactersSection({ project }: SectionProps) {
         r => r.sourceCharacterId !== characterId && r.targetCharacterId !== characterId
       )
 
+      // Cascade delete: Remove character references from scenes
+      const updatedScenes = (project.scenes || []).map(scene => {
+        const updates: Partial<typeof scene> = {}
+
+        // Clear POV character if it matches
+        if (scene.povCharacterId === characterId) {
+          updates.povCharacterId = null
+        }
+
+        // Remove from characters present array
+        if (scene.charactersPresent?.includes(characterId)) {
+          updates.charactersPresent = scene.charactersPresent.filter(id => id !== characterId)
+        }
+
+        // Return updated scene if any changes, otherwise original
+        if (Object.keys(updates).length > 0) {
+          return { ...scene, ...updates }
+        }
+        return scene
+      })
+
       await updateProject(project.id, {
         characters: updatedCharacters,
         relationships: updatedRelationships,
+        scenes: updatedScenes,
       })
       updateProjectStore(project.id, {
         characters: updatedCharacters,
         relationships: updatedRelationships,
+        scenes: updatedScenes,
       })
       setSaveStatus('saved')
       setDeleteConfirmId(null)
