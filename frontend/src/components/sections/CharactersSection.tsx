@@ -5,7 +5,9 @@ import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
 import { CharacterModal } from '@/components/ui/CharacterModal'
 import { RelationshipModal } from '@/components/ui/RelationshipModal'
+import { Inspector } from '@/components/layout/Inspector'
 import { toast } from '@/components/ui/Toaster'
+import { useNavigate } from 'react-router-dom'
 
 interface SectionProps {
   project: Project
@@ -36,6 +38,7 @@ type SortDirection = 'asc' | 'desc' | 'none'
 const PAGE_SIZE = 10
 
 export function CharactersSection({ project }: SectionProps) {
+  const navigate = useNavigate()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRelationshipModalOpen, setIsRelationshipModalOpen] = useState(false)
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null)
@@ -49,6 +52,7 @@ export function CharactersSection({ project }: SectionProps) {
   const [selectedCharacters, setSelectedCharacters] = useState<Set<string>>(new Set())
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  const [inspectorCharacter, setInspectorCharacter] = useState<Character | null>(null)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
 
   // Define characters and filtered list early so they can be used in handlers
@@ -288,6 +292,29 @@ export function CharactersSection({ project }: SectionProps) {
     )
   }
 
+  // Handle character card click to open inspector
+  const handleCharacterClick = (character: Character, event: React.MouseEvent) => {
+    // Don't open inspector if clicking on buttons or checkboxes
+    if ((event.target as HTMLElement).closest('button')) {
+      return
+    }
+    setInspectorCharacter(character)
+  }
+
+  // Handle navigation from inspector
+  const handleNavigateToScene = (sceneId: string) => {
+    navigate(`/projects/${project.id}/scenes`)
+  }
+
+  const handleNavigateToCharacter = (characterId: string) => {
+    const character = characters.find(c => c.id === characterId)
+    if (character) {
+      setInspectorCharacter(character)
+    }
+  }
+
+  const scenes = project.scenes || []
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -486,10 +513,12 @@ export function CharactersSection({ project }: SectionProps) {
               {paginatedCharacters.map(character => {
                 const charRelationships = getCharacterRelationships(character.id)
                 const isSelected = selectedCharacters.has(character.id)
+                const isInspecting = inspectorCharacter?.id === character.id
                 return (
                   <div
                     key={character.id}
-                    className={`card hover:border-accent/50 transition-colors group ${isSelected ? 'border-accent ring-1 ring-accent/50' : ''}`}
+                    onClick={(e) => handleCharacterClick(character, e)}
+                    className={`card hover:border-accent/50 transition-colors group cursor-pointer ${isSelected ? 'border-accent ring-1 ring-accent/50' : ''} ${isInspecting ? 'border-success ring-1 ring-success/50' : ''}`}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
@@ -782,6 +811,21 @@ export function CharactersSection({ project }: SectionProps) {
         characters={characters}
         existingRelationship={editingRelationship}
       />
+
+      {/* Inspector Panel */}
+      {inspectorCharacter && (
+        <div className="fixed right-0 top-0 h-full z-40">
+          <Inspector
+            selectedCharacter={inspectorCharacter}
+            characters={characters}
+            scenes={scenes}
+            relationships={relationships}
+            onClose={() => setInspectorCharacter(null)}
+            onNavigateToScene={handleNavigateToScene}
+            onNavigateToCharacter={handleNavigateToCharacter}
+          />
+        </div>
+      )}
     </div>
   )
 }

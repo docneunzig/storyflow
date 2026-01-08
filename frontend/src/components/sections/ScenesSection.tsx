@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Film, Edit2, Trash2, Clock, Target, Zap } from 'lucide-react'
+import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen } from 'lucide-react'
 import type { Project, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
@@ -96,6 +96,17 @@ export function ScenesSection({ project }: SectionProps) {
     if (!id) return null
     const char = characters.find(c => c.id === id)
     return char?.name || null
+  }
+
+  // Get chapter info by ID
+  const getChapterInfo = (id: string | null) => {
+    if (!id) return null
+    const chapter = chapters.find(c => c.id === id)
+    if (!chapter) return null
+    return {
+      number: chapter.number,
+      title: chapter.title
+    }
   }
 
   return (
@@ -227,6 +238,12 @@ export function ScenesSection({ project }: SectionProps) {
                   {getCharacterName(scene.povCharacterId) && (
                     <span className="text-accent bg-accent/10 px-2 py-0.5 rounded">
                       POV: {getCharacterName(scene.povCharacterId)}
+                    </span>
+                  )}
+                  {getChapterInfo(scene.chapterId) && (
+                    <span className="flex items-center gap-1 text-success bg-success/10 px-2 py-0.5 rounded">
+                      <BookOpen className="h-3 w-3" aria-hidden="true" />
+                      Ch. {getChapterInfo(scene.chapterId)?.number}: {getChapterInfo(scene.chapterId)?.title}
                     </span>
                   )}
                   <span className="text-text-secondary bg-surface-elevated px-2 py-0.5 rounded">
