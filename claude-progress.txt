@@ -946,3 +946,130 @@ Added numeric field validation:
 - Review section may need implementation
 - Stats section may need implementation
 - Consider adding validation to other entity forms (Scene, Chapter, etc.)
+
+---
+
+# Session 11: Wiki Category Features and Cross-Category Search
+# Date: 2026-01-08
+
+## Summary
+Verified Wiki category functionality across all 8 categories and implemented auto-linking of characters from Character Development to Wiki. Tested cross-category search with clickable navigation.
+
+## Features Implemented & Passing This Session
+
+### Feature #255: Wiki locations category works - PASSING
+- Created location entry "TEST_LOCATION_VERIFY_255"
+- Verified creation, persistence after refresh, edit functionality, and deletion
+
+### Feature #256: Wiki characters linked from character dev - PASSING (IMPLEMENTED)
+- Implemented auto-linking of characters from Character Development to Wiki
+- Characters automatically appear in Wiki under Characters category
+- Clicking navigates to Characters page
+- Auto-linked entries show link icon and "Click to view in Characters"
+- Auto-linked entries cannot be edited/deleted from Wiki (managed in Character section)
+
+### Feature #257: Wiki timeline category works - PASSING
+- Created timeline entry "The Great Cataclysm - Year 500 BE"
+- Verified creation and persistence
+
+### Feature #258: Wiki magic/technology category works - PASSING
+- Created "Crystal Magic System" entry with rules and limitations
+- Verified and cleaned up
+
+### Feature #259: Wiki cultures/factions category works - PASSING
+- Created "The Crystal Guardians" entry with beliefs and hierarchy
+- Verified and cleaned up
+
+### Feature #260: Wiki objects category works - PASSING
+- Created "The Heart Crystal" entry as MacGuffin item
+- Verified creation, persistence, and deletion
+
+### Feature #261: Wiki terminology category works - PASSING
+- Created "Crystalweaving" terminology entry with definition
+- Verified searchability across wiki
+- Verified and cleaned up
+
+### Feature #262: Wiki rules category works - PASSING
+- Created "Magic Cannot Resurrect the Dead" as absolute rule
+- Marked as must-not-contradict with "absolute" tag
+- Verified and cleaned up
+
+### Feature #265: Wiki search works across categories - PASSING
+- Added entries to multiple categories (Locations, Objects, Characters)
+- Search for "royal" found entries in both Locations and Objects categories
+- Verified clickable navigation: clicking character entry navigates to Characters page
+
+## Features Skipped (Not Yet Implemented)
+
+### Feature #263: Wiki auto-extraction finds new nouns - SKIPPED
+- AI-powered feature requiring backend NLP processing
+- Not yet implemented
+
+### Feature #264: Wiki consistency checking active - SKIPPED
+- AI-powered real-time consistency checking
+- Not yet implemented
+
+### Features #266-274: Statistics features - SKIPPED
+- Stats dashboard shows "coming soon"
+- Not yet implemented
+
+### Features #275-277: Market analysis features - SKIPPED
+- Market section shows "coming soon"
+- Not yet implemented
+
+### Features #278-293: Keyboard shortcut features - SKIPPED
+- Most keyboard shortcuts not yet implemented
+- Navigation shortcuts (Cmd+1-7) not working
+
+## Code Changes Made
+
+### WikiSection.tsx - MAJOR ENHANCEMENT
+Added auto-linking of characters from Character Development:
+
+```typescript
+import { useState, useMemo } from 'react'
+import { Plus, BookOpen, Edit2, Trash2, Tag, Filter, Link2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+
+// Extended WikiEntry type for auto-linked entries
+interface LinkedWikiEntry extends WikiEntry {
+  isAutoLinked?: boolean
+  linkedCharacterId?: string
+}
+
+// Auto-link characters from Character Development section
+const autoLinkedCharacters: LinkedWikiEntry[] = useMemo(() => {
+  return (project.characters || []).map((char: Character) => ({
+    id: `auto-char-${char.id}`,
+    category: 'characters' as WikiCategory,
+    name: char.name,
+    description: char.personalitySummary || `${char.role} character.`,
+    tags: [char.role, char.archetype, char.status].filter(Boolean) as string[],
+    relatedEntries: [],
+    sourceChapters: char.scenesPresent || [],
+    isAutoLinked: true,
+    linkedCharacterId: char.id,
+  }))
+}, [project.characters])
+
+// Combine wiki entries with auto-linked characters
+const allEntries: LinkedWikiEntry[] = useMemo(() => {
+  return [...wikiEntries, ...autoLinkedCharacters]
+}, [wikiEntries, autoLinkedCharacters])
+```
+
+- Auto-linked entries show Link2 icon and purple border
+- Clickable entries navigate to Characters page
+- Auto-linked entries cannot be edited/deleted from Wiki
+
+## Current Feature Statistics
+- Total Features: 400
+- Passing: 168 (42.0%)
+- Pending: 232
+
+## Notes for Next Session
+- Statistics dashboard needs implementation
+- Market analysis section needs implementation
+- Keyboard shortcuts need implementation
+- Continue with remaining functional features
+- Consider implementing AI-powered features (auto-extraction, consistency checking)
