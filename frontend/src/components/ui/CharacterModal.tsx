@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { X, User } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { X, User, AlertTriangle } from 'lucide-react'
 import type { Character, CharacterRole, CharacterStatus } from '@/types/project'
 import { generateId } from '@/lib/db'
 
@@ -8,6 +8,12 @@ interface CharacterModalProps {
   onClose: () => void
   onSave: (character: Character) => void
   editCharacter?: Character | null
+}
+
+interface UnsavedChangesDialogProps {
+  isOpen: boolean
+  onDiscard: () => void
+  onCancel: () => void
 }
 
 const ROLES: CharacterRole[] = ['protagonist', 'antagonist', 'supporting', 'minor']
@@ -67,29 +73,121 @@ function createEmptyCharacter(): Omit<Character, 'id'> {
   }
 }
 
+// Unsaved Changes Dialog Component
+function UnsavedChangesDialog({ isOpen, onDiscard, onCancel }: UnsavedChangesDialogProps) {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-md mx-4 p-6 animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-start gap-4">
+          <div className="flex-shrink-0 w-10 h-10 bg-warning/20 rounded-full flex items-center justify-center">
+            <AlertTriangle className="h-5 w-5 text-warning" aria-hidden="true" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-text-primary mb-2">Unsaved Changes</h3>
+            <p className="text-text-secondary text-sm">
+              You have unsaved changes. Are you sure you want to discard them?
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 justify-end mt-6">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
+          >
+            Keep Editing
+          </button>
+          <button
+            onClick={onDiscard}
+            className="px-4 py-2 bg-error text-white rounded-lg hover:bg-error/90 transition-colors"
+          >
+            Discard Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: CharacterModalProps) {
   const [formData, setFormData] = useState<Omit<Character, 'id'>>(createEmptyCharacter())
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [initialFormData, setInitialFormData] = useState<Omit<Character, 'id'>>(createEmptyCharacter())
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
+
+  // Check if form has been modified (dirty state)
+  const isDirty = useMemo(() => {
+    // Compare current form data with initial data
+    const currentName = formData.name.trim()
+    const initialName = initialFormData.name.trim()
+
+    // Check simple string/number fields that users commonly edit
+    if (currentName !== initialName) return true
+    if (formData.role !== initialFormData.role) return true
+    if (formData.archetype !== initialFormData.archetype) return true
+    if (formData.status !== initialFormData.status) return true
+    if (formData.age !== initialFormData.age) return true
+    if (formData.gender !== initialFormData.gender) return true
+    if (formData.physicalDescription !== initialFormData.physicalDescription) return true
+    if (formData.personalitySummary !== initialFormData.personalitySummary) return true
+    if (formData.misbelief !== initialFormData.misbelief) return true
+    if (formData.backstory !== initialFormData.backstory) return true
+    if (formData.characterArc !== initialFormData.characterArc) return true
+    if (formData.arcCatalyst !== initialFormData.arcCatalyst) return true
+    if (formData.vocabularyLevel !== initialFormData.vocabularyLevel) return true
+    if (formData.userNotes !== initialFormData.userNotes) return true
+
+    return false
+  }, [formData, initialFormData])
 
   // Reset form when modal opens/closes or editCharacter changes
   useEffect(() => {
     if (isOpen) {
+      let newFormData: Omit<Character, 'id'>
       if (editCharacter) {
         const { id, ...rest } = editCharacter
-        setFormData(rest)
+        newFormData = rest
       } else {
-        setFormData(createEmptyCharacter())
+        newFormData = createEmptyCharacter()
       }
+      setFormData(newFormData)
+      setInitialFormData(newFormData)
       setErrors({})
+      setShowUnsavedDialog(false)
     }
   }, [isOpen, editCharacter])
+
+  // Handle attempting to close the modal
+  const handleAttemptClose = useCallback(() => {
+    if (isDirty) {
+      setShowUnsavedDialog(true)
+    } else {
+      onClose()
+    }
+  }, [isDirty, onClose])
+
+  // Handle discard changes
+  const handleDiscardChanges = useCallback(() => {
+    setShowUnsavedDialog(false)
+    onClose()
+  }, [onClose])
+
+  // Handle cancel discard (keep editing)
+  const handleCancelDiscard = useCallback(() => {
+    setShowUnsavedDialog(false)
+  }, [])
 
   // Handle Escape key to close
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
-      onClose()
+      // Don't close via Escape if unsaved dialog is showing
+      if (!showUnsavedDialog) {
+        handleAttemptClose()
+      }
     }
-  }, [onClose])
+  }, [handleAttemptClose, showUnsavedDialog])
 
   useEffect(() => {
     if (isOpen) {
@@ -147,34 +245,35 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4">
+        {/* Backdrop */}
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={handleAttemptClose}
+        />
 
-      {/* Modal */}
-      <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl mx-4 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-surface flex items-center justify-between p-4 border-b border-border z-10">
-          <div className="flex items-center gap-2">
-            <User className="h-5 w-5 text-accent" aria-hidden="true" />
-            <h2 className="text-lg font-semibold text-text-primary">
-              {editCharacter ? 'Edit Character' : 'New Character'}
-            </h2>
+        {/* Modal */}
+        <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl mx-4 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="sticky top-0 bg-surface flex items-center justify-between p-4 border-b border-border z-10">
+            <div className="flex items-center gap-2">
+              <User className="h-5 w-5 text-accent" aria-hidden="true" />
+              <h2 className="text-lg font-semibold text-text-primary">
+                {editCharacter ? 'Edit Character' : 'New Character'}
+              </h2>
+            </div>
+            <button
+              onClick={handleAttemptClose}
+              className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+              aria-label="Close modal"
+            >
+              <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
-            aria-label="Close modal"
-          >
-            <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
-          </button>
-        </div>
 
-        {/* Content */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-6">
+          {/* Content */}
+          <form onSubmit={handleSubmit} className="p-4 space-y-6">
           {/* Basic Information */}
           <section>
             <h3 className="text-sm font-medium text-text-secondary mb-3">Basic Information</h3>
@@ -393,25 +492,33 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
               className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
             />
           </section>
-        </form>
+          </form>
 
-        {/* Footer */}
-        <div className="sticky bottom-0 bg-surface p-4 border-t border-border flex gap-3 justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-          >
-            {editCharacter ? 'Save Changes' : 'Create Character'}
-          </button>
+          {/* Footer */}
+          <div className="sticky bottom-0 bg-surface p-4 border-t border-border flex gap-3 justify-end">
+            <button
+              type="button"
+              onClick={handleAttemptClose}
+              className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+            >
+              {editCharacter ? 'Save Changes' : 'Create Character'}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Unsaved Changes Dialog */}
+      <UnsavedChangesDialog
+        isOpen={showUnsavedDialog}
+        onDiscard={handleDiscardChanges}
+        onCancel={handleCancelDiscard}
+      />
+    </>
   )
 }

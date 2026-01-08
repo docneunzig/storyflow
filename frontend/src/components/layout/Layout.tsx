@@ -5,6 +5,7 @@ import { Header } from './Header'
 import { Footer } from './Footer'
 import { CommandPalette } from '@/components/ui/CommandPalette'
 import { SettingsModal } from '@/components/ui/SettingsModal'
+import { UnsavedChangesModal } from '@/components/ui/UnsavedChangesModal'
 import { useProjectStore } from '@/stores/projectStore'
 import { toast } from '@/components/ui/Toaster'
 
@@ -128,6 +129,9 @@ export function Layout() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
       />
+
+      {/* Unsaved Changes Warning Modal */}
+      <UnsavedChangesModal />
     </div>
   )
 }
