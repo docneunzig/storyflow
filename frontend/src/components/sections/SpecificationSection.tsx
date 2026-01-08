@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import type { Project, NovelSpecification, TargetAudience, POV, Tense } from '@/types/project'
 import { updateProject as updateProjectInDb } from '@/lib/db'
 import { useProjectStore } from '@/stores/projectStore'
+import { SearchableSelect } from '@/components/ui/SearchableSelect'
 
 interface SectionProps {
   project: Project
@@ -562,16 +563,13 @@ export function SpecificationSection({ project }: SectionProps) {
               <label className="block text-sm font-medium text-text-secondary mb-1">
                 Style Reference (Famous Author)
               </label>
-              <select
+              <SearchableSelect
+                options={STYLE_AUTHORS}
                 value={spec.writingStyle.reference}
-                onChange={(e) => updateSpec('writingStyle', { ...spec.writingStyle, reference: e.target.value })}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none"
-              >
-                <option value="">Select an author...</option>
-                {STYLE_AUTHORS.map(author => (
-                  <option key={author} value={author}>{author}</option>
-                ))}
-              </select>
+                onChange={(value) => updateSpec('writingStyle', { ...spec.writingStyle, reference: value })}
+                placeholder="Select an author..."
+                searchPlaceholder="Search authors..."
+              />
             </div>
 
             <div>
