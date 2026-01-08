@@ -7,12 +7,19 @@ import { SettingsModal } from '@/components/ui/SettingsModal'
 
 interface HeaderProps {
   projectId?: string
+  currentSection?: string
 }
 
-export function Header({ projectId }: HeaderProps) {
+export function Header({ projectId, currentSection }: HeaderProps) {
   const { theme, toggleTheme } = useThemeStore()
   const { currentProject, saveStatus } = useProjectStore()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+
+  // Format section name for display
+  const formatSectionName = (section?: string) => {
+    if (!section) return null
+    return section.charAt(0).toUpperCase() + section.slice(1)
+  }
 
   return (
     <>
@@ -26,9 +33,21 @@ export function Header({ projectId }: HeaderProps) {
           {projectId && currentProject && (
             <>
               <span className="text-text-secondary hidden sm:inline">/</span>
-              <h1 className="text-sm sm:text-lg font-medium text-text-primary truncate">
+              <Link
+                to={`/projects/${projectId}/specification`}
+                className="text-sm sm:text-lg font-medium text-text-primary hover:text-accent transition-colors truncate"
+                title={currentProject.metadata?.workingTitle || 'Untitled Project'}
+              >
                 {currentProject.metadata?.workingTitle || 'Untitled Project'}
-              </h1>
+              </Link>
+              {currentSection && (
+                <>
+                  <span className="text-text-secondary hidden sm:inline">/</span>
+                  <span className="text-sm sm:text-lg font-medium text-accent truncate hidden sm:inline">
+                    {formatSectionName(currentSection)}
+                  </span>
+                </>
+              )}
             </>
           )}
         </div>

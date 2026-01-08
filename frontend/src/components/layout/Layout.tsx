@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Outlet, useParams, useNavigate } from 'react-router-dom'
+import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { Footer } from './Footer'
@@ -22,9 +22,21 @@ const NAV_SHORTCUTS: Record<string, string> = {
 export function Layout() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const { saveStatus, setSaveStatus } = useProjectStore()
+
+  // Extract current section from URL path
+  const getCurrentSection = () => {
+    const pathParts = location.pathname.split('/')
+    // URL format: /projects/:projectId/:section
+    if (pathParts.length >= 4) {
+      return pathParts[3] // section name
+    }
+    return undefined
+  }
+  const currentSection = getCurrentSection()
 
   // Global keyboard shortcut for command palette (Cmd+/ or Ctrl+/)
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -69,7 +81,7 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header projectId={projectId} />
+      <Header projectId={projectId} currentSection={currentSection} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar projectId={projectId} />
         <main className="flex-1 overflow-auto p-6" role="main" aria-label="Main content">

@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Plus, BookOpen, Edit2, Trash2, FileText, Lock, Film } from 'lucide-react'
+import { Plus, BookOpen, Edit2, Trash2, FileText, Lock, Film, ChevronDown, ChevronUp } from 'lucide-react'
 import type { Project, Chapter, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
 import { ChapterModal } from '@/components/ui/ChapterModal'
 import { toast } from '@/components/ui/Toaster'
+import { useNavigate } from 'react-router-dom'
 
 interface SectionProps {
   project: Project
@@ -19,10 +20,13 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export function WriteSection({ project }: SectionProps) {
+  const navigate = useNavigate()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null)
+  const [isScenesExpanded, setIsScenesExpanded] = useState(true)
+  const [isContentExpanded, setIsContentExpanded] = useState(true)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
 
   const handleSaveChapter = async (chapter: Chapter) => {
@@ -268,52 +272,90 @@ export function WriteSection({ project }: SectionProps) {
               </div>
             </div>
 
-            {/* Chapter Scenes */}
+            {/* Chapter Scenes - Collapsible */}
             {chapterScenes.length > 0 && (
-              <div className="px-6 py-4 border-b border-border bg-surface-elevated/30">
-                <h3 className="text-sm font-medium text-text-secondary mb-3 flex items-center gap-2">
-                  <Film className="h-4 w-4" aria-hidden="true" />
-                  Scenes in this chapter
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {chapterScenes.map(scene => (
-                    <div
-                      key={scene.id}
-                      className="px-3 py-2 bg-surface border border-border rounded-lg text-sm"
-                    >
-                      <span className="text-text-primary">{scene.title}</span>
-                      <span className="text-text-secondary ml-2">
-                        ~{scene.estimatedWordCount.toLocaleString()} words
-                      </span>
+              <div className="border-b border-border bg-surface-elevated/30">
+                <button
+                  onClick={() => setIsScenesExpanded(!isScenesExpanded)}
+                  className="w-full px-6 py-3 flex items-center justify-between hover:bg-surface-elevated/50 transition-colors"
+                  aria-expanded={isScenesExpanded}
+                  aria-controls="chapter-scenes-content"
+                >
+                  <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                    <Film className="h-4 w-4" aria-hidden="true" />
+                    Scenes in this chapter ({chapterScenes.length})
+                  </h3>
+                  {isScenesExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+                  )}
+                </button>
+                {isScenesExpanded && (
+                  <div id="chapter-scenes-content" className="px-6 pb-4">
+                    <div className="flex flex-wrap gap-2">
+                      {chapterScenes.map(scene => (
+                        <button
+                          key={scene.id}
+                          onClick={() => navigate(`/projects/${project.id}/scenes`)}
+                          className="px-3 py-2 bg-surface border border-border rounded-lg text-sm hover:border-accent hover:bg-accent/10 transition-colors text-left"
+                          title={`Go to scene: ${scene.title}`}
+                        >
+                          <span className="text-text-primary">{scene.title}</span>
+                          <span className="text-text-secondary ml-2">
+                            ~{scene.estimatedWordCount.toLocaleString()} words
+                          </span>
+                        </button>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Chapter Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {selectedChapter.content ? (
-                <div className="max-w-3xl mx-auto">
-                  <div className="prose prose-invert prose-lg font-serif whitespace-pre-wrap">
-                    {selectedChapter.content}
-                  </div>
-                </div>
-              ) : (
-                <div className="max-w-3xl mx-auto text-center py-12">
-                  <FileText className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
-                  <h3 className="text-lg font-medium text-text-primary mb-2">
-                    No content yet
-                  </h3>
-                  <p className="text-text-secondary mb-4">
-                    Start writing or use AI to generate content for this chapter.
-                  </p>
-                  <button
-                    onClick={() => handleOpenModal(selectedChapter)}
-                    className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-                  >
-                    Start Writing
-                  </button>
+            {/* Chapter Content - Collapsible */}
+            <div className="flex-1 overflow-y-auto flex flex-col">
+              <button
+                onClick={() => setIsContentExpanded(!isContentExpanded)}
+                className="w-full px-6 py-3 flex items-center justify-between hover:bg-surface-elevated/30 transition-colors border-b border-border"
+                aria-expanded={isContentExpanded}
+                aria-controls="chapter-content-section"
+              >
+                <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                  <FileText className="h-4 w-4" aria-hidden="true" />
+                  Chapter Content
+                </h3>
+                {isContentExpanded ? (
+                  <ChevronUp className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+                )}
+              </button>
+              {isContentExpanded && (
+                <div id="chapter-content-section" className="flex-1 overflow-y-auto p-6">
+                  {selectedChapter.content ? (
+                    <div className="max-w-3xl mx-auto">
+                      <div className="prose prose-invert prose-lg font-serif whitespace-pre-wrap">
+                        {selectedChapter.content}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="max-w-3xl mx-auto text-center py-12">
+                      <FileText className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
+                      <h3 className="text-lg font-medium text-text-primary mb-2">
+                        No content yet
+                      </h3>
+                      <p className="text-text-secondary mb-4">
+                        Start writing or use AI to generate content for this chapter.
+                      </p>
+                      <button
+                        onClick={() => handleOpenModal(selectedChapter)}
+                        className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+                      >
+                        Start Writing
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
