@@ -1721,3 +1721,69 @@ Implemented Statistics dashboard with real data, enhanced Character form with al
 - Stats dashboard now functional with real data
 - Character form now complete with all properties
 - Consider continuing with other UI features that don't require AI
+
+---
+
+# Session 19: Drag and Drop and Concurrent Editing Verification
+# Date: 2026-01-08
+
+## Summary
+Verified scene drag-and-drop reorder functionality (already implemented) and tested concurrent editing behavior in multi-tab scenarios. Skipped several features due to missing dependencies. Progress from 269/400 (67.2%) to 271/400 (67.8%).
+
+## Features Passed This Session
+
+### Feature #70: Scene reorder via drag and drop - PASSING
+- Drag and drop already implemented in ScenesSection.tsx
+- Created test scenes: "Scene A - First", "Scene B - Second", "Scene C - Third"
+- Dragged Scene C before Scene A
+- Verified order changed to C, A, B
+- Refreshed page - order persisted via IndexedDB
+- Cleaned up test scenes after verification
+
+### Feature #170: Two users edit same record handling - PASSING
+- Tested multi-tab editing scenario
+- Tab 0 and Tab 1 opened same character (Marcus Shadowbane) edit modal
+- Tab 0 saved Age: 45
+- Tab 1 saved Gender: Male (overwrote Age change)
+- After refresh: Gender: Male visible, Age reverted
+- Confirmed "last write wins" behavior
+- No data corruption or crashes
+
+## Features Skipped This Session (Dependencies Not Met)
+
+### AI-Dependent:
+- #74: Lock passage in chapter (requires AI generation)
+- #75: Network error handling (requires AI API calls)
+- #144: AI progress indicator (AI not implemented)
+
+### Not Applicable:
+- #115: Date picker defaults (no date pickers in app)
+- #131: Email validation (no email fields)
+- #138: Server validation (local-first app with IndexedDB)
+- #155: Tables on mobile (app uses card grids)
+- #168, #169: Date picker/sorting features (no date inputs)
+
+## Technical Notes
+
+### Drag and Drop Implementation
+ScenesSection.tsx uses HTML5 drag-and-drop API:
+- handleDragStart: Sets dragged scene ID and opacity
+- handleDragOver: Sets drag-over visual indicator
+- handleDrop: Reorders scenes array and saves to IndexedDB
+- GripVertical icon shows drag handle on each scene card
+
+### Concurrent Editing Strategy
+- App uses "last write wins" conflict resolution
+- No real-time sync between tabs (local-first architecture)
+- Changes persist immediately to IndexedDB
+- Other tabs see changes after refresh
+
+## Current Feature Statistics
+- Total Features: 400
+- Passing: 271 (67.8%)
+- Pending: 129
+
+## Notes for Next Session
+- Many remaining features require AI integration
+- Consider implementing more UI features
+- Continue testing remaining functionality
