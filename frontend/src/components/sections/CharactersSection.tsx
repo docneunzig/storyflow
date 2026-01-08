@@ -519,29 +519,41 @@ export function CharactersSection({ project }: SectionProps) {
 
       {viewMode === 'map' ? (
         // React Flow Relationship Map View
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-text-primary">Character Relationship Map</h2>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-text-secondary">
-                {characters.length} characters, {relationships.length} relationships
-              </span>
-              <button
-                onClick={() => handleOpenRelationshipModal()}
-                disabled={characters.length < 2}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Add Relationship
-              </button>
+        (() => {
+          // Filter relationships to only include those between filtered characters
+          const filteredCharacterIds = new Set(filteredCharacters.map(c => c.id))
+          const filteredRelationships = relationships.filter(
+            r => filteredCharacterIds.has(r.sourceCharacterId) && filteredCharacterIds.has(r.targetCharacterId)
+          )
+          return (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-text-primary">Character Relationship Map</h2>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-text-secondary">
+                    {filteredCharacters.length} characters, {filteredRelationships.length} relationships
+                    {(roleFilter !== 'all' || statusFilter !== 'all' || searchQuery) && (
+                      <span className="ml-1 text-accent">(filtered)</span>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => handleOpenRelationshipModal()}
+                    disabled={characters.length < 2}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Add Relationship
+                  </button>
+                </div>
+              </div>
+              <RelationshipMap
+                characters={filteredCharacters}
+                relationships={filteredRelationships}
+                onNodeClick={(character) => setInspectorCharacter(character)}
+              />
             </div>
-          </div>
-          <RelationshipMap
-            characters={characters}
-            relationships={relationships}
-            onNodeClick={(character) => setInspectorCharacter(character)}
-          />
-        </div>
+          )
+        })()
       ) : viewMode === 'cards' ? (
         // Character Cards View
         <>

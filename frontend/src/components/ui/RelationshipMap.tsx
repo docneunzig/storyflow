@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import ReactFlow, {
   Node,
   Edge,
@@ -38,13 +38,21 @@ const CharacterNode = ({ data }: NodeProps<{ character: Character; role: string 
     unknown: 'bg-warning',
   }
 
+  // Size based on character importance/role
+  const roleSizes: Record<string, string> = {
+    protagonist: 'min-w-[160px] max-w-[200px] py-4',
+    antagonist: 'min-w-[150px] max-w-[190px] py-4',
+    supporting: 'min-w-[130px] max-w-[170px] py-3',
+    minor: 'min-w-[100px] max-w-[140px] py-2',
+  }
+
   return (
     <div
       className={`
-        relative px-4 py-3 rounded-lg border-2 cursor-pointer
+        relative px-4 rounded-lg border-2 cursor-pointer
         transition-all duration-200 hover:shadow-lg hover:scale-105
         ${roleColors[data.character.role] || roleColors.minor}
-        min-w-[120px] max-w-[160px]
+        ${roleSizes[data.character.role] || roleSizes.minor}
       `}
     >
       <Handle
@@ -160,35 +168,65 @@ export function RelationshipMap({ characters, relationships, onNodeClick }: Rela
 
   // Generate edges from relationships
   const initialEdges = useMemo(() => {
-    return relationships.map((rel, index): Edge => ({
-      id: `${rel.sourceCharacterId}-${rel.targetCharacterId}-${index}`,
-      source: rel.sourceCharacterId,
-      target: rel.targetCharacterId,
-      type: 'smoothstep',
-      animated: rel.relationshipType === 'conflict' || rel.relationshipType === 'rival',
-      style: {
-        stroke: EDGE_COLORS[rel.relationshipType] || '#666',
-        strokeWidth: 2,
-      },
-      label: rel.relationshipType,
-      labelStyle: {
-        fill: EDGE_COLORS[rel.relationshipType] || '#666',
-        fontWeight: 500,
-        fontSize: 11,
-      },
-      labelBgStyle: {
-        fill: '#1A1A1A',
-        fillOpacity: 0.8,
-      },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: EDGE_COLORS[rel.relationshipType] || '#666',
-      },
-    }))
-  }, [relationships])
+    // Create a map of character IDs to names for tooltips
+    const charNameMap = new Map(characters.map(c => [c.id, c.name]))
+
+    return relationships.map((rel, index): Edge => {
+      const sourceName = charNameMap.get(rel.sourceCharacterId) || 'Unknown'
+      const targetName = charNameMap.get(rel.targetCharacterId) || 'Unknown'
+      const tooltipText = `${sourceName} → ${targetName}: ${rel.relationshipType}${rel.description ? `\n${rel.description}` : ''}`
+
+      return {
+        id: `${rel.sourceCharacterId}-${rel.targetCharacterId}-${index}`,
+        source: rel.sourceCharacterId,
+        target: rel.targetCharacterId,
+        type: 'smoothstep',
+        animated: rel.relationshipType === 'conflict' || rel.relationshipType === 'rival',
+        style: {
+          stroke: EDGE_COLORS[rel.relationshipType] || '#666',
+          strokeWidth: 2,
+        },
+        label: rel.relationshipType,
+        labelStyle: {
+          fill: EDGE_COLORS[rel.relationshipType] || '#666',
+          fontWeight: 500,
+          fontSize: 11,
+        },
+        labelBgStyle: {
+          fill: '#1A1A1A',
+          fillOpacity: 0.8,
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: EDGE_COLORS[rel.relationshipType] || '#666',
+        },
+        // Store tooltip data for hover
+        data: {
+          tooltip: tooltipText,
+          description: rel.description,
+          evolution: rel.evolution,
+        },
+      }
+    })
+  }, [relationships, characters])
 
   const [nodes, , onNodesChange] = useNodesState(initialNodes)
   const [edges, , onEdgesChange] = useEdgesState(initialEdges)
+
+  // Edge hover state for tooltip
+  const [hoveredEdge, setHoveredEdge] = useState<{ edge: Edge; x: number; y: number } | null>(null)
+
+  // Handle edge hover
+  const handleEdgeMouseEnter = useCallback(
+    (event: React.MouseEvent, edge: Edge) => {
+      setHoveredEdge({ edge, x: event.clientX, y: event.clientY })
+    },
+    []
+  )
+
+  const handleEdgeMouseLeave = useCallback(() => {
+    setHoveredEdge(null)
+  }, [])
 
   // Handle node click
   const handleNodeClick = useCallback(
@@ -228,6 +266,8 @@ export function RelationshipMap({ characters, relationships, onNodeClick }: Rela
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={handleNodeClick}
+        onEdgeMouseEnter={handleEdgeMouseEnter}
+        onEdgeMouseLeave={handleEdgeMouseLeave}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{
@@ -260,6 +300,26 @@ export function RelationshipMap({ characters, relationships, onNodeClick }: Rela
           pannable
         />
       </ReactFlow>
+
+      {/* Edge tooltip on hover */}
+      {hoveredEdge && hoveredEdge.edge.data && (
+        <div
+          className="fixed z-50 bg-surface-elevated px-3 py-2 rounded-lg border border-border shadow-lg max-w-xs pointer-events-none"
+          style={{
+            left: hoveredEdge.x + 10,
+            top: hoveredEdge.y + 10,
+          }}
+        >
+          <p className="text-sm font-medium text-text-primary whitespace-pre-line">
+            {hoveredEdge.edge.data.tooltip}
+          </p>
+          {hoveredEdge.edge.data.evolution && (
+            <p className="text-xs text-text-secondary mt-1">
+              <span className="font-medium">Evolution:</span> {hoveredEdge.edge.data.evolution}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Legend */}
       <div className="absolute bottom-4 left-4 bg-surface-elevated p-3 rounded-lg border border-border shadow-lg">
