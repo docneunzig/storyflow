@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, BookOpen, Edit2, Trash2, FileText, Lock, Film, ChevronDown, ChevronUp, History, X } from 'lucide-react'
+import { Plus, BookOpen, Edit2, Trash2, FileText, Lock, Film, ChevronDown, ChevronUp, History, X, Star, ArrowRight } from 'lucide-react'
 import type { Project, Chapter, WikiEntry, DailyWordCount, WritingStatistics, RevisionHistory } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
@@ -30,7 +30,8 @@ function getTodayDateString(): string {
 function createRevisionHistory(
   oldChapter: Chapter,
   newChapter: Chapter,
-  existingRevisions: RevisionHistory[]
+  existingRevisions: RevisionHistory[],
+  qualityScores: { chapterId: string; overallScore: number }[]
 ): RevisionHistory | null {
   // Only create revision if content actually changed
   if (!oldChapter.content || oldChapter.content === newChapter.content) {
@@ -41,14 +42,20 @@ function createRevisionHistory(
   const chapterRevisions = existingRevisions.filter(r => r.chapterId === oldChapter.id)
   const nextRevisionNumber = chapterRevisions.length + 1
 
+  // Get the most recent quality score for this chapter (score before changes)
+  const chapterQualityScores = qualityScores.filter(qs => qs.chapterId === oldChapter.id)
+  const latestScore = chapterQualityScores.length > 0
+    ? chapterQualityScores[chapterQualityScores.length - 1].overallScore
+    : 0
+
   return {
     chapterId: oldChapter.id,
     revisionNumber: nextRevisionNumber,
     timestamp: new Date().toISOString(),
     previousContent: oldChapter.content,
     changes: [], // Could be populated with diff in future
-    qualityScoreBefore: 0, // Could be populated from quality scores
-    qualityScoreAfter: 0,
+    qualityScoreBefore: latestScore,
+    qualityScoreAfter: 0, // Will be populated when next critique is run
   }
 }
 
@@ -124,7 +131,12 @@ export function WriteSection({ project }: SectionProps) {
       // Track revision history if content changed
       let updatedRevisions = project.revisions || []
       if (isEditing && oldChapter) {
-        const revision = createRevisionHistory(oldChapter, chapter, updatedRevisions)
+        const revision = createRevisionHistory(
+          oldChapter,
+          chapter,
+          updatedRevisions,
+          project.qualityScores || []
+        )
         if (revision) {
           updatedRevisions = [...updatedRevisions, revision]
           // Increment the chapter's currentRevision counter
@@ -254,6 +266,21 @@ export function WriteSection({ project }: SectionProps) {
   const chapterRevisions = selectedChapterId
     ? (project.revisions || []).filter(r => r.chapterId === selectedChapterId).sort((a, b) => b.revisionNumber - a.revisionNumber)
     : []
+
+  // Get the latest quality score for the selected chapter
+  const latestQualityScore = selectedChapterId
+    ? (project.qualityScores || [])
+        .filter(qs => qs.chapterId === selectedChapterId)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]?.overallScore || null
+    : null
+
+  // Helper to get color based on quality score
+  const getQualityColor = (score: number) => {
+    if (score >= 9.0) return 'text-success'
+    if (score >= 7.5) return 'text-accent'
+    if (score >= 6.0) return 'text-warning'
+    return 'text-error'
+  }
 
   return (
     <div className="h-full flex">
@@ -614,33 +641,70 @@ export function WriteSection({ project }: SectionProps) {
                         {selectedChapter.wordCount.toLocaleString()} words
                       </span>
                     </div>
+                    {latestQualityScore !== null && (
+                      <div className="flex items-center gap-1.5 mb-2 text-sm">
+                        <Star className="h-3.5 w-3.5 text-text-secondary" aria-hidden="true" />
+                        <span className={getQualityColor(latestQualityScore)}>
+                          {latestQualityScore.toFixed(1)}/10
+                        </span>
+                        <span className="text-text-secondary text-xs">quality score</span>
+                      </div>
+                    )}
                     <p className="text-sm text-text-secondary line-clamp-2">
                       {selectedChapter.content?.substring(0, 200) || 'No content'}...
                     </p>
                   </div>
 
                   {/* Previous revisions */}
-                  {chapterRevisions.map((revision) => (
-                    <div
-                      key={`${revision.chapterId}-${revision.revisionNumber}`}
-                      className="p-4 bg-surface-elevated border border-border rounded-lg"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-purple-400">
-                          Revision {revision.revisionNumber}
-                        </span>
-                        <span className="text-xs text-text-secondary">
-                          {new Date(revision.timestamp).toLocaleString()}
-                        </span>
+                  {chapterRevisions.map((revision, index) => {
+                    // Get the score after this revision (from the next revision's "before" score, or current score)
+                    const scoreAfter = index === 0
+                      ? latestQualityScore
+                      : chapterRevisions[index - 1].qualityScoreBefore
+                    const scoreBefore = revision.qualityScoreBefore
+
+                    return (
+                      <div
+                        key={`${revision.chapterId}-${revision.revisionNumber}`}
+                        className="p-4 bg-surface-elevated border border-border rounded-lg"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-purple-400">
+                            Revision {revision.revisionNumber}
+                          </span>
+                          <span className="text-xs text-text-secondary">
+                            {new Date(revision.timestamp).toLocaleString()}
+                          </span>
+                        </div>
+
+                        {/* Quality score comparison */}
+                        {(scoreBefore > 0 || (scoreAfter && scoreAfter > 0)) && (
+                          <div className="flex items-center gap-2 mb-2 text-sm">
+                            <Star className="h-3.5 w-3.5 text-text-secondary" aria-hidden="true" />
+                            <span className={`${scoreBefore > 0 ? getQualityColor(scoreBefore) : 'text-text-secondary'}`}>
+                              {scoreBefore > 0 ? scoreBefore.toFixed(1) : '—'}
+                            </span>
+                            <ArrowRight className="h-3.5 w-3.5 text-text-secondary" aria-hidden="true" />
+                            <span className={`${scoreAfter && scoreAfter > 0 ? getQualityColor(scoreAfter) : 'text-text-secondary'}`}>
+                              {scoreAfter && scoreAfter > 0 ? scoreAfter.toFixed(1) : '—'}
+                            </span>
+                            {scoreBefore > 0 && scoreAfter && scoreAfter > 0 && (
+                              <span className={`text-xs ${scoreAfter > scoreBefore ? 'text-success' : scoreAfter < scoreBefore ? 'text-error' : 'text-text-secondary'}`}>
+                                ({scoreAfter > scoreBefore ? '+' : ''}{(scoreAfter - scoreBefore).toFixed(1)})
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        <p className="text-sm text-text-secondary line-clamp-2">
+                          {revision.previousContent?.substring(0, 200) || 'No content'}...
+                        </p>
+                        <div className="mt-2 text-xs text-text-secondary">
+                          {revision.previousContent?.split(/\s+/).length.toLocaleString() || 0} words
+                        </div>
                       </div>
-                      <p className="text-sm text-text-secondary line-clamp-2">
-                        {revision.previousContent?.substring(0, 200) || 'No content'}...
-                      </p>
-                      <div className="mt-2 text-xs text-text-secondary">
-                        {revision.previousContent?.split(/\s+/).length.toLocaleString() || 0} words
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
