@@ -162,6 +162,119 @@ function getPOVProse(pov: string): { description: string; sampleNarration: strin
   }
 }
 
+// Get audience-appropriate guidelines
+function getAudienceGuidelines(audience: string): { description: string; contentGuidelines: string[]; avoid: string[]; themes: string[] } {
+  const audienceLower = (audience || '').toLowerCase()
+
+  // Middle Grade (ages 8-12)
+  if (audienceLower.includes('middle grade') || audienceLower.includes('middle-grade') || audienceLower.includes('mg')) {
+    return {
+      description: 'Middle Grade (ages 8-12)',
+      contentGuidelines: [
+        'Age-appropriate language and situations',
+        'Focus on friendship, family, and self-discovery',
+        'Protagonist typically aged 10-13',
+        'Positive resolution and hope'
+      ],
+      avoid: [
+        'Graphic violence',
+        'Explicit romantic content',
+        'Excessive profanity',
+        'Overly dark or hopeless themes',
+        'Complex adult relationships'
+      ],
+      themes: ['friendship', 'courage', 'identity', 'belonging', 'adventure', 'discovery']
+    }
+  }
+
+  // Young Adult (ages 13-18)
+  if (audienceLower.includes('young adult') || audienceLower.includes('ya') || audienceLower.includes('teen')) {
+    return {
+      description: 'Young Adult (ages 13-18)',
+      contentGuidelines: [
+        'Coming-of-age themes and identity exploration',
+        'Protagonist typically aged 15-18',
+        'First love and relationship exploration acceptable',
+        'Can tackle serious issues with care'
+      ],
+      avoid: [
+        'Gratuitously explicit sexual content',
+        'Excessive gore without purpose',
+        'Nihilistic endings without redemption'
+      ],
+      themes: ['identity', 'first love', 'independence', 'rebellion', 'finding oneself', 'justice']
+    }
+  }
+
+  // New Adult (ages 18-25)
+  if (audienceLower.includes('new adult') || audienceLower.includes('na')) {
+    return {
+      description: 'New Adult (ages 18-25)',
+      contentGuidelines: [
+        'Post-adolescent challenges and transitions',
+        'Protagonist typically aged 18-25',
+        'Romantic and sexual content acceptable',
+        'Career and life direction themes'
+      ],
+      avoid: [
+        'Content that feels too juvenile',
+        'Oversimplified life situations'
+      ],
+      themes: ['transition', 'independence', 'career', 'relationships', 'self-discovery', 'adulting']
+    }
+  }
+
+  // Adult
+  if (audienceLower.includes('adult') && !audienceLower.includes('young') && !audienceLower.includes('new')) {
+    return {
+      description: 'Adult (18+)',
+      contentGuidelines: [
+        'Full range of mature themes acceptable',
+        'Complex moral situations',
+        'Nuanced character relationships',
+        'No content restrictions beyond legal limits'
+      ],
+      avoid: [],
+      themes: ['mortality', 'legacy', 'complex relationships', 'moral ambiguity', 'redemption', 'loss']
+    }
+  }
+
+  // Children's (ages 5-8)
+  if (audienceLower.includes('children') || audienceLower.includes('kids') || audienceLower.includes('chapter book')) {
+    return {
+      description: "Children's (ages 5-8)",
+      contentGuidelines: [
+        'Simple, clear language',
+        'Short chapters and sentences',
+        'Positive, reassuring themes',
+        'Protagonist typically aged 6-9'
+      ],
+      avoid: [
+        'Any scary or violent content',
+        'Death of main characters',
+        'Complex emotional situations',
+        'Morally ambiguous situations'
+      ],
+      themes: ['friendship', 'kindness', 'sharing', 'bravery', 'family', 'imagination']
+    }
+  }
+
+  // Default - General Audience
+  return {
+    description: 'General Audience',
+    contentGuidelines: [
+      'Accessible to a broad readership',
+      'Avoid extreme content',
+      'Balance complexity with accessibility'
+    ],
+    avoid: [
+      'Excessively graphic content',
+      'Highly polarizing themes'
+    ],
+    themes: ['universal human experiences', 'relationships', 'growth', 'challenges']
+  }
+}
+
 // Get setting-appropriate elements
 function getSettingElements(setting: string): { elements: string[]; vocabulary: string[]; avoid: string[] } {
   const settingLower = (setting || '').toLowerCase()
@@ -209,17 +322,39 @@ function getSettingElements(setting: string): { elements: string[]; vocabulary: 
 function generateSampleChapterContent(context: Record<string, any>): string {
   const title = context.title || 'Untitled Chapter'
   const synopsis = context.synopsis || 'A new chapter begins.'
-  const setting = context.setting || context.worldSetting || ''
-  const pov = context.pov || context.pointOfView || ''
-  const tense = context.tense || context.narrativeTense || 'past'
+
+  // Extract settings from full specification if available
+  const spec = context.specification || {}
+  const setting = context.setting || context.worldSetting || spec.settingType?.join(', ') || ''
+  const pov = context.pov || context.pointOfView || spec.pov || ''
+  const tense = context.tense || context.narrativeTense || spec.tense || 'past'
+  const audience = context.audience || context.targetAudience || spec.targetAudience || ''
+  const themes = spec.themes || context.themes || []
+  const tone = spec.tone || context.tone || ''
+
+  // Get character names for reference
+  const characters = context.characters || []
+  const characterNames = characters.map((c: any) => c.name).filter(Boolean)
+
+  // Get plot beats for reference
+  const plotBeats = context.plotBeats || []
+
+  // Get previous chapter summaries for continuity
+  const previousChapters = context.previousChapters || []
+
+  // Get world-building context
+  const wikiContext = context.wikiContext || []
+
   const settingElements = getSettingElements(setting)
   const povProse = getPOVProse(pov)
   const tenseProse = getTenseProse(tense, pov)
+  const audienceGuidelines = getAudienceGuidelines(audience)
 
   let chapterContent = `Chapter: ${title}\n\n`
   chapterContent += `[Setting: ${setting || 'Not specified'}]\n`
   chapterContent += `[POV: ${povProse.description}]\n`
-  chapterContent += `[Tense: ${tenseProse.description}]\n\n`
+  chapterContent += `[Tense: ${tenseProse.description}]\n`
+  chapterContent += `[Target Audience: ${audienceGuidelines.description}]\n\n`
   chapterContent += `${synopsis}\n\n`
 
   // Include POV and tense-appropriate sample narration
@@ -240,12 +375,84 @@ function generateSampleChapterContent(context: Record<string, any>): string {
     chapterContent += `[Note: Generated content avoids anachronistic elements like: ${settingElements.avoid.join(', ')}]\n\n`
   }
 
+  // Audience-specific content guidelines
+  chapterContent += `--- Target Audience: ${audienceGuidelines.description} ---\n\n`
+  chapterContent += `Content Guidelines:\n`
+  audienceGuidelines.contentGuidelines.forEach(guideline => {
+    chapterContent += `• ${guideline}\n`
+  })
+  chapterContent += `\n`
+
+  if (audienceGuidelines.avoid.length > 0) {
+    chapterContent += `Content to Avoid:\n`
+    audienceGuidelines.avoid.forEach(item => {
+      chapterContent += `• ${item}\n`
+    })
+    chapterContent += `\n`
+  }
+
+  chapterContent += `Recommended Themes for ${audienceGuidelines.description}:\n`
+  chapterContent += `${audienceGuidelines.themes.join(', ')}\n\n`
+
+  // Add character references if available
+  if (characterNames.length > 0) {
+    chapterContent += `--- Characters Referenced ---\n`
+    chapterContent += `The following characters are available for this chapter:\n`
+    characterNames.slice(0, 8).forEach((name: string) => {
+      chapterContent += `• ${name}\n`
+    })
+    if (characterNames.length > 8) {
+      chapterContent += `• ...and ${characterNames.length - 8} more\n`
+    }
+    chapterContent += `\n`
+  }
+
+  // Add plot beat references if available
+  if (plotBeats.length > 0) {
+    chapterContent += `--- Plot Beats for Context ---\n`
+    chapterContent += `Current story arc includes:\n`
+    plotBeats.slice(0, 5).forEach((beat: any) => {
+      chapterContent += `• ${beat.title}: ${beat.summary?.substring(0, 80) || 'No summary'}${beat.summary?.length > 80 ? '...' : ''}\n`
+    })
+    chapterContent += `\n`
+  }
+
+  // Add previous chapter context for continuity
+  if (previousChapters.length > 0) {
+    chapterContent += `--- Previous Chapters (for continuity) ---\n`
+    previousChapters.forEach((ch: any) => {
+      chapterContent += `• Chapter ${ch.number}: "${ch.title}" - ${ch.summary?.substring(0, 100) || 'No summary'}${ch.summary?.length > 100 ? '...' : ''}\n`
+    })
+    chapterContent += `\n`
+  }
+
+  // Add world-building context if available
+  if (wikiContext.length > 0) {
+    chapterContent += `--- World-Building Reference ---\n`
+    wikiContext.slice(0, 5).forEach((w: any) => {
+      chapterContent += `• ${w.name} (${w.category}): ${w.description?.substring(0, 60) || ''}${w.description?.length > 60 ? '...' : ''}\n`
+    })
+    chapterContent += `\n`
+  }
+
+  // Add themes if specified
+  if (themes.length > 0) {
+    chapterContent += `--- Story Themes ---\n`
+    chapterContent += `This story explores: ${themes.join(', ')}\n\n`
+  }
+
+  // Add tone if specified
+  if (tone) {
+    chapterContent += `[Tone: ${tone}]\n\n`
+  }
+
   chapterContent += `The chapter would include:\n`
   chapterContent += `- Narrative written in ${povProse.description}\n`
   chapterContent += `- Scene descriptions and atmosphere consistent with ${setting || 'the story'} setting\n`
-  chapterContent += `- Character dialogue and interactions\n`
-  chapterContent += `- Plot advancement\n`
-  chapterContent += `- Thematic elements appropriate to the genre\n\n`
+  chapterContent += `- Character dialogue and interactions appropriate for ${audienceGuidelines.description}\n`
+  chapterContent += `- Plot advancement aligned with story beats\n`
+  chapterContent += `- Thematic elements (${themes.length > 0 ? themes.slice(0, 3).join(', ') : 'general themes'}) woven naturally\n`
+  chapterContent += `- Continuity with previous chapter events\n\n`
   chapterContent += `[End of generated sample content]`
 
   return chapterContent
@@ -254,9 +461,12 @@ function generateSampleChapterContent(context: Record<string, any>): string {
 function generateSampleSceneContent(context: Record<string, any>): string {
   const location = context.location || 'an unknown location'
   const setting = context.setting || context.worldSetting || ''
+  const audience = context.audience || context.targetAudience || ''
   const settingElements = getSettingElements(setting)
+  const audienceGuidelines = getAudienceGuidelines(audience)
 
   let sceneContent = `The scene unfolds at ${location}.\n\n`
+  sceneContent += `[Target Audience: ${audienceGuidelines.description}]\n\n`
 
   // Add setting-appropriate atmosphere
   if (settingElements.elements.length > 0) {
@@ -269,6 +479,13 @@ function generateSampleSceneContent(context: Record<string, any>): string {
   if (settingElements.avoid.length > 0) {
     sceneContent += `[Setting-compliant: Avoiding modern anachronisms]\n`
   }
+
+  // Add audience guidelines
+  if (audienceGuidelines.avoid.length > 0) {
+    sceneContent += `[Audience-appropriate: Content avoids ${audienceGuidelines.avoid.slice(0, 2).join(', ')}]\n`
+  }
+
+  sceneContent += `[Recommended themes: ${audienceGuidelines.themes.slice(0, 3).join(', ')}]\n`
 
   sceneContent += `\nThis is AI-generated sample content for the scene generation feature.`
 
@@ -356,12 +573,78 @@ function generateCharacterDialogue(context: Record<string, any>): string {
   return dialogue
 }
 
+// Orchestrator: Route to the correct specialized agent based on request type
+function routeToAgent(agentTarget: string, action: string): {
+  agent: string
+  description: string
+  capabilities: string[]
+} {
+  // Map agent targets to specialized agents
+  const agentMapping: Record<string, {
+    agent: string
+    description: string
+    capabilities: string[]
+  }> = {
+    // Writer Agent - handles chapter/scene writing
+    'writer': {
+      agent: 'WriterAgent',
+      description: 'Specialized in prose generation, narrative writing, and creative content',
+      capabilities: ['generate-chapter', 'generate-scene', 'continue-writing', 'expand-scene'],
+    },
+    // Character Agent - handles character creation and development
+    'character': {
+      agent: 'CharacterAgent',
+      description: 'Specialized in character profiles, dialogue, and character voice',
+      capabilities: ['generate-character', 'generate-dialogue', 'character-backstory', 'voice-consistency'],
+    },
+    // Chapter Agent - handles chapter structure and outlines
+    'chapter': {
+      agent: 'ChapterAgent',
+      description: 'Specialized in chapter structure, outlining, and content generation',
+      capabilities: ['generate-chapter-outline', 'generate-chapter', 'chapter-structure', 'scene-breakdown'],
+    },
+    // Plot Agent - handles plot development and structure
+    'plot': {
+      agent: 'PlotAgent',
+      description: 'Specialized in plot structure, story arcs, and narrative frameworks',
+      capabilities: ['generate-plot-beat', 'plot-structure', 'story-arc', 'conflict-development'],
+    },
+    // Review/Critic Agent - handles critiques and quality analysis
+    'review': {
+      agent: 'CriticAgent',
+      description: 'Specialized in manuscript critique, quality analysis, and improvement suggestions',
+      capabilities: ['critique-chapter', 'implement-suggestions', 'auto-improve', 'quality-analysis'],
+    },
+    // Wiki Agent - handles world-building and consistency
+    'wiki': {
+      agent: 'WikiAgent',
+      description: 'Specialized in world-building, consistency checking, and lore management',
+      capabilities: ['generate-wiki-entry', 'consistency-check', 'world-building', 'lore-expansion'],
+    },
+    // Market Agent - handles market analysis and positioning
+    'market': {
+      agent: 'MarketAgent',
+      description: 'Specialized in market analysis, comparable titles, and positioning',
+      capabilities: ['market-analysis', 'comparable-titles', 'genre-positioning', 'audience-analysis'],
+    },
+  }
+
+  // Find matching agent
+  const targetLower = agentTarget?.toLowerCase() || 'writer'
+  const matched = agentMapping[targetLower] || agentMapping['writer']
+
+  return matched
+}
+
 // POST /api/ai/generate - Generic AI generation endpoint with cancellation support
 router.post('/generate', async (req: Request, res: Response) => {
   const { agentTarget, action, context, payload } = req.body
   const generationId = `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-  console.log(`[AI Generate] Starting generation ${generationId} for action: ${action}`)
+  // Route to appropriate specialized agent via orchestrator
+  const routedAgent = routeToAgent(agentTarget, action)
+  console.log(`[Orchestrator] Routing request to ${routedAgent.agent} for action: ${action}`)
+  console.log(`[${routedAgent.agent}] Starting generation ${generationId}`)
 
   // Register this generation
   activeGenerations.set(generationId, { cancelled: false })
@@ -396,12 +679,14 @@ router.post('/generate', async (req: Request, res: Response) => {
       return
     }
 
-    console.log(`[AI Generate] Generation ${generationId} completed successfully`)
+    console.log(`[${routedAgent.agent}] Generation ${generationId} completed successfully`)
     res.json({
       status: 'success',
       result,
       action,
       generationId,
+      agent: routedAgent.agent,
+      agentDescription: routedAgent.description,
     })
   } catch (error) {
     socket.off('close', onSocketClose)

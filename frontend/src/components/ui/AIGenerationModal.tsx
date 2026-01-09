@@ -109,12 +109,76 @@ export function AIGenerationModal({ isOpen, onClose, project, currentSection }: 
     const option = GENERATION_OPTIONS.find(o => o.type === selectedType)
     if (!option) return
 
+    // Build comprehensive context for writer agent with full project data
     const context = {
+      // Project identification
       projectId: project.id,
       title: project.metadata?.workingTitle || 'Untitled',
-      genre: project.specification?.genre || [],
-      characters: project.characters?.slice(0, 5).map(c => c.name) || [],
-      plotBeats: project.plot?.beats?.slice(0, 3).map(b => b.title) || [],
+
+      // Full specification settings
+      specification: {
+        genre: project.specification?.genre || [],
+        subgenre: project.specification?.subgenre || [],
+        targetAudience: project.specification?.targetAudience || 'Adult',
+        pov: project.specification?.pov || 'Third Limited',
+        tense: project.specification?.tense || 'Past',
+        writingStyle: project.specification?.writingStyle || {},
+        tone: project.specification?.tone || '',
+        themes: project.specification?.themes || [],
+        settingType: project.specification?.settingType || [],
+        timePeriod: project.specification?.timePeriod || '',
+        pacing: project.specification?.pacing || 5,
+        complexity: project.specification?.complexity || 5,
+        targetWordCount: project.specification?.targetWordCount || 80000,
+      },
+
+      // Full character profiles for voice consistency
+      characters: project.characters?.map(c => ({
+        id: c.id,
+        name: c.name,
+        role: c.role,
+        archetype: c.archetype,
+        personalitySummary: c.personalitySummary,
+        speechPatterns: c.speechPatterns,
+        catchphrases: c.catchphrases,
+        internalVoice: c.internalVoice,
+        status: c.status,
+      })) || [],
+
+      // Full plot beats for narrative continuity
+      plotBeats: project.plot?.beats?.map(b => ({
+        id: b.id,
+        title: b.title,
+        summary: b.summary,
+        frameworkPosition: b.frameworkPosition,
+        timelinePosition: b.timelinePosition,
+        emotionalArc: b.emotionalArc,
+        stakes: b.stakes,
+        charactersInvolved: b.charactersInvolved,
+        status: b.status,
+      })) || [],
+
+      // Previous chapters for continuity
+      previousChapters: project.chapters?.slice(-3).map(ch => ({
+        id: ch.id,
+        number: ch.number,
+        title: ch.title,
+        summary: ch.content?.substring(0, 500) || '', // First 500 chars as context
+        wordCount: ch.wordCount,
+        status: ch.status,
+      })) || [],
+
+      // World-building context from wiki
+      wikiContext: project.wiki?.slice(0, 10).map(w => ({
+        name: w.name,
+        category: w.category,
+        description: w.description,
+      })) || [],
+
+      // Current chapter count for numbering
+      currentChapterCount: project.chapters?.length || 0,
+
+      // Custom prompt from user
       customPrompt: customPrompt || undefined,
     }
 

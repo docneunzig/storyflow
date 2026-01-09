@@ -31,6 +31,7 @@ import {
   CheckCircle,
   Lock,
   Unlock,
+  TrendingUp,
 } from 'lucide-react'
 import type { Project, Chapter, ChapterQualityScore, QualityDimensions } from '@/types/project'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
@@ -182,6 +183,7 @@ interface CritiqueResult {
   prioritizedSuggestions: PrioritizedSuggestion[] // Ordered by impact
   generatedAt: string
   harshnessLevel: HarshnessLevel
+  bestsellerComparison: string // Comparison to successful titles in genre
 }
 
 // Harshness levels for critique feedback
@@ -460,6 +462,41 @@ export function ReviewSection({ project }: SectionProps) {
     // Sort by impact score (highest first)
     prioritizedSuggestions.sort((a, b) => b.impactScore - a.impactScore)
 
+    // Generate bestseller comparison based on score and genre
+    const generateBestsellerComparison = (score: number): string => {
+      const genre = project.specification?.genre?.[0] || 'Fiction'
+
+      // Genre-specific bestseller comparisons
+      const comparisons: Record<string, { high: string; medium: string; low: string }> = {
+        'Fantasy': {
+          high: `This chapter demonstrates prose quality comparable to successful fantasy debuts. The world-building density and character voice are reminiscent of works by established authors in the genre. With polish, this could compete with mid-list fantasy titles.`,
+          medium: `This chapter shows promise but falls short of bestseller-level fantasy prose. Works like recent popular fantasy series typically demonstrate stronger scene immersion and more distinctive magical elements. Focus on deepening the sensory experience.`,
+          low: `This chapter needs significant revision to meet commercial fantasy standards. Successful fantasy titles at the debut level typically show more confident world-building integration and more compelling character interiority.`
+        },
+        'Romance': {
+          high: `The emotional beats in this chapter rival those found in successful contemporary romance. The tension and character chemistry align well with reader expectations established by popular titles in the genre.`,
+          medium: `This chapter has good romantic elements but lacks the emotional punch found in bestselling romance. Top romance titles typically deliver stronger "swoon-worthy" moments and deeper character vulnerability.`,
+          low: `This chapter needs work to meet commercial romance standards. Bestselling romance consistently delivers emotional highs and lows with better pacing than demonstrated here.`
+        },
+        'Thriller': {
+          high: `The pacing and tension in this chapter compare favorably to successful thriller debuts. The hook strength and narrative momentum match commercial expectations for the genre.`,
+          medium: `This chapter has thriller elements but doesn't quite match the relentless pacing of top-selling suspense. Popular thrillers typically maintain higher tension throughout with fewer slow passages.`,
+          low: `This chapter needs significant pacing improvement to compete commercially. Successful thrillers keep readers on edge more consistently than shown here.`
+        },
+        'Fiction': {
+          high: `This chapter demonstrates literary quality that could compete with award-nominated fiction. The prose style and thematic depth align with successful literary debuts.`,
+          medium: `This chapter shows promise but needs refinement to reach commercial literary fiction standards. Successful debuts typically demonstrate more consistent voice and deeper thematic exploration.`,
+          low: `This chapter requires significant revision to meet market expectations. Published literary fiction typically shows stronger craft in both prose and structure.`
+        }
+      }
+
+      const genreComparisons = comparisons[genre] || comparisons['Fiction']
+
+      if (score >= 8) return genreComparisons.high
+      if (score >= 6) return genreComparisons.medium
+      return genreComparisons.low
+    }
+
     return {
       chapterId: chapter.id,
       overallScore: Math.round(overallScore * 10) / 10,
@@ -470,8 +507,9 @@ export function ReviewSection({ project }: SectionProps) {
       prioritizedSuggestions,
       generatedAt: new Date().toISOString(),
       harshnessLevel: harshness,
+      bestsellerComparison: generateBestsellerComparison(Math.round(overallScore * 10) / 10),
     }
-  }, [getFeedbackText, getStrengths, getAreasForImprovement])
+  }, [getFeedbackText, getStrengths, getAreasForImprovement, project.specification?.genre])
 
   const handleGetCritique = useCallback(async () => {
     if (!selectedChapter) return
@@ -533,7 +571,7 @@ export function ReviewSection({ project }: SectionProps) {
           suggestedChange: s.reason,
           status: s.status,
         })),
-        bestsellerComparison: '',
+        bestsellerComparison: critique.bestsellerComparison,
       }
 
       // Update project with new quality score
@@ -1206,6 +1244,19 @@ export function ReviewSection({ project }: SectionProps) {
                     </div>
                     <p className="text-sm text-text-secondary">{critiqueResult.summary}</p>
                   </div>
+
+                  {/* Bestseller Comparison */}
+                  {critiqueResult.bestsellerComparison && (
+                    <div className="p-4 border border-indigo-500/30 bg-indigo-500/5 rounded-lg">
+                      <h3 className="font-semibold text-indigo-400 mb-3 flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4" />
+                        Market Position Comparison
+                      </h3>
+                      <p className="text-sm text-text-secondary leading-relaxed">
+                        {critiqueResult.bestsellerComparison}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Auto-Improve Controls */}
                   <div className="p-4 border border-accent/30 rounded-lg bg-accent/5">
