@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Plus, BookOpen, Edit2, Trash2, FileText, Lock, Film, ChevronDown, ChevronUp } from 'lucide-react'
-import type { Project, Chapter, Scene, WikiEntry, DailyWordCount, WritingStatistics } from '@/types/project'
+import { Plus, BookOpen, Edit2, Trash2, FileText, Lock, Film, ChevronDown, ChevronUp, History, X } from 'lucide-react'
+import type { Project, Chapter, WikiEntry, DailyWordCount, WritingStatistics, RevisionHistory } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
 import { ChapterModal } from '@/components/ui/ChapterModal'
@@ -24,6 +24,32 @@ const STATUS_COLORS: Record<string, string> = {
 // Helper to get today's date string in YYYY-MM-DD format
 function getTodayDateString(): string {
   return new Date().toISOString().split('T')[0]
+}
+
+// Helper to create a revision history entry when chapter content changes
+function createRevisionHistory(
+  oldChapter: Chapter,
+  newChapter: Chapter,
+  existingRevisions: RevisionHistory[]
+): RevisionHistory | null {
+  // Only create revision if content actually changed
+  if (!oldChapter.content || oldChapter.content === newChapter.content) {
+    return null
+  }
+
+  // Calculate revision number
+  const chapterRevisions = existingRevisions.filter(r => r.chapterId === oldChapter.id)
+  const nextRevisionNumber = chapterRevisions.length + 1
+
+  return {
+    chapterId: oldChapter.id,
+    revisionNumber: nextRevisionNumber,
+    timestamp: new Date().toISOString(),
+    previousContent: oldChapter.content,
+    changes: [], // Could be populated with diff in future
+    qualityScoreBefore: 0, // Could be populated from quality scores
+    qualityScoreAfter: 0,
+  }
 }
 
 // Helper to update daily word count tracking
@@ -79,6 +105,7 @@ export function WriteSection({ project }: SectionProps) {
   const [isContentExpanded, setIsContentExpanded] = useState(true)
   const [showWikiExtract, setShowWikiExtract] = useState(false)
   const [lastSavedChapter, setLastSavedChapter] = useState<Chapter | null>(null)
+  const [showRevisionHistory, setShowRevisionHistory] = useState(false)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
 
   const handleSaveChapter = async (chapter: Chapter) => {
@@ -93,6 +120,17 @@ export function WriteSection({ project }: SectionProps) {
       const oldChapter = project.chapters.find(c => c.id === chapter.id)
       const oldWordCount = oldChapter?.wordCount || 0
       const wordsAdded = newWordCount - oldWordCount
+
+      // Track revision history if content changed
+      let updatedRevisions = project.revisions || []
+      if (isEditing && oldChapter) {
+        const revision = createRevisionHistory(oldChapter, chapter, updatedRevisions)
+        if (revision) {
+          updatedRevisions = [...updatedRevisions, revision]
+          // Increment the chapter's currentRevision counter
+          chapter = { ...chapter, currentRevision: (oldChapter.currentRevision || 0) + 1 }
+        }
+      }
 
       if (isEditing) {
         updatedChapters = project.chapters.map(c =>
@@ -113,8 +151,8 @@ export function WriteSection({ project }: SectionProps) {
         updatedStatistics = updateDailyWordCount(project.statistics, wordsAdded)
       }
 
-      await updateProject(project.id, { chapters: updatedChapters, statistics: updatedStatistics })
-      updateProjectStore(project.id, { chapters: updatedChapters, statistics: updatedStatistics })
+      await updateProject(project.id, { chapters: updatedChapters, statistics: updatedStatistics, revisions: updatedRevisions })
+      updateProjectStore(project.id, { chapters: updatedChapters, statistics: updatedStatistics, revisions: updatedRevisions })
       setSaveStatus('saved')
       setEditingChapter(null)
 
@@ -211,6 +249,11 @@ export function WriteSection({ project }: SectionProps) {
     ? scenes.filter(s => s.chapterId === selectedChapterId)
     : []
   const scenesWordCount = chapterScenes.reduce((acc, s) => acc + s.estimatedWordCount, 0)
+
+  // Get revision history for the selected chapter
+  const chapterRevisions = selectedChapterId
+    ? (project.revisions || []).filter(r => r.chapterId === selectedChapterId).sort((a, b) => b.revisionNumber - a.revisionNumber)
+    : []
 
   return (
     <div className="h-full flex">
@@ -354,6 +397,17 @@ export function WriteSection({ project }: SectionProps) {
                       </span>
                     )}
                   </div>
+                  {/* Revision count indicator */}
+                  {(selectedChapter.currentRevision || 0) > 0 && (
+                    <button
+                      onClick={() => setShowRevisionHistory(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-purple-400 border border-purple-500/30 bg-purple-500/10 rounded-lg hover:bg-purple-500/20 transition-colors"
+                      title="View revision history"
+                    >
+                      <History className="h-4 w-4" aria-hidden="true" />
+                      Rev {selectedChapter.currentRevision}
+                    </button>
+                  )}
                   <button
                     onClick={() => handleOpenModal(selectedChapter)}
                     className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-surface-elevated transition-colors"
@@ -511,6 +565,97 @@ export function WriteSection({ project }: SectionProps) {
           existingWikiEntries={project.worldbuildingEntries || []}
           existingCharacters={project.characters || []}
         />
+      )}
+
+      {/* Revision History Modal */}
+      {showRevisionHistory && selectedChapter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowRevisionHistory(false)}
+          />
+          <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
+            {/* Header */}
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5 text-purple-400" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Revision History - {selectedChapter.title}
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowRevisionHistory(false)}
+                className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {chapterRevisions.length === 0 ? (
+                <div className="text-center py-8">
+                  <History className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
+                  <p className="text-text-secondary">No revision history yet</p>
+                  <p className="text-sm text-text-secondary mt-2">
+                    Revisions are recorded when chapter content changes
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Current version */}
+                  <div className="p-4 bg-accent/10 border border-accent/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-accent">
+                        Current Version (Rev {selectedChapter.currentRevision || 0})
+                      </span>
+                      <span className="text-xs text-text-secondary">
+                        {selectedChapter.wordCount.toLocaleString()} words
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-secondary line-clamp-2">
+                      {selectedChapter.content?.substring(0, 200) || 'No content'}...
+                    </p>
+                  </div>
+
+                  {/* Previous revisions */}
+                  {chapterRevisions.map((revision) => (
+                    <div
+                      key={`${revision.chapterId}-${revision.revisionNumber}`}
+                      className="p-4 bg-surface-elevated border border-border rounded-lg"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-purple-400">
+                          Revision {revision.revisionNumber}
+                        </span>
+                        <span className="text-xs text-text-secondary">
+                          {new Date(revision.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-text-secondary line-clamp-2">
+                        {revision.previousContent?.substring(0, 200) || 'No content'}...
+                      </p>
+                      <div className="mt-2 text-xs text-text-secondary">
+                        {revision.previousContent?.split(/\s+/).length.toLocaleString() || 0} words
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-border flex justify-end">
+              <button
+                onClick={() => setShowRevisionHistory(false)}
+                className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
