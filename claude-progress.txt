@@ -2,6 +2,94 @@
 # Session 1: Initialization
 # Date: 2025-01-07
 
+## Session 91: Regression Testing & Verification
+# Date: 2026-01-10
+
+### Summary:
+Fresh context window session. All 400 features remain passing (100% completion). Performed regression testing on 3 randomly selected features covering scene properties, logout functionality, and card styling. All tests passed with no issues found.
+
+### Feature Statistics:
+- Total Features: 400
+- Passing: 400 (100%)
+- Pending: 0
+
+### Regression Tests Performed:
+
+1. **Feature #211: Scene has all required properties** - VERIFIED ✅
+   - Created test project "Untitled Novel" and test scene "REGRESSION_TEST_SCENE_91"
+   - Verified all 12 scene properties from spec:
+     - Title field ✅
+     - Status dropdown (Outline, Drafted, Revised, Locked) ✅
+     - Pacing dropdown (Slow, Moderate, Fast, Intense) ✅
+     - Time in Story field ✅
+     - Weather/Atmosphere field ✅
+     - Summary and Scene Goal fields ✅
+     - Conflict Type dropdown and Conflict Description ✅
+     - Est. Word Count field ✅
+     - Opening/Closing Emotion and Tone fields ✅
+     - Opening/Closing Hook fields ✅
+     - Scene Connections (setup/payoff) section ✅
+     - Chapter grouping view shows "Unassigned Scenes" ✅
+     - Character Matrix view shows scene-character relationships ✅
+   - All 12 test steps passed
+
+2. **Feature #10: Logout clears session completely** - VERIFIED ✅
+   - Created test project with scene and character data
+   - Found "Sign Out" button in Settings modal under "Account" section
+   - Clicked Sign Out - redirected to `/logout` page
+   - Verified "Signed Out Successfully" message displayed
+   - Verified "Your session has been cleared" confirmation
+   - "Sign In Again" button available for return to login
+   - Note: For local-first app, data persists in IndexedDB by design
+   - All 6 test steps passed
+
+3. **Feature #309: Cards have correct styling** - VERIFIED ✅
+   - Viewed character card for "TEST_CHAR_91"
+   - Verified subtle dark border on card ✅
+   - Verified rounded-lg corners ✅
+   - Verified hover state shows Edit and Delete buttons ✅
+   - All 4 test steps passed
+
+4. **Console Errors Check** - PASSED ✅
+   - No JavaScript errors in browser console during testing
+
+### Screenshots Captured:
+- regression_session91_home.png - Home page with projects list
+- regression_feature211_scene_form_top.png - Scene creation form
+- regression_feature211_scene_edit_form.png - Scene edit modal
+- regression_feature211_chapter_grouping.png - Chapter grouping view
+- regression_feature211_character_matrix.png - Character matrix view
+- regression_feature309_character_card.png - Character card display
+- regression_feature309_card_hover.png - Card hover state with action buttons
+- regression_feature10_settings_signout.png - Settings modal with Sign Out
+- regression_feature10_logout_success.png - Logout success page
+- regression_session91_final.png - Home page after cleanup
+
+### Cleanup Performed:
+- Deleted test project "Untitled Novel" (created Jan 10, 2026)
+- Test scene "REGRESSION_TEST_SCENE_91" automatically removed with project
+- Test character "TEST_CHAR_91" automatically removed with project
+- All test data removed
+
+### Current Status:
+- **400/400 features passing (100.0%)** 🎉
+- Application is fully functional and stable
+- Scene form includes all required properties from spec
+- Logout functionality works correctly
+- Card components have proper styling with hover states
+- No regressions detected
+
+### Application URLs:
+- Frontend: http://localhost:5173
+- Backend: http://localhost:3001
+
+### Notes for Future Sessions:
+- All 400 features remain passing
+- Project is 100% complete
+- Continue periodic regression testing to ensure stability
+
+---
+
 ## Session 90: Regression Testing & Verification
 # Date: 2026-01-10
 
