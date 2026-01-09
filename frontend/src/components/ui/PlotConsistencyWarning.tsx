@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback } from 'react'
-import { AlertTriangle, X, ChevronDown, ChevronUp, Clock, MapPin, Check, Eye, EyeOff, Wrench, Users } from 'lucide-react'
+import { AlertTriangle, X, ChevronDown, ChevronUp, Clock, MapPin, Check, Eye, EyeOff, Wrench, Users, Link2Off } from 'lucide-react'
 import type { PlotBeat, Character } from '@/types/project'
 
 export interface PlotConsistencyIssue {
   id: string
-  type: 'timeline_paradox' | 'character_location_conflict'
+  type: 'timeline_paradox' | 'character_location_conflict' | 'orphaned_foreshadowing' | 'orphaned_payoff'
   severity: 'warning' | 'error'
   beat1: PlotBeat
   beat2?: PlotBeat
@@ -101,6 +101,51 @@ function findTimelineParadoxes(beats: PlotBeat[]): PlotConsistencyIssue[] {
   return issues
 }
 
+// Check for orphaned foreshadowing/payoffs
+// An orphan occurs when a beat references a foreshadowing or payoff target that doesn't exist
+function findOrphanedReferences(beats: PlotBeat[]): PlotConsistencyIssue[] {
+  const issues: PlotConsistencyIssue[] = []
+  const beatIds = new Set(beats.map(b => b.id))
+
+  for (const beat of beats) {
+    // Check for orphaned foreshadowing references
+    if (beat.foreshadowing && beat.foreshadowing.length > 0) {
+      for (const targetId of beat.foreshadowing) {
+        if (!beatIds.has(targetId)) {
+          issues.push({
+            id: `orphan-foreshadow-${beat.id}-${targetId}`,
+            type: 'orphaned_foreshadowing',
+            severity: 'warning',
+            beat1: beat,
+            description: `"${beat.title}" has a foreshadowing reference to a beat that no longer exists. The payoff for this setup has been deleted.`,
+            suggestion: 'Edit this beat and remove the orphaned foreshadowing link, or recreate the payoff beat.',
+            status: 'pending',
+          })
+        }
+      }
+    }
+
+    // Check for orphaned payoff references
+    if (beat.payoffs && beat.payoffs.length > 0) {
+      for (const sourceId of beat.payoffs) {
+        if (!beatIds.has(sourceId)) {
+          issues.push({
+            id: `orphan-payoff-${beat.id}-${sourceId}`,
+            type: 'orphaned_payoff',
+            severity: 'warning',
+            beat1: beat,
+            description: `"${beat.title}" references a setup beat that no longer exists. The foreshadowing for this payoff has been deleted.`,
+            suggestion: 'Edit this beat and remove the orphaned payoff link, or recreate the setup beat.',
+            status: 'pending',
+          })
+        }
+      }
+    }
+  }
+
+  return issues
+}
+
 // Check for character location conflicts
 // A conflict occurs when the same character is involved in two beats at the same timeline position
 // but in different locations
@@ -177,6 +222,7 @@ export function PlotConsistencyWarning({
     const allIssues: PlotConsistencyIssue[] = [
       ...findTimelineParadoxes(beats),
       ...findCharacterLocationConflicts(beats, characters),
+      ...findOrphanedReferences(beats),
     ]
 
     // Apply saved statuses
@@ -256,15 +302,19 @@ export function PlotConsistencyWarning({
               <div className="flex items-start gap-2 mb-2">
                 {issue.type === 'timeline_paradox' ? (
                   <Clock className={`h-4 w-4 mt-0.5 flex-shrink-0 ${issue.severity === 'error' ? 'text-error' : 'text-warning'}`} aria-hidden="true" />
-                ) : (
+                ) : issue.type === 'character_location_conflict' ? (
                   <div className="flex items-center gap-0.5 flex-shrink-0">
                     <Users className={`h-4 w-4 ${issue.severity === 'error' ? 'text-error' : 'text-warning'}`} aria-hidden="true" />
                     <MapPin className={`h-3 w-3 ${issue.severity === 'error' ? 'text-error' : 'text-warning'}`} aria-hidden="true" />
                   </div>
+                ) : (
+                  <Link2Off className={`h-4 w-4 mt-0.5 flex-shrink-0 ${issue.severity === 'error' ? 'text-error' : 'text-warning'}`} aria-hidden="true" />
                 )}
                 <div className="flex-1">
                   <span className={`text-sm font-medium ${issue.severity === 'error' ? 'text-error' : 'text-warning'}`}>
-                    {issue.type === 'timeline_paradox' ? 'Timeline Paradox' : 'Character Location Conflict'}
+                    {issue.type === 'timeline_paradox' ? 'Timeline Paradox' :
+                     issue.type === 'character_location_conflict' ? 'Character Location Conflict' :
+                     issue.type === 'orphaned_foreshadowing' ? 'Orphaned Foreshadowing' : 'Orphaned Payoff'}
                   </span>
                   <p className="text-sm text-text-primary mt-1">
                     {issue.description}

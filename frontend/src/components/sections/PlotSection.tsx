@@ -550,6 +550,7 @@ export function PlotSection({ project }: SectionProps) {
         editBeat={editingBeat}
         characters={characters}
         framework={plot.framework}
+        allBeats={plot.beats}
       />
 
       {/* AI Progress Modal */}

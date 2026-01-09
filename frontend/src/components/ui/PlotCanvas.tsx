@@ -227,16 +227,19 @@ export function PlotCanvas({ beats, framework, onNodeClick, getCharacterName = (
     }))
   }, [sortedBeats, framework, getCharacterName])
 
-  // Generate edges connecting sequential beats
+  // Generate edges connecting sequential beats and foreshadowing/payoff connections
   const initialEdges = useMemo(() => {
     const edges: Edge[] = []
+    const addedEdges = new Set<string>()
 
+    // Sequential timeline edges
     for (let i = 0; i < sortedBeats.length - 1; i++) {
       const currentBeat = sortedBeats[i]
       const nextBeat = sortedBeats[i + 1]
+      const edgeId = `timeline-${currentBeat.id}-${nextBeat.id}`
 
       edges.push({
-        id: `${currentBeat.id}-${nextBeat.id}`,
+        id: edgeId,
         source: currentBeat.id,
         target: nextBeat.id,
         type: 'smoothstep',
@@ -250,6 +253,69 @@ export function PlotCanvas({ beats, framework, onNodeClick, getCharacterName = (
           color: '#666',
         },
       })
+      addedEdges.add(edgeId)
+    }
+
+    // Foreshadowing edges (dashed, colored blue)
+    for (const beat of sortedBeats) {
+      if (beat.foreshadowing && beat.foreshadowing.length > 0) {
+        for (const targetId of beat.foreshadowing) {
+          const edgeId = `foreshadow-${beat.id}-${targetId}`
+          if (!addedEdges.has(edgeId)) {
+            edges.push({
+              id: edgeId,
+              source: beat.id,
+              target: targetId,
+              type: 'smoothstep',
+              animated: true,
+              style: {
+                stroke: '#3B82F6', // blue
+                strokeWidth: 2,
+                strokeDasharray: '5,5',
+              },
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                color: '#3B82F6',
+              },
+              label: 'foreshadows',
+              labelStyle: { fontSize: 10, fill: '#3B82F6' },
+              labelBgStyle: { fill: '#1F2937', fillOpacity: 0.9 },
+              labelBgPadding: [4, 2] as [number, number],
+            })
+            addedEdges.add(edgeId)
+          }
+        }
+      }
+
+      // Payoff edges (dashed, colored green) - reverse direction
+      if (beat.payoffs && beat.payoffs.length > 0) {
+        for (const sourceId of beat.payoffs) {
+          const edgeId = `payoff-${sourceId}-${beat.id}`
+          if (!addedEdges.has(edgeId)) {
+            edges.push({
+              id: edgeId,
+              source: sourceId,
+              target: beat.id,
+              type: 'smoothstep',
+              animated: true,
+              style: {
+                stroke: '#22C55E', // green
+                strokeWidth: 2,
+                strokeDasharray: '5,5',
+              },
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                color: '#22C55E',
+              },
+              label: 'pays off',
+              labelStyle: { fontSize: 10, fill: '#22C55E' },
+              labelBgStyle: { fill: '#1F2937', fillOpacity: 0.9 },
+              labelBgPadding: [4, 2] as [number, number],
+            })
+            addedEdges.add(edgeId)
+          }
+        }
+      }
     }
 
     return edges

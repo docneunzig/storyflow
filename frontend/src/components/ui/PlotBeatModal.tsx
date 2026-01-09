@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Target, Sparkles, Loader2 } from 'lucide-react'
+import { X, Target, Sparkles, Loader2, ArrowRight, ArrowLeft } from 'lucide-react'
 import type { PlotBeat, PlotFramework, Character, ContentStatus } from '@/types/project'
 import { generateId } from '@/lib/db'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
@@ -11,6 +11,7 @@ interface PlotBeatModalProps {
   editBeat?: PlotBeat | null
   characters: Character[]
   framework: PlotFramework
+  allBeats?: PlotBeat[]  // All beats for foreshadowing/payoff selection
 }
 
 const FRAMEWORK_POSITIONS: Record<PlotFramework, string[]> = {
@@ -77,6 +78,7 @@ export function PlotBeatModal({
   editBeat,
   characters,
   framework,
+  allBeats = [],
 }: PlotBeatModalProps) {
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
@@ -91,6 +93,8 @@ export function PlotBeatModal({
   const [wordCountEstimate, setWordCountEstimate] = useState(2500)
   const [status, setStatus] = useState<ContentStatus>('outline')
   const [userNotes, setUserNotes] = useState('')
+  const [foreshadowing, setForeshadowing] = useState<string[]>([])  // IDs of beats this beat sets up
+  const [payoffs, setPayoffs] = useState<string[]>([])  // IDs of beats that set up this beat
 
   // AI generation for expanding beat
   const { isGenerating, generate } = useAIGeneration()
@@ -146,6 +150,8 @@ export function PlotBeatModal({
         setWordCountEstimate(editBeat.wordCountEstimate)
         setStatus(editBeat.status)
         setUserNotes(editBeat.userNotes)
+        setForeshadowing(editBeat.foreshadowing || [])
+        setPayoffs(editBeat.payoffs || [])
       } else {
         // Reset form for new beat
         setTitle('')
@@ -161,6 +167,8 @@ export function PlotBeatModal({
         setWordCountEstimate(2500)
         setStatus('outline')
         setUserNotes('')
+        setForeshadowing([])
+        setPayoffs([])
       }
     }
   }, [isOpen, editBeat, framework])
@@ -181,8 +189,8 @@ export function PlotBeatModal({
       timelinePosition,
       emotionalArc: emotionalArc.trim(),
       stakes: stakes.trim(),
-      foreshadowing: editBeat?.foreshadowing || [],
-      payoffs: editBeat?.payoffs || [],
+      foreshadowing,
+      payoffs,
       chapterTarget,
       wordCountEstimate,
       status,
@@ -192,6 +200,33 @@ export function PlotBeatModal({
     onSave(beat)
     onClose()
   }
+
+  // Toggle functions for foreshadowing/payoffs
+  const toggleForeshadowing = (beatId: string) => {
+    setForeshadowing(prev =>
+      prev.includes(beatId)
+        ? prev.filter(id => id !== beatId)
+        : [...prev, beatId]
+    )
+  }
+
+  const togglePayoff = (beatId: string) => {
+    setPayoffs(prev =>
+      prev.includes(beatId)
+        ? prev.filter(id => id !== beatId)
+        : [...prev, beatId]
+    )
+  }
+
+  // Get available beats for foreshadowing (beats that come after this one)
+  const laterBeats = allBeats
+    .filter(b => b.id !== editBeat?.id && b.timelinePosition > timelinePosition)
+    .sort((a, b) => a.timelinePosition - b.timelinePosition)
+
+  // Get available beats for payoffs (beats that come before this one)
+  const earlierBeats = allBeats
+    .filter(b => b.id !== editBeat?.id && b.timelinePosition < timelinePosition)
+    .sort((a, b) => a.timelinePosition - b.timelinePosition)
 
   const toggleCharacter = (charId: string) => {
     setCharactersInvolved(prev =>
@@ -454,6 +489,71 @@ export function PlotBeatModal({
               />
             </div>
           </div>
+
+          {/* Foreshadowing & Payoffs - only show when editing and there are other beats */}
+          {editBeat && allBeats.length > 1 && (
+            <div className="grid grid-cols-2 gap-4">
+              {/* Foreshadowing - this beat sets up later beats */}
+              <div>
+                <span className="flex items-center gap-1.5 text-sm font-medium text-text-primary mb-2">
+                  <ArrowRight className="h-4 w-4 text-accent" aria-hidden="true" />
+                  Foreshadows (sets up later beats)
+                </span>
+                {laterBeats.length > 0 ? (
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {laterBeats.map(beat => (
+                      <button
+                        key={beat.id}
+                        type="button"
+                        onClick={() => toggleForeshadowing(beat.id)}
+                        aria-pressed={foreshadowing.includes(beat.id)}
+                        className={`w-full text-left px-2 py-1.5 text-xs rounded border transition-colors ${
+                          foreshadowing.includes(beat.id)
+                            ? 'bg-accent/20 border-accent text-accent'
+                            : 'bg-surface-elevated border-border text-text-secondary hover:border-accent/50'
+                        }`}
+                      >
+                        <span className="font-medium">#{beat.timelinePosition}</span>{' '}
+                        {beat.title}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-secondary italic">No later beats available</p>
+                )}
+              </div>
+
+              {/* Payoffs - earlier beats that set up this beat */}
+              <div>
+                <span className="flex items-center gap-1.5 text-sm font-medium text-text-primary mb-2">
+                  <ArrowLeft className="h-4 w-4 text-success" aria-hidden="true" />
+                  Pays Off (builds on earlier beats)
+                </span>
+                {earlierBeats.length > 0 ? (
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {earlierBeats.map(beat => (
+                      <button
+                        key={beat.id}
+                        type="button"
+                        onClick={() => togglePayoff(beat.id)}
+                        aria-pressed={payoffs.includes(beat.id)}
+                        className={`w-full text-left px-2 py-1.5 text-xs rounded border transition-colors ${
+                          payoffs.includes(beat.id)
+                            ? 'bg-success/20 border-success text-success'
+                            : 'bg-surface-elevated border-border text-text-secondary hover:border-success/50'
+                        }`}
+                      >
+                        <span className="font-medium">#{beat.timelinePosition}</span>{' '}
+                        {beat.title}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-secondary italic">No earlier beats available</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* User Notes */}
           <div>
