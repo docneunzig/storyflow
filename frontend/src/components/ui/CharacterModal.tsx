@@ -206,7 +206,21 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
       let newFormData: Omit<Character, 'id'>
       if (editCharacter) {
         const { id, ...rest } = editCharacter
-        newFormData = rest
+        // Ensure all array fields have fallbacks to prevent undefined.join() errors
+        newFormData = {
+          ...rest,
+          aliases: rest.aliases || [],
+          distinguishingFeatures: rest.distinguishingFeatures || [],
+          strengths: rest.strengths || [],
+          flaws: rest.flaws || [],
+          fears: rest.fears || [],
+          desires: rest.desires || [],
+          needs: rest.needs || [],
+          formativeExperiences: rest.formativeExperiences || [],
+          secrets: rest.secrets || [],
+          catchphrases: rest.catchphrases || [],
+          scenesPresent: rest.scenesPresent || [],
+        }
       } else {
         newFormData = createEmptyCharacter()
       }
