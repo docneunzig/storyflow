@@ -333,8 +333,18 @@ function generateSampleChapterContent(context: Record<string, any>): string {
   const tone = spec.tone || context.tone || ''
 
   // Get character names for reference
-  const characters = context.characters || []
-  const characterNames = characters.map((c: any) => c.name).filter(Boolean)
+  // Handle both array format and object format { main: [...], supporting: [...] }
+  let charactersArray: any[] = []
+  if (Array.isArray(context.characters)) {
+    charactersArray = context.characters
+  } else if (context.characters && typeof context.characters === 'object') {
+    // Combine main and supporting characters from object format
+    charactersArray = [
+      ...(context.characters.main || []),
+      ...(context.characters.supporting || [])
+    ]
+  }
+  const characterNames = charactersArray.map((c: any) => c.name).filter(Boolean)
 
   // Get plot beats for reference
   const plotBeats = context.plotBeats || []
