@@ -14,12 +14,38 @@ import {
   ChevronRight,
   Menu,
   X,
+  Lock,
+  Star,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { useProjectStore, calculateProjectPhase } from '@/stores/projectStore'
+import type { ProjectPhase } from '@/types/project'
 
 interface SidebarProps {
   projectId?: string
+}
+
+// Define which sections are unlocked at each phase
+const PHASE_UNLOCKS: Record<ProjectPhase, string[]> = {
+  'specification': ['specification', 'wiki', 'stats'],
+  'plotting': ['specification', 'plot', 'wiki', 'stats'],
+  'characters': ['specification', 'plot', 'characters', 'wiki', 'stats'],
+  'scenes': ['specification', 'plot', 'characters', 'scenes', 'wiki', 'stats'],
+  'writing': ['specification', 'plot', 'characters', 'scenes', 'write', 'wiki', 'stats', 'market'],
+  'revision': ['specification', 'plot', 'characters', 'scenes', 'write', 'review', 'wiki', 'stats', 'market'],
+  'complete': ['specification', 'plot', 'characters', 'scenes', 'write', 'review', 'export', 'wiki', 'stats', 'market'],
+}
+
+// Get the recommended section for current phase
+const PHASE_RECOMMENDED: Record<ProjectPhase, string> = {
+  'specification': 'specification',
+  'plotting': 'plot',
+  'characters': 'characters',
+  'scenes': 'scenes',
+  'writing': 'write',
+  'revision': 'review',
+  'complete': 'export',
 }
 
 // Custom hook for detecting mobile viewport
@@ -59,6 +85,12 @@ export function Sidebar({ projectId }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const isMobile = useIsMobile()
 
+  // Get current project to calculate phase
+  const currentProject = useProjectStore((state) => state.currentProject)
+  const currentPhase = currentProject ? calculateProjectPhase(currentProject) : 'specification'
+  const unlockedSections = PHASE_UNLOCKS[currentPhase]
+  const recommendedSection = PHASE_RECOMMENDED[currentPhase]
+
   // Close mobile menu when navigating
   useEffect(() => {
     if (isMobile) {
@@ -67,6 +99,10 @@ export function Sidebar({ projectId }: SidebarProps) {
   }, [isMobile])
 
   if (!projectId) return null
+
+  // Helper to check if section is unlocked
+  const isSectionUnlocked = (path: string) => unlockedSections.includes(path)
+  const isSectionRecommended = (path: string) => path === recommendedSection
 
   // Mobile: Hamburger button + overlay sidebar
   if (isMobile) {
@@ -117,6 +153,9 @@ export function Sidebar({ projectId }: SidebarProps) {
                 }
 
                 const Icon = item.icon
+                const unlocked = isSectionUnlocked(item.path)
+                const recommended = isSectionRecommended(item.path)
+
                 return (
                   <li key={item.path}>
                     <NavLink
@@ -127,13 +166,21 @@ export function Sidebar({ projectId }: SidebarProps) {
                           'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
                           isActive
                             ? 'bg-accent text-white'
-                            : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
+                            : unlocked
+                            ? 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
+                            : 'text-text-secondary/50 hover:bg-surface-elevated/50'
                         )
                       }
                     >
                       <Icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                       <span className="flex-1">{item.label}</span>
-                      {item.shortcut && (
+                      {recommended && unlocked && (
+                        <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" aria-hidden="true" />
+                      )}
+                      {!unlocked && (
+                        <Lock className="h-3 w-3 text-text-secondary/50" aria-hidden="true" />
+                      )}
+                      {item.shortcut && unlocked && (
                         <kbd className="text-xs text-text-secondary bg-surface-elevated px-1.5 py-0.5 rounded">
                           {item.shortcut}
                         </kbd>
@@ -167,26 +214,37 @@ export function Sidebar({ projectId }: SidebarProps) {
             }
 
             const Icon = item.icon
+            const unlocked = isSectionUnlocked(item.path)
+            const recommended = isSectionRecommended(item.path)
+
             return (
               <li key={item.path}>
                 <NavLink
                   to={`/projects/${projectId}/${item.path}`}
                   className={({ isActive }) =>
                     cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+                      'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors relative',
                       isActive
                         ? 'bg-accent text-white'
-                        : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
+                        : unlocked
+                        ? 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
+                        : 'text-text-secondary/50 hover:bg-surface-elevated/50'
                     )
                   }
-                  title={collapsed ? item.label : undefined}
+                  title={collapsed ? `${item.label}${!unlocked ? ' (locked)' : recommended ? ' (recommended)' : ''}` : undefined}
                   aria-label={collapsed ? item.label : undefined}
                 >
                   <Icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                   {!collapsed && (
                     <>
                       <span className="flex-1">{item.label}</span>
-                      {item.shortcut && (
+                      {recommended && unlocked && (
+                        <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" aria-hidden="true" title="Recommended" />
+                      )}
+                      {!unlocked && (
+                        <Lock className="h-3 w-3 text-text-secondary/50" aria-hidden="true" title="Locked" />
+                      )}
+                      {item.shortcut && unlocked && (
                         <kbd className="text-xs text-text-secondary bg-surface-elevated px-1.5 py-0.5 rounded">
                           {item.shortcut}
                         </kbd>
