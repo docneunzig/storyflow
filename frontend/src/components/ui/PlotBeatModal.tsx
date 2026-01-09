@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
-import { X, Target } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { X, Target, Sparkles, Loader2 } from 'lucide-react'
 import type { PlotBeat, PlotFramework, Character, ContentStatus } from '@/types/project'
 import { generateId } from '@/lib/db'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
 
 interface PlotBeatModalProps {
   isOpen: boolean
@@ -90,6 +91,44 @@ export function PlotBeatModal({
   const [wordCountEstimate, setWordCountEstimate] = useState(2500)
   const [status, setStatus] = useState<ContentStatus>('outline')
   const [userNotes, setUserNotes] = useState('')
+
+  // AI generation for expanding beat
+  const { isGenerating, generate } = useAIGeneration()
+
+  const handleExpandWithAI = useCallback(async () => {
+    if (!title.trim() || !summary.trim()) return
+
+    const result = await generate({
+      agentTarget: 'plot',
+      action: 'expand-beat',
+      context: {
+        title,
+        summary,
+        frameworkPosition,
+        emotionalArc,
+        stakes,
+      },
+    })
+
+    if (result) {
+      // Parse expanded details from AI
+      try {
+        const parsed = JSON.parse(result)
+        if (parsed.detailedDescription) {
+          setDetailedDescription(parsed.detailedDescription)
+        }
+        if (parsed.emotionalArc && !emotionalArc) {
+          setEmotionalArc(parsed.emotionalArc)
+        }
+        if (parsed.stakes && !stakes) {
+          setStakes(parsed.stakes)
+        }
+      } catch {
+        // If not JSON, use as detailed description
+        setDetailedDescription(prev => prev ? `${prev}\n\n${result}` : result)
+      }
+    }
+  }, [title, summary, frameworkPosition, emotionalArc, stakes, generate])
 
   useEffect(() => {
     if (isOpen) {
@@ -242,9 +281,30 @@ export function PlotBeatModal({
 
           {/* Detailed Description */}
           <div>
-            <label htmlFor="beat-description" className="block text-sm font-medium text-text-primary mb-1">
-              Detailed Description
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="beat-description" className="block text-sm font-medium text-text-primary">
+                Detailed Description
+              </label>
+              <button
+                type="button"
+                onClick={handleExpandWithAI}
+                disabled={isGenerating || !title.trim() || !summary.trim()}
+                className="flex items-center gap-1.5 px-2 py-1 text-xs bg-accent/10 text-accent border border-accent/30 rounded hover:bg-accent/20 transition-colors disabled:opacity-50"
+                title="Expand with AI - adds more detail based on title and summary"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                    Expanding...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3 w-3" aria-hidden="true" />
+                    Expand with AI
+                  </>
+                )}
+              </button>
+            </div>
             <textarea
               id="beat-description"
               value={detailedDescription}

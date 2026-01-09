@@ -18,6 +18,64 @@ interface UnsavedChangesDialogProps {
 
 const ROLES: CharacterRole[] = ['protagonist', 'antagonist', 'supporting', 'minor']
 const STATUSES: CharacterStatus[] = ['alive', 'deceased', 'unknown']
+// Archetype templates with suggested traits
+const ARCHETYPE_TEMPLATES: Record<string, { strengths: string[]; flaws: string[]; desires: string[]; misbelief: string }> = {
+  'Reluctant Hero': {
+    strengths: ['Courage when pushed', 'Hidden capability', 'Moral compass'],
+    flaws: ['Self-doubt', 'Avoidance', 'Fears responsibility'],
+    desires: ['Peace', 'Normalcy', 'Safety'],
+    misbelief: "I'm not the one who should save the day"
+  },
+  'Chosen One': {
+    strengths: ['Unique abilities', 'Resilience', 'Inspires others'],
+    flaws: ['Arrogance', 'Pressure-induced doubt', 'Isolation'],
+    desires: ['To fulfill destiny', 'Acceptance', 'Proving worth'],
+    misbelief: "My value is only in my destiny"
+  },
+  'Anti-Hero': {
+    strengths: ['Pragmatism', 'Determination', 'Unconventional thinking'],
+    flaws: ['Moral flexibility', 'Trust issues', 'Self-destructive'],
+    desires: ['Redemption', 'Justice (their version)', 'Respect'],
+    misbelief: "The ends justify the means"
+  },
+  'Mastermind': {
+    strengths: ['Brilliant intellect', 'Strategic thinking', 'Patience'],
+    flaws: ['Arrogance', 'Underestimating emotions', 'Isolation'],
+    desires: ['Control', 'Recognition of genius', 'A worthy opponent'],
+    misbelief: "Intelligence is the only true power"
+  },
+  'Wise Mentor': {
+    strengths: ['Experience', 'Wisdom', 'Teaching ability'],
+    flaws: ['Past failures', 'Over-protectiveness', 'Secrets'],
+    desires: ['To pass on knowledge', 'To see protégé succeed', 'Redemption'],
+    misbelief: "I must protect them from my mistakes"
+  },
+  'Loyal Sidekick': {
+    strengths: ['Unwavering loyalty', 'Reliability', 'Support'],
+    flaws: ['Lack of confidence', 'Dependency', 'Overlooked'],
+    desires: ['Belonging', 'To prove worth', 'Recognition'],
+    misbelief: "I'm only valuable in supporting others"
+  },
+  'Trickster': {
+    strengths: ['Cunning', 'Adaptability', 'Humor'],
+    flaws: ['Unreliable', 'Self-serving', 'Commitment-phobic'],
+    desires: ['Freedom', 'Entertainment', 'To expose hypocrisy'],
+    misbelief: "Life is a game, and I must win"
+  },
+  'Tragic Hero': {
+    strengths: ['Noble qualities', 'Determination', 'Depth'],
+    flaws: ['Fatal flaw', 'Blindness to fault', 'Hubris'],
+    desires: ['Greatness', 'Recognition', 'Love'],
+    misbelief: "I can overcome fate through sheer will"
+  },
+  'Morally Gray': {
+    strengths: ['Complex reasoning', 'Adaptability', 'Unpredictability'],
+    flaws: ['Unreliable morality', 'Self-interest', 'Trust issues'],
+    desires: ['Survival', 'Their own code of justice', 'Balance'],
+    misbelief: "There is no true good or evil, only survival"
+  },
+}
+
 const ARCHETYPES = [
   'Reluctant Hero',
   'Chosen One',
@@ -239,6 +297,20 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
     setFormData(prev => ({ ...prev, [field]: value }))
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }))
+    }
+
+    // Apply archetype template when archetype is selected
+    if (field === 'archetype' && value in ARCHETYPE_TEMPLATES) {
+      const template = ARCHETYPE_TEMPLATES[value]
+      setFormData(prev => ({
+        ...prev,
+        archetype: value,
+        // Only apply template values if current values are empty
+        strengths: prev.strengths.length === 0 ? template.strengths : prev.strengths,
+        flaws: prev.flaws.length === 0 ? template.flaws : prev.flaws,
+        desires: prev.desires.length === 0 ? template.desires : prev.desires,
+        misbelief: prev.misbelief === '' ? template.misbelief : prev.misbelief,
+      }))
     }
   }
 
