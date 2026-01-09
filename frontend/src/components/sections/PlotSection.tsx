@@ -5,6 +5,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { updateProject, generateId } from '@/lib/db'
 import { PlotBeatModal } from '@/components/ui/PlotBeatModal'
 import { PlotCanvas } from '@/components/ui/PlotCanvas'
+import { PlotConsistencyWarning } from '@/components/ui/PlotConsistencyWarning'
 import { toast } from '@/components/ui/Toaster'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
@@ -375,6 +376,12 @@ export function PlotSection({ project }: SectionProps) {
           ))}
         </div>
       </div>
+
+      {/* Plot Consistency Warnings */}
+      <PlotConsistencyWarning
+        beats={sortedBeats}
+        characters={characters}
+      />
 
       {/* Plot Beats */}
       {viewMode === 'canvas' ? (
