@@ -4,6 +4,7 @@ import { Plus, BookOpen, Trash2, Calendar, Search } from 'lucide-react'
 import { useProjectStore } from '@/stores/projectStore'
 import { formatDate } from '@/lib/utils'
 import { toast } from '@/components/ui/Toaster'
+import { ProjectCardSkeleton, ListSkeleton } from '@/components/ui/Skeleton'
 import {
   getAllProjects,
   createProject as dbCreateProject,
@@ -112,8 +113,10 @@ export function ProjectList() {
         )}
 
         {isLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-pulse text-text-secondary">Loading projects...</div>
+          <div className="grid gap-4">
+            <ListSkeleton count={4}>
+              <ProjectCardSkeleton />
+            </ListSkeleton>
           </div>
         ) : projects.length === 0 ? (
           <div className="text-center py-16">
