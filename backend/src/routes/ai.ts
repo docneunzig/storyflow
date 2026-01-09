@@ -86,6 +86,49 @@ async function simulateAIGeneration(
   return { result, cancelled: false }
 }
 
+// Get POV-specific prose examples
+function getPOVProse(pov: string): { description: string; sampleNarration: string } {
+  const povLower = (pov || '').toLowerCase()
+
+  // First Person
+  if (povLower.includes('first')) {
+    return {
+      description: 'First Person (I, me, my)',
+      sampleNarration: `I walked through the doorway, my heart pounding in my chest. Something about this place felt wrong—I could sense it in my bones. Looking around, I noticed the shadows seemed to shift whenever I turned my head. "Hello?" I called out, my voice echoing off the walls. There was no answer, but I knew I wasn't alone.`
+    }
+  }
+
+  // Third Person Limited
+  if (povLower.includes('third') && (povLower.includes('limited') || !povLower.includes('omniscient'))) {
+    return {
+      description: 'Third Person Limited (he, she, they)',
+      sampleNarration: `She walked through the doorway, her heart pounding in her chest. Something about this place felt wrong—she could sense it in her bones. Looking around, she noticed the shadows seemed to shift whenever she turned her head. "Hello?" she called out, her voice echoing off the walls. There was no answer, but she knew she wasn't alone.`
+    }
+  }
+
+  // Third Person Omniscient
+  if (povLower.includes('omniscient')) {
+    return {
+      description: 'Third Person Omniscient (narrator knows all)',
+      sampleNarration: `She walked through the doorway, though she didn't know that behind the walls, three others were watching her every move. Her heart pounded in her chest—a fear she couldn't explain but that her watchers understood all too well. The shadows in this place were more than they seemed, ancient things that had witnessed countless others enter, never to leave.`
+    }
+  }
+
+  // Second Person
+  if (povLower.includes('second')) {
+    return {
+      description: 'Second Person (you, your)',
+      sampleNarration: `You walk through the doorway, your heart pounding in your chest. Something about this place feels wrong—you can sense it in your bones. Looking around, you notice the shadows seem to shift whenever you turn your head. "Hello?" you call out, your voice echoing off the walls. There is no answer, but you know you're not alone.`
+    }
+  }
+
+  // Default - Third Person Limited
+  return {
+    description: 'Third Person Limited (default)',
+    sampleNarration: `They walked through the doorway, uncertain of what lay ahead. The atmosphere was tense, charged with anticipation. Events would soon unfold that would change everything.`
+  }
+}
+
 // Get setting-appropriate elements
 function getSettingElements(setting: string): { elements: string[]; vocabulary: string[]; avoid: string[] } {
   const settingLower = (setting || '').toLowerCase()
@@ -134,11 +177,19 @@ function generateSampleChapterContent(context: Record<string, any>): string {
   const title = context.title || 'Untitled Chapter'
   const synopsis = context.synopsis || 'A new chapter begins.'
   const setting = context.setting || context.worldSetting || ''
+  const pov = context.pov || context.pointOfView || ''
   const settingElements = getSettingElements(setting)
+  const povProse = getPOVProse(pov)
 
   let chapterContent = `Chapter: ${title}\n\n`
-  chapterContent += `[Setting: ${setting || 'Not specified'}]\n\n`
+  chapterContent += `[Setting: ${setting || 'Not specified'}]\n`
+  chapterContent += `[POV: ${povProse.description}]\n\n`
   chapterContent += `${synopsis}\n\n`
+
+  // Include POV-appropriate sample narration
+  chapterContent += `--- Sample Narrative (${povProse.description}) ---\n\n`
+  chapterContent += `${povProse.sampleNarration}\n\n`
+  chapterContent += `--- End Sample ---\n\n`
 
   // Include setting-appropriate prose
   if (settingElements.elements.length > 0) {
@@ -146,7 +197,7 @@ function generateSampleChapterContent(context: Record<string, any>): string {
     chapterContent += `The story unfolds amidst ${randomElements} and other elements characteristic of this setting.\n\n`
   }
 
-  chapterContent += `The narrative continues with developments and revelations appropriate to the ${setting || 'story'} setting. Characters face challenges and make important decisions that will shape the story going forward.\n\n`
+  chapterContent += `The narrative continues with developments and revelations appropriate to the ${setting || 'story'} setting, maintaining consistent ${povProse.description} perspective throughout.\n\n`
 
   // Note about setting compliance
   if (settingElements.avoid.length > 0) {
@@ -154,6 +205,7 @@ function generateSampleChapterContent(context: Record<string, any>): string {
   }
 
   chapterContent += `The chapter would include:\n`
+  chapterContent += `- Narrative written in ${povProse.description}\n`
   chapterContent += `- Scene descriptions and atmosphere consistent with ${setting || 'the story'} setting\n`
   chapterContent += `- Character dialogue and interactions\n`
   chapterContent += `- Plot advancement\n`
