@@ -6,6 +6,7 @@ import { Footer } from './Footer'
 import { CommandPalette } from '@/components/ui/CommandPalette'
 import { SettingsModal } from '@/components/ui/SettingsModal'
 import { UnsavedChangesModal } from '@/components/ui/UnsavedChangesModal'
+import { FindDialog } from '@/components/ui/FindDialog'
 import { useProjectStore } from '@/stores/projectStore'
 import { toast } from '@/components/ui/Toaster'
 
@@ -27,6 +28,7 @@ export function Layout() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isFocusMode, setIsFocusMode] = useState(false)
+  const [isFindOpen, setIsFindOpen] = useState(false)
   const { saveStatus, setSaveStatus } = useProjectStore()
 
   // Extract current section from URL path
@@ -73,6 +75,11 @@ export function Layout() {
     if ((e.metaKey || e.ctrlKey) && e.key === 'e' && projectId) {
       e.preventDefault()
       navigate(`/projects/${projectId}/export`)
+    }
+    // Cmd+F - Open Find in Document
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f' && projectId) {
+      e.preventDefault()
+      setIsFindOpen(true)
     }
     // F11 - Toggle focus mode (distraction-free writing)
     if (e.key === 'F11') {
@@ -132,6 +139,12 @@ export function Layout() {
 
       {/* Unsaved Changes Warning Modal */}
       <UnsavedChangesModal />
+
+      {/* Find Dialog */}
+      <FindDialog
+        isOpen={isFindOpen}
+        onClose={() => setIsFindOpen(false)}
+      />
     </div>
   )
 }
