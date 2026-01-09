@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Plus, BookOpen, Edit2, Trash2, FileText, Lock, Film, ChevronDown, ChevronUp } from 'lucide-react'
-import type { Project, Chapter, Scene } from '@/types/project'
+import type { Project, Chapter, Scene, WikiEntry, DailyWordCount, WritingStatistics } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
 import { ChapterModal } from '@/components/ui/ChapterModal'
+import { WikiAutoExtractModal } from '@/components/ui/WikiAutoExtractModal'
+import { WikiConsistencyWarning } from '@/components/ui/WikiConsistencyWarning'
 import { toast } from '@/components/ui/Toaster'
 import { useNavigate } from 'react-router-dom'
 
@@ -19,6 +21,54 @@ const STATUS_COLORS: Record<string, string> = {
   locked: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
 }
 
+// Helper to get today's date string in YYYY-MM-DD format
+function getTodayDateString(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
+// Helper to update daily word count tracking
+function updateDailyWordCount(
+  currentStats: WritingStatistics | null,
+  wordsAdded: number
+): WritingStatistics {
+  const today = getTodayDateString()
+  const existingWordsPerDay = currentStats?.wordsPerDay || []
+
+  // Find today's entry or create a new one
+  const todayIndex = existingWordsPerDay.findIndex(d => d.date === today)
+  let updatedWordsPerDay: DailyWordCount[]
+
+  if (todayIndex >= 0) {
+    // Update existing entry for today
+    updatedWordsPerDay = existingWordsPerDay.map((d, i) =>
+      i === todayIndex ? { ...d, count: d.count + wordsAdded } : d
+    )
+  } else {
+    // Add new entry for today
+    updatedWordsPerDay = [...existingWordsPerDay, { date: today, count: wordsAdded }]
+  }
+
+  // Keep only the last 30 days of data
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0]
+  updatedWordsPerDay = updatedWordsPerDay.filter(d => d.date >= thirtyDaysAgoStr)
+
+  // Sort by date
+  updatedWordsPerDay.sort((a, b) => a.date.localeCompare(b.date))
+
+  return {
+    totalWords: currentStats?.totalWords || 0,
+    wordsPerDay: updatedWordsPerDay,
+    sessionsLogged: currentStats?.sessionsLogged || [],
+    averageSessionLength: currentStats?.averageSessionLength || 0,
+    chaptersCompleted: currentStats?.chaptersCompleted || 0,
+    totalChapters: currentStats?.totalChapters || 0,
+    revisionsCompleted: currentStats?.revisionsCompleted || 0,
+    averageQualityScore: currentStats?.averageQualityScore || 0,
+  }
+}
+
 export function WriteSection({ project }: SectionProps) {
   const navigate = useNavigate()
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -27,6 +77,8 @@ export function WriteSection({ project }: SectionProps) {
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null)
   const [isScenesExpanded, setIsScenesExpanded] = useState(true)
   const [isContentExpanded, setIsContentExpanded] = useState(true)
+  const [showWikiExtract, setShowWikiExtract] = useState(false)
+  const [lastSavedChapter, setLastSavedChapter] = useState<Chapter | null>(null)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
 
   const handleSaveChapter = async (chapter: Chapter) => {
@@ -35,6 +87,12 @@ export function WriteSection({ project }: SectionProps) {
 
       const isEditing = project.chapters.some(c => c.id === chapter.id)
       let updatedChapters: Chapter[]
+
+      // Calculate word count difference for tracking
+      const newWordCount = chapter.wordCount || 0
+      const oldChapter = project.chapters.find(c => c.id === chapter.id)
+      const oldWordCount = oldChapter?.wordCount || 0
+      const wordsAdded = newWordCount - oldWordCount
 
       if (isEditing) {
         updatedChapters = project.chapters.map(c =>
@@ -49,13 +107,47 @@ export function WriteSection({ project }: SectionProps) {
       // Sort chapters by number
       updatedChapters.sort((a, b) => a.number - b.number)
 
-      await updateProject(project.id, { chapters: updatedChapters })
-      updateProjectStore(project.id, { chapters: updatedChapters })
+      // Update daily word count tracking if words were added
+      let updatedStatistics = project.statistics
+      if (wordsAdded > 0) {
+        updatedStatistics = updateDailyWordCount(project.statistics, wordsAdded)
+      }
+
+      await updateProject(project.id, { chapters: updatedChapters, statistics: updatedStatistics })
+      updateProjectStore(project.id, { chapters: updatedChapters, statistics: updatedStatistics })
       setSaveStatus('saved')
       setEditingChapter(null)
+
+      // If chapter has content, show wiki auto-extraction modal
+      if (chapter.content && chapter.content.trim().length > 50) {
+        setLastSavedChapter(chapter)
+        setShowWikiExtract(true)
+      }
     } catch (error) {
       console.error('Failed to save chapter:', error)
       toast({ title: 'Failed to save chapter', variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+  }
+
+  // Handle adding wiki entries from auto-extraction
+  const handleAddWikiEntries = async (entries: WikiEntry[]) => {
+    if (entries.length === 0) return
+
+    try {
+      setSaveStatus('saving')
+      const existingEntries = project.worldbuildingEntries || []
+      const updatedEntries = [...existingEntries, ...entries]
+      await updateProject(project.id, { worldbuildingEntries: updatedEntries })
+      updateProjectStore(project.id, { worldbuildingEntries: updatedEntries })
+      setSaveStatus('saved')
+      toast({
+        title: `Added ${entries.length} wiki ${entries.length === 1 ? 'entry' : 'entries'}`,
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('Failed to add wiki entries:', error)
+      toast({ title: 'Failed to add wiki entries', variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -333,6 +425,16 @@ export function WriteSection({ project }: SectionProps) {
               </button>
               {isContentExpanded && (
                 <div id="chapter-content-section" className="flex-1 overflow-y-auto p-6">
+                  {/* Wiki Consistency Warning */}
+                  {selectedChapter.content && (
+                    <div className="max-w-3xl mx-auto mb-4">
+                      <WikiConsistencyWarning
+                        chapter={selectedChapter}
+                        wikiEntries={project.worldbuildingEntries || []}
+                      />
+                    </div>
+                  )}
+
                   {selectedChapter.content ? (
                     <div className="max-w-3xl mx-auto">
                       <div className="prose prose-invert prose-lg font-serif whitespace-pre-wrap">
@@ -393,7 +495,23 @@ export function WriteSection({ project }: SectionProps) {
         onSave={handleSaveChapter}
         editChapter={editingChapter}
         nextChapterNumber={nextChapterNumber}
+        project={project}
       />
+
+      {/* Wiki Auto-Extraction Modal */}
+      {lastSavedChapter && (
+        <WikiAutoExtractModal
+          isOpen={showWikiExtract}
+          onClose={() => {
+            setShowWikiExtract(false)
+            setLastSavedChapter(null)
+          }}
+          onAddEntries={handleAddWikiEntries}
+          chapter={lastSavedChapter}
+          existingWikiEntries={project.worldbuildingEntries || []}
+          existingCharacters={project.characters || []}
+        />
+      )}
     </div>
   )
 }

@@ -1,13 +1,96 @@
 import { useState, useRef } from 'react'
-import { Download, Upload, FileJson, FileText, Loader2 } from 'lucide-react'
+import { Download, Upload, FileJson, FileText, Loader2, FileType } from 'lucide-react'
 import type { Project } from '@/types/project'
 import { createProject, updateProject } from '@/lib/db'
 import { useProjectStore } from '@/stores/projectStore'
 import { toast } from '@/components/ui/Toaster'
 import { useNavigate } from 'react-router-dom'
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  AlignmentType,
+  PageBreak,
+  convertInchesToTwip,
+} from 'docx'
+import { saveAs } from 'file-saver'
+
+// DOCX Export Preset Types
+type DOCXPreset = 'standard-manuscript' | 'modern' | 'paperback' | 'print-ready-6x9'
+
+interface DOCXPresetConfig {
+  name: string
+  description: string
+  font: string
+  fontSize: number // in points
+  lineSpacing: number // 240 = single, 480 = double
+  marginTop: number // in inches
+  marginBottom: number
+  marginLeft: number
+  marginRight: number
+  firstLineIndent: number // in inches
+  pageWidth?: number // in inches (optional, default is letter 8.5)
+  pageHeight?: number // in inches (optional, default is letter 11)
+}
 
 interface SectionProps {
   project: Project
+}
+
+// DOCX Preset Configurations
+const DOCX_PRESETS: Record<DOCXPreset, DOCXPresetConfig> = {
+  'standard-manuscript': {
+    name: 'Standard Manuscript',
+    description: '12pt Times New Roman, double-spaced, 1" margins',
+    font: 'Times New Roman',
+    fontSize: 12,
+    lineSpacing: 480, // Double-spaced (240 = single, 480 = double)
+    marginTop: 1,
+    marginBottom: 1,
+    marginLeft: 1,
+    marginRight: 1,
+    firstLineIndent: 0.5,
+  },
+  'modern': {
+    name: 'Modern',
+    description: '11pt Arial, 1.5 spacing, 0.75" margins',
+    font: 'Arial',
+    fontSize: 11,
+    lineSpacing: 360, // 1.5 spacing
+    marginTop: 0.75,
+    marginBottom: 0.75,
+    marginLeft: 0.75,
+    marginRight: 0.75,
+    firstLineIndent: 0.3,
+  },
+  'paperback': {
+    name: 'Paperback',
+    description: '11pt Garamond, single-spaced, 0.8" margins',
+    font: 'Garamond',
+    fontSize: 11,
+    lineSpacing: 240, // Single-spaced
+    marginTop: 0.8,
+    marginBottom: 0.8,
+    marginLeft: 0.8,
+    marginRight: 0.8,
+    firstLineIndent: 0.25,
+  },
+  'print-ready-6x9': {
+    name: 'Print-Ready 6x9',
+    description: '11pt Garamond, 1.15 spacing, 6"x9" trade paperback',
+    font: 'Garamond',
+    fontSize: 11,
+    lineSpacing: 276, // 1.15 spacing
+    marginTop: 0.75,
+    marginBottom: 0.75,
+    marginLeft: 0.875, // Slightly larger inside margin for binding
+    marginRight: 0.625,
+    firstLineIndent: 0.3,
+    pageWidth: 6,
+    pageHeight: 9,
+  },
 }
 
 export function ExportSection({ project }: SectionProps) {
@@ -15,6 +98,7 @@ export function ExportSection({ project }: SectionProps) {
   const { setCurrentProject } = useProjectStore()
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [selectedPreset, setSelectedPreset] = useState<DOCXPreset>('standard-manuscript')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function exportAsJSON() {
@@ -81,6 +165,340 @@ export function ExportSection({ project }: SectionProps) {
     } catch (error) {
       console.error('Export failed:', error)
       toast({ title: 'Error', description: 'Failed to export project', variant: 'error' })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  async function exportAsDOCX() {
+    setIsExporting(true)
+    try {
+      const preset = DOCX_PRESETS[selectedPreset]
+      const title = project.metadata?.workingTitle || 'Untitled Novel'
+      const author = project.metadata?.authorName || 'Unknown Author'
+
+      // Build document sections
+      const children: Paragraph[] = []
+      const currentYear = new Date().getFullYear()
+
+      // ============ TITLE PAGE ============
+      // Add some vertical space at the top
+      for (let i = 0; i < 8; i++) {
+        children.push(new Paragraph({ children: [] }))
+      }
+
+      // Title - large, bold, centered
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: title, font: 'Georgia', size: 36 * 2, bold: true })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+        })
+      )
+
+      // Subtitle line (if we had one, we'd put it here)
+      children.push(new Paragraph({ children: [] }))
+
+      // Author name
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: `by`, font: preset.font, size: preset.fontSize * 2, italics: true })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 100 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: author, font: 'Georgia', size: 24 * 2 })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+        })
+      )
+
+      // Page break after title page
+      children.push(
+        new Paragraph({
+          children: [new PageBreak()],
+        })
+      )
+
+      // ============ COPYRIGHT PAGE ============
+      // Add some vertical space
+      for (let i = 0; i < 20; i++) {
+        children.push(new Paragraph({ children: [] }))
+      }
+
+      // Copyright notice
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: `Copyright © ${currentYear} ${author}`, font: preset.font, size: preset.fontSize * 2 })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: 'All rights reserved.', font: preset.font, size: preset.fontSize * 2 })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: 'This is a work of fiction. Names, characters, places, and incidents either are the product of the author\'s imagination or are used fictitiously.', font: preset.font, size: (preset.fontSize - 2) * 2, italics: true })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: '[Publisher information placeholder]', font: preset.font, size: (preset.fontSize - 2) * 2 })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: '[ISBN placeholder]', font: preset.font, size: (preset.fontSize - 2) * 2 })],
+          alignment: AlignmentType.CENTER,
+        })
+      )
+
+      // Page break after copyright page
+      children.push(
+        new Paragraph({
+          children: [new PageBreak()],
+        })
+      )
+
+      // Add chapters
+      if (project.chapters && project.chapters.length > 0) {
+        for (let chapterIndex = 0; chapterIndex < project.chapters.length; chapterIndex++) {
+          const chapter = project.chapters[chapterIndex]
+
+          // Add page break before each chapter (except the first one, since title page already has one)
+          if (chapterIndex > 0) {
+            children.push(
+              new Paragraph({
+                children: [new PageBreak()],
+              })
+            )
+          }
+
+          // Chapter heading - Georgia 16pt bold, centered
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Chapter ${chapter.number}: ${chapter.title || 'Untitled'}`,
+                  font: 'Georgia',
+                  size: 16 * 2, // 16pt in half-points
+                  bold: true,
+                }),
+              ],
+              heading: HeadingLevel.HEADING_1,
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 400, after: 400 },
+            })
+          )
+
+          // Chapter content - split by paragraphs
+          const content = chapter.content || ''
+          const paragraphs = content.split(/\n\n+/)
+
+          for (const para of paragraphs) {
+            const trimmedPara = para.trim()
+            if (trimmedPara) {
+              // Check if this is a scene break (common patterns: ***, ---, ~~~, ###, or just asterisks)
+              const isSceneBreak = /^(\*\s*\*\s*\*|\*{3,}|---+|~~~+|###*)$/.test(trimmedPara)
+
+              if (isSceneBreak) {
+                // Scene break - centered "* * *" with extra spacing
+                children.push(
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: '* * *',
+                        font: preset.font,
+                        size: preset.fontSize * 2,
+                      }),
+                    ],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 400, after: 400, line: preset.lineSpacing },
+                  })
+                )
+              } else {
+                // Regular paragraph
+                children.push(
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: trimmedPara,
+                        font: preset.font,
+                        size: preset.fontSize * 2, // docx uses half-points
+                      }),
+                    ],
+                    indent: { firstLine: convertInchesToTwip(preset.firstLineIndent) },
+                    spacing: { line: preset.lineSpacing },
+                  })
+                )
+              }
+            }
+          }
+        }
+      } else {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: 'No chapters written yet.',
+                font: preset.font,
+                size: preset.fontSize * 2,
+                italics: true,
+              }),
+            ],
+          })
+        )
+      }
+
+      // ============ BACK MATTER ============
+      // Page break before back matter
+      children.push(
+        new Paragraph({
+          children: [new PageBreak()],
+        })
+      )
+
+      // About the Author section
+      // Add some vertical space at the top
+      for (let i = 0; i < 6; i++) {
+        children.push(new Paragraph({ children: [] }))
+      }
+
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: 'About the Author',
+              font: 'Georgia',
+              size: 18 * 2,
+              bold: true,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `[Author bio placeholder - Add a brief biography of ${author} here.]`,
+              font: preset.font,
+              size: preset.fontSize * 2,
+              italics: true,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: '[Author photo placeholder]',
+              font: preset.font,
+              size: (preset.fontSize - 2) * 2,
+              italics: true,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+        })
+      )
+
+      // Page break before "Also By" section
+      children.push(
+        new Paragraph({
+          children: [new PageBreak()],
+        })
+      )
+
+      // Also By section
+      // Add some vertical space at the top
+      for (let i = 0; i < 6; i++) {
+        children.push(new Paragraph({ children: [] }))
+      }
+
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `Also By ${author}`,
+              font: 'Georgia',
+              size: 18 * 2,
+              bold: true,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: '[List of other books by the author placeholder]',
+              font: preset.font,
+              size: preset.fontSize * 2,
+              italics: true,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: '[Add book titles here]',
+              font: preset.font,
+              size: (preset.fontSize - 2) * 2,
+              italics: true,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+        })
+      )
+
+      // Create the document with optional custom page size
+      const pageProperties: {
+        margin: { top: number; bottom: number; left: number; right: number }
+        size?: { width: number; height: number }
+      } = {
+        margin: {
+          top: convertInchesToTwip(preset.marginTop),
+          bottom: convertInchesToTwip(preset.marginBottom),
+          left: convertInchesToTwip(preset.marginLeft),
+          right: convertInchesToTwip(preset.marginRight),
+        },
+      }
+
+      // Add custom page size if specified
+      if (preset.pageWidth && preset.pageHeight) {
+        pageProperties.size = {
+          width: convertInchesToTwip(preset.pageWidth),
+          height: convertInchesToTwip(preset.pageHeight),
+        }
+      }
+
+      const doc = new Document({
+        sections: [
+          {
+            properties: {
+              page: pageProperties,
+            },
+            children,
+          },
+        ],
+      })
+
+      // Generate and download
+      const blob = await Packer.toBlob(doc)
+      saveAs(blob, `${title.replace(/[^a-z0-9]/gi, '-')}.docx`)
+
+      toast({
+        title: 'Success',
+        description: `Exported as DOCX with ${preset.name} format`,
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('DOCX export failed:', error)
+      toast({ title: 'Error', description: 'Failed to export DOCX', variant: 'error' })
     } finally {
       setIsExporting(false)
     }
@@ -251,13 +669,71 @@ export function ExportSection({ project }: SectionProps) {
         </div>
       </div>
 
-      {/* DOCX Coming Soon */}
+      {/* DOCX Professional Formats */}
       <div className="mt-8">
         <h2 className="text-lg font-semibold text-text-primary mb-4">Professional Formats</h2>
-        <div className="card border-dashed opacity-75">
-          <p className="text-text-secondary text-center py-4">
-            DOCX export with professional formatting presets coming soon...
+        <div className="card">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-purple-500/10 rounded-lg">
+              <FileType className="h-6 w-6 text-purple-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-text-primary">DOCX Export</h3>
+              <p className="text-sm text-text-secondary">Professional manuscript format</p>
+            </div>
+          </div>
+
+          <p className="text-text-secondary text-sm mb-4">
+            Export your manuscript as a DOCX file with professional formatting. Choose a preset that
+            matches your needs.
           </p>
+
+          {/* Preset Selection */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-text-primary mb-2">
+              Format Preset
+            </label>
+            <div className="grid gap-2">
+              {(Object.keys(DOCX_PRESETS) as DOCXPreset[]).map((presetKey) => {
+                const preset = DOCX_PRESETS[presetKey]
+                const isSelected = selectedPreset === presetKey
+                return (
+                  <button
+                    key={presetKey}
+                    onClick={() => setSelectedPreset(presetKey)}
+                    className={`text-left p-3 rounded-lg border transition-colors ${
+                      isSelected
+                        ? 'border-purple-500 bg-purple-500/10'
+                        : 'border-border hover:border-purple-500/50 hover:bg-surface-elevated'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-text-primary">{preset.name}</span>
+                      {isSelected && (
+                        <span className="text-xs px-2 py-0.5 bg-purple-500 text-white rounded">
+                          Selected
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-secondary mt-1">{preset.description}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <button
+            onClick={exportAsDOCX}
+            disabled={isExporting}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50"
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            Export DOCX
+          </button>
         </div>
       </div>
     </div>

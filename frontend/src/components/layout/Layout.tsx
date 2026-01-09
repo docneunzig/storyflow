@@ -7,6 +7,7 @@ import { CommandPalette } from '@/components/ui/CommandPalette'
 import { SettingsModal } from '@/components/ui/SettingsModal'
 import { UnsavedChangesModal } from '@/components/ui/UnsavedChangesModal'
 import { FindDialog } from '@/components/ui/FindDialog'
+import { AIGenerationModal } from '@/components/ui/AIGenerationModal'
 import { useProjectStore } from '@/stores/projectStore'
 import { toast } from '@/components/ui/Toaster'
 
@@ -29,7 +30,8 @@ export function Layout() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isFocusMode, setIsFocusMode] = useState(false)
   const [isFindOpen, setIsFindOpen] = useState(false)
-  const { saveStatus, setSaveStatus } = useProjectStore()
+  const [isAIGenerationOpen, setIsAIGenerationOpen] = useState(false)
+  const { saveStatus, setSaveStatus, currentProject } = useProjectStore()
 
   // Extract current section from URL path
   const getCurrentSection = () => {
@@ -80,6 +82,11 @@ export function Layout() {
     if ((e.metaKey || e.ctrlKey) && e.key === 'f' && projectId) {
       e.preventDefault()
       setIsFindOpen(true)
+    }
+    // Cmd+Enter - Open AI Generation modal
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && projectId) {
+      e.preventDefault()
+      setIsAIGenerationOpen(true)
     }
     // F11 - Toggle focus mode (distraction-free writing)
     if (e.key === 'F11') {
@@ -144,6 +151,14 @@ export function Layout() {
       <FindDialog
         isOpen={isFindOpen}
         onClose={() => setIsFindOpen(false)}
+      />
+
+      {/* AI Generation Modal */}
+      <AIGenerationModal
+        isOpen={isAIGenerationOpen}
+        onClose={() => setIsAIGenerationOpen(false)}
+        project={currentProject}
+        currentSection={currentSection}
       />
     </div>
   )

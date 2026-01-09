@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react'
-import { X, Sparkles, Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { X, Sparkles, Loader2, CheckCircle, XCircle, AlertCircle, Check } from 'lucide-react'
 import type { AIGenerationStatus } from '@/hooks/useAIGeneration'
 
 interface AIProgressModalProps {
@@ -11,6 +11,7 @@ interface AIProgressModalProps {
   message: string
   error?: string | null
   title?: string
+  onSkipToFinal?: () => void // Optional callback for "Skip to Final" during auto-improve
 }
 
 export function AIProgressModal({
@@ -22,6 +23,7 @@ export function AIProgressModal({
   message,
   error,
   title = 'AI Generation',
+  onSkipToFinal,
 }: AIProgressModalProps) {
   // Handle Escape key to close (only when not generating)
   const handleKeyDown = useCallback(
@@ -157,13 +159,25 @@ export function AIProgressModal({
         {/* Footer */}
         <div className="p-4 border-t border-border flex gap-3 justify-center">
           {status === 'generating' && (
-            <button
-              onClick={onCancel}
-              className="px-6 py-2 bg-error/10 text-error border border-error/30 rounded-lg hover:bg-error/20 transition-colors font-medium"
-              aria-label="Cancel AI generation"
-            >
-              Cancel Generation
-            </button>
+            <>
+              {onSkipToFinal && (
+                <button
+                  onClick={onSkipToFinal}
+                  className="px-6 py-2 bg-success/10 text-success border border-success/30 rounded-lg hover:bg-success/20 transition-colors font-medium flex items-center gap-2"
+                  aria-label="Skip to final and accept current state"
+                >
+                  <Check className="h-4 w-4" />
+                  Skip to Final
+                </button>
+              )}
+              <button
+                onClick={onCancel}
+                className="px-6 py-2 bg-error/10 text-error border border-error/30 rounded-lg hover:bg-error/20 transition-colors font-medium"
+                aria-label="Cancel AI generation"
+              >
+                Cancel Generation
+              </button>
+            </>
           )}
 
           {status === 'cancelling' && (

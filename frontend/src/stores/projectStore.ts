@@ -8,6 +8,11 @@ interface ProjectState {
   currentProject: Project | null
   setCurrentProject: (project: Project | null) => void
 
+  // Session tracking
+  sessionStartWordCount: number
+  sessionStartTime: number | null
+  setSessionStartWordCount: (count: number) => void
+
   // Project list
   projects: Project[]
   setProjects: (projects: Project[]) => void
@@ -32,10 +37,28 @@ interface ProjectState {
   setError: (error: string | null) => void
 }
 
-export const useProjectStore = create<ProjectState>((set) => ({
+export const useProjectStore = create<ProjectState>((set, get) => ({
   // Current project
   currentProject: null,
-  setCurrentProject: (project) => set({ currentProject: project }),
+  setCurrentProject: (project) => {
+    const state = get()
+    // When setting a new project, initialize session start word count if not already set
+    if (project && state.sessionStartTime === null) {
+      const totalWords = (project.chapters || []).reduce((sum, ch) => sum + (ch.wordCount || 0), 0)
+      set({
+        currentProject: project,
+        sessionStartWordCount: totalWords,
+        sessionStartTime: Date.now(),
+      })
+    } else {
+      set({ currentProject: project })
+    }
+  },
+
+  // Session tracking
+  sessionStartWordCount: 0,
+  sessionStartTime: null,
+  setSessionStartWordCount: (count) => set({ sessionStartWordCount: count }),
 
   // Project list
   projects: [],

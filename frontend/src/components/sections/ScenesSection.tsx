@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react'
-import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft, GripVertical, LayoutGrid, LayoutList, Layers } from 'lucide-react'
+import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft, GripVertical, LayoutGrid, LayoutList, Layers, Grid3X3 } from 'lucide-react'
 import type { Project, Scene, Chapter } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
 import { SceneModal } from '@/components/ui/SceneModal'
 import { SceneTimeline } from '@/components/ui/SceneTimeline'
+import { SceneCharacterMatrix } from '@/components/ui/SceneCharacterMatrix'
 import { toast } from '@/components/ui/Toaster'
 
-type ViewMode = 'cards' | 'timeline' | 'chapters'
+type ViewMode = 'cards' | 'timeline' | 'chapters' | 'matrix'
 
 interface SectionProps {
   project: Project
@@ -360,6 +361,18 @@ export function ScenesSection({ project }: SectionProps) {
                 <Layers className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Chapters</span>
               </button>
+              <button
+                onClick={() => setViewMode('matrix')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                  viewMode === 'matrix'
+                    ? 'bg-accent text-white'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface'
+                }`}
+                aria-label="Character matrix view"
+              >
+                <Grid3X3 className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Matrix</span>
+              </button>
             </div>
           </div>
 
@@ -368,6 +381,15 @@ export function ScenesSection({ project }: SectionProps) {
             <SceneTimeline
               scenes={scenes}
               chapters={chapters}
+              characters={characters}
+              onSceneClick={(scene) => handleOpenModal(scene)}
+            />
+          )}
+
+          {/* Matrix View */}
+          {viewMode === 'matrix' && (
+            <SceneCharacterMatrix
+              scenes={scenes}
               characters={characters}
               onSceneClick={(scene) => handleOpenModal(scene)}
             />
@@ -412,14 +434,25 @@ export function ScenesSection({ project }: SectionProps) {
                     </div>
 
                     {/* Scenes list */}
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {group.scenes.map((scene, idx) => (
                         <div
                           key={scene.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, scene.id)}
+                          onDragEnd={handleDragEnd}
+                          onDragOver={(e) => handleDragOver(e, scene.id)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, scene.id)}
                           onClick={() => handleOpenModal(scene)}
-                          className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated cursor-pointer transition-colors group"
+                          className={`flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated cursor-move transition-all group ${
+                            draggedSceneId === scene.id ? 'opacity-50' : ''
+                          } ${
+                            dragOverSceneId === scene.id ? 'ring-2 ring-accent scale-[1.02]' : ''
+                          }`}
                         >
                           <div className="flex items-center gap-2 flex-shrink-0">
+                            <GripVertical className="h-4 w-4 text-text-secondary opacity-50 group-hover:opacity-100" />
                             <span className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-medium">
                               {idx + 1}
                             </span>

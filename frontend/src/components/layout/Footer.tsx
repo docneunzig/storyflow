@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useProjectStore } from '@/stores/projectStore'
 import { formatWordCount } from '@/lib/utils'
-import { Keyboard } from 'lucide-react'
+import { Keyboard, Star } from 'lucide-react'
 
 export function Footer() {
   const { currentProject } = useProjectStore()
@@ -17,14 +17,31 @@ export function Footer() {
       ch => ch.status === 'final' || ch.status === 'locked'
     ).length
 
+    // Calculate average quality score from quality scores
+    const qualityScores = currentProject.qualityScores || []
+    let averageQualityScore: number | null = null
+    if (qualityScores.length > 0) {
+      const total = qualityScores.reduce((sum, qs) => sum + (qs.overallScore || 0), 0)
+      averageQualityScore = total / qualityScores.length
+    }
+
     return {
       totalWords,
       totalChapters,
       completedChapters,
+      averageQualityScore,
     }
   }, [currentProject])
 
   if (!currentProject) return null
+
+  // Get color based on quality score
+  const getQualityColor = (score: number) => {
+    if (score >= 9.0) return 'text-success'
+    if (score >= 7.5) return 'text-accent'
+    if (score >= 6.0) return 'text-warning'
+    return 'text-error'
+  }
 
   return (
     <footer className="h-8 bg-surface border-t border-border flex items-center justify-between px-4 text-xs text-text-secondary" role="contentinfo" aria-label="Project statistics">
@@ -38,6 +55,14 @@ export function Footer() {
         <span>
           {stats?.completedChapters || 0}/{stats?.totalChapters || 0} chapters
         </span>
+
+        {/* Quality Score */}
+        {stats?.averageQualityScore !== null && stats?.averageQualityScore !== undefined && (
+          <span className={`flex items-center gap-1 ${getQualityColor(stats.averageQualityScore)}`}>
+            <Star className="h-3 w-3" aria-hidden="true" />
+            {stats.averageQualityScore.toFixed(1)}/10
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
