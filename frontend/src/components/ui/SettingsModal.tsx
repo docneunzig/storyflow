@@ -1,7 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Moon, Sun, Keyboard, LogOut } from 'lucide-react'
+import { X, Moon, Sun, LogOut, Clock, Activity } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useThemeStore } from '@/stores/themeStore'
+
+// Settings storage keys
+const SETTINGS_KEYS = {
+  sessionTracking: 'storyflow-session-tracking',
+  autosaveInterval: 'storyflow-autosave-interval',
+} as const
+
+// Get session tracking setting
+export function getSessionTrackingEnabled(): boolean {
+  const stored = localStorage.getItem(SETTINGS_KEYS.sessionTracking)
+  return stored !== 'false' // Default to true
+}
+
+// Set session tracking setting
+export function setSessionTrackingEnabled(enabled: boolean): void {
+  localStorage.setItem(SETTINGS_KEYS.sessionTracking, String(enabled))
+}
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -12,6 +29,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { theme, toggleTheme } = useThemeStore()
   const navigate = useNavigate()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [sessionTrackingEnabled, setSessionTrackingEnabledState] = useState(getSessionTrackingEnabled)
+
+  // Update localStorage when setting changes
+  const handleToggleSessionTracking = useCallback(() => {
+    const newValue = !sessionTrackingEnabled
+    setSessionTrackingEnabledState(newValue)
+    setSessionTrackingEnabled(newValue)
+  }, [sessionTrackingEnabled])
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
@@ -103,6 +128,38 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 />
               </button>
             </div>
+          </section>
+
+          {/* Writing & Tracking Section */}
+          <section>
+            <h3 className="text-sm font-medium text-text-secondary mb-3">Writing & Tracking</h3>
+            <div className="flex items-center justify-between p-3 bg-surface-elevated rounded-lg">
+              <div className="flex items-center gap-3">
+                <Clock className="h-5 w-5 text-text-secondary" aria-hidden="true" />
+                <div>
+                  <p className="text-text-primary font-medium">Session Tracking</p>
+                  <p className="text-sm text-text-secondary">
+                    {sessionTrackingEnabled ? 'Track writing time and words' : 'Tracking disabled'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleToggleSessionTracking}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  sessionTrackingEnabled ? 'bg-accent' : 'bg-gray-300'
+                }`}
+                aria-label="Toggle session tracking"
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    sessionTrackingEnabled ? 'translate-x-7' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="text-xs text-text-secondary mt-2 px-1">
+              When enabled, your writing sessions (time spent writing and words written) are logged to help track your progress.
+            </p>
           </section>
 
           {/* Keyboard Shortcuts Section */}

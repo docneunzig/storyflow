@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   BookOpen,
   Users,
@@ -12,10 +12,12 @@ import {
   Zap,
   Calendar,
   LineChart,
-  Star
+  Star,
+  EyeOff
 } from 'lucide-react'
 import type { Project, ChapterQualityScore } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
+import { getSessionTrackingEnabled } from '@/components/ui/SettingsModal'
 
 interface SectionProps {
   project: Project
@@ -77,6 +79,21 @@ export function StatsSection({ project }: SectionProps) {
   // Get session start word count from store
   const sessionStartWordCount = useProjectStore((state) => state.sessionStartWordCount)
   const sessionStartTime = useProjectStore((state) => state.sessionStartTime)
+
+  // Check if session tracking is enabled
+  const [isSessionTrackingEnabled, setIsSessionTrackingEnabled] = useState(getSessionTrackingEnabled)
+
+  // Listen for settings changes
+  useEffect(() => {
+    const checkSetting = () => setIsSessionTrackingEnabled(getSessionTrackingEnabled())
+    // Check on focus/visibility change in case user changed setting
+    window.addEventListener('focus', checkSetting)
+    document.addEventListener('visibilitychange', checkSetting)
+    return () => {
+      window.removeEventListener('focus', checkSetting)
+      document.removeEventListener('visibilitychange', checkSetting)
+    }
+  }, [])
 
   // Calculate statistics from project data
   const stats = useMemo(() => {
@@ -296,29 +313,41 @@ export function StatsSection({ project }: SectionProps) {
       </p>
 
       {/* Session Stats Card - prominently featured */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <StatCard
-          icon={<Zap className="h-5 w-5" />}
-          label="Words Today"
-          value={wordsToday.toLocaleString()}
-          subtext={sessionDuration}
-          color="text-yellow-400"
-        />
-        <StatCard
-          icon={<Calendar className="h-5 w-5" />}
-          label="Daily Average"
-          value={dailyAverageStats.dailyAverage.toLocaleString()}
-          subtext={`Rolling 7-day avg (${dailyAverageStats.daysWithData} days tracked)`}
-          color="text-cyan-400"
-        />
-        <StatCard
-          icon={<FileText className="h-5 w-5" />}
-          label="Total Words"
-          value={stats.totalWords.toLocaleString()}
-          subtext={`${stats.wordProgress}% of ${stats.targetWords.toLocaleString()} target`}
-          color="text-accent"
-        />
-      </div>
+      {isSessionTrackingEnabled ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <StatCard
+            icon={<Zap className="h-5 w-5" />}
+            label="Words Today"
+            value={wordsToday.toLocaleString()}
+            subtext={sessionDuration}
+            color="text-yellow-400"
+          />
+          <StatCard
+            icon={<Calendar className="h-5 w-5" />}
+            label="Daily Average"
+            value={dailyAverageStats.dailyAverage.toLocaleString()}
+            subtext={`Rolling 7-day avg (${dailyAverageStats.daysWithData} days tracked)`}
+            color="text-cyan-400"
+          />
+          <StatCard
+            icon={<FileText className="h-5 w-5" />}
+            label="Total Words"
+            value={stats.totalWords.toLocaleString()}
+            subtext={`${stats.wordProgress}% of ${stats.targetWords.toLocaleString()} target`}
+            color="text-accent"
+          />
+        </div>
+      ) : (
+        <div className="mb-6 p-4 bg-surface border border-border rounded-lg">
+          <div className="flex items-center gap-3 text-text-secondary">
+            <EyeOff className="h-5 w-5" />
+            <div>
+              <p className="font-medium">Session Tracking Disabled</p>
+              <p className="text-sm">Enable session tracking in Settings to see words written today and session duration.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">

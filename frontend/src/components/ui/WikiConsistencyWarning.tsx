@@ -73,9 +73,116 @@ function extractRuleKeywords(rule: WikiEntry): { keywords: string[]; negations: 
   }
 }
 
+// Check if content contradicts an established fact (non-rule wiki entries)
+function checkFactContradiction(content: string, fact: WikiEntry): ConsistencyViolation | null {
+  const contentLower = content.toLowerCase()
+  const factNameLower = fact.name.toLowerCase()
+  const factDescLower = fact.description.toLowerCase()
+
+  // Check if the fact's subject is mentioned in content
+  if (!contentLower.includes(factNameLower)) {
+    return null // Fact not referenced in this content
+  }
+
+  // Extract key attributes from the fact description
+  const extractAttributes = (desc: string): string[] => {
+    const attrs: string[] = []
+    // Look for "is a/an X", "has X", "located in X", "color X", etc.
+    const patterns = [
+      /is\s+(?:a|an)\s+(\w+)/gi,
+      /has\s+(\w+(?:\s+\w+)?)/gi,
+      /located\s+(?:in|at|on)\s+(\w+(?:\s+\w+)?)/gi,
+      /color(?:ed)?\s+(\w+)/gi,
+      /\b(\d+)\s+(?:years?|feet|meters|miles)/gi,
+      /(?:born|died)\s+(?:in\s+)?(\d{3,4})/gi,
+    ]
+    for (const pattern of patterns) {
+      const matches = desc.matchAll(pattern)
+      for (const match of matches) {
+        if (match[1]) attrs.push(match[1].toLowerCase())
+      }
+    }
+    return attrs
+  }
+
+  const factAttrs = extractAttributes(factDescLower)
+
+  // Simple contradiction check: if content contains negation of fact attributes
+  const negationPatterns = [
+    'not', 'never', 'no longer', 'isn\'t', 'wasn\'t', 'doesn\'t', 'didn\'t',
+    'cannot', 'can\'t', 'couldn\'t', 'wouldn\'t'
+  ]
+
+  // Find sentences mentioning the fact subject
+  const sentences = content.split(/[.!?]+/).filter(s =>
+    s.toLowerCase().includes(factNameLower)
+  )
+
+  for (const sentence of sentences) {
+    const sentenceLower = sentence.toLowerCase()
+
+    // Check for potential contradictions
+    for (const attr of factAttrs) {
+      // Check if sentence contradicts the attribute
+      for (const neg of negationPatterns) {
+        if (sentenceLower.includes(neg) && sentenceLower.includes(attr)) {
+          return {
+            rule: fact,
+            matchedText: sentence.trim(),
+            reason: `This passage may contradict the established fact "${fact.name}". Wiki states: "${fact.description.substring(0, 100)}${fact.description.length > 100 ? '...' : ''}"`,
+            severity: 'warning',
+            status: 'pending',
+          }
+        }
+      }
+    }
+
+    // Check for different values for the same attribute
+    // e.g., wiki says "blue eyes" but content says "green eyes"
+    const colorConflict = checkColorConflict(factDescLower, sentenceLower, fact.name)
+    if (colorConflict) {
+      return {
+        rule: fact,
+        matchedText: sentence.trim(),
+        reason: colorConflict,
+        severity: 'warning',
+        status: 'pending',
+      }
+    }
+  }
+
+  return null
+}
+
+// Check for color attribute conflicts
+function checkColorConflict(factDesc: string, sentence: string, factName: string): string | null {
+  const colors = ['red', 'blue', 'green', 'yellow', 'black', 'white', 'brown', 'gray', 'grey', 'purple', 'orange', 'pink', 'golden', 'silver']
+
+  for (const color of colors) {
+    // Find color in fact
+    const colorInFact = factDesc.includes(color)
+    if (!colorInFact) continue
+
+    // Check if sentence has a different color for the same attribute
+    for (const otherColor of colors) {
+      if (otherColor === color) continue
+      if (sentence.includes(otherColor) && sentence.includes(factName.toLowerCase())) {
+        // Check if they're describing the same thing (eyes, hair, etc.)
+        const attrs = ['eyes', 'hair', 'skin', 'fur', 'feathers', 'scales']
+        for (const attr of attrs) {
+          if (factDesc.includes(`${color} ${attr}`) && sentence.includes(`${otherColor} ${attr}`)) {
+            return `Possible color conflict: Wiki states "${factName}" has ${color} ${attr}, but this passage mentions ${otherColor} ${attr}.`
+          }
+        }
+      }
+    }
+  }
+
+  return null
+}
+
 // Check if content violates a rule
 function checkRuleViolation(content: string, rule: WikiEntry): ConsistencyViolation | null {
-  const contentLower = content.toLowerCase()
   const { keywords, negations } = extractRuleKeywords(rule)
 
   // Look for sentences containing keywords
@@ -145,17 +252,19 @@ export function WikiConsistencyWarning({
   const [dismissed, setDismissed] = useState(false)
   const [violationStatuses, setViolationStatuses] = useState<Record<string, ConsistencyViolation['status']>>({})
 
-  // Get only rules from wiki entries
-  const rules = useMemo(() =>
-    wikiEntries.filter(entry => entry.category === 'rules'),
-    [wikiEntries]
-  )
+  // Separate rules from facts (other wiki entries)
+  const { rules, facts } = useMemo(() => ({
+    rules: wikiEntries.filter(entry => entry.category === 'rules'),
+    facts: wikiEntries.filter(entry => entry.category !== 'rules'),
+  }), [wikiEntries])
 
-  // Check for violations
+  // Check for violations from both rules and facts
   const violations = useMemo(() => {
-    if (!chapter.content || rules.length === 0) return []
+    if (!chapter.content || (rules.length === 0 && facts.length === 0)) return []
 
     const found: ConsistencyViolation[] = []
+
+    // Check rule violations
     for (const rule of rules) {
       const violation = checkRuleViolation(chapter.content, rule)
       if (violation) {
@@ -165,8 +274,20 @@ export function WikiConsistencyWarning({
         found.push(violation)
       }
     }
+
+    // Check fact contradictions (established wiki facts)
+    for (const fact of facts) {
+      const contradiction = checkFactContradiction(chapter.content, fact)
+      if (contradiction) {
+        // Apply any saved status
+        const key = `${fact.id}-${contradiction.matchedText.substring(0, 50)}`
+        contradiction.status = violationStatuses[key] || 'pending'
+        found.push(contradiction)
+      }
+    }
+
     return found
-  }, [chapter.content, rules, violationStatuses])
+  }, [chapter.content, rules, facts, violationStatuses])
 
   // Reset dismissed state when violations change
   useEffect(() => {
