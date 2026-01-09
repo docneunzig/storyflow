@@ -15,9 +15,55 @@ import {
   Star,
   EyeOff
 } from 'lucide-react'
-import type { Project, ChapterQualityScore } from '@/types/project'
-import { useProjectStore } from '@/stores/projectStore'
+import type { Project, ChapterQualityScore, ProjectPhase } from '@/types/project'
+import { useProjectStore, calculateProjectPhase } from '@/stores/projectStore'
 import { getSessionTrackingEnabled } from '@/components/ui/SettingsModal'
+
+// Phase display configuration
+const PHASE_CONFIG: Record<ProjectPhase, { label: string; color: string; icon: string; next: string | null }> = {
+  'specification': {
+    label: 'Specification',
+    color: 'text-blue-400 bg-blue-400/10 border-blue-400/30',
+    icon: '📋',
+    next: 'Complete your genre, themes, and target audience to move to Plotting',
+  },
+  'plotting': {
+    label: 'Plotting',
+    color: 'text-purple-400 bg-purple-400/10 border-purple-400/30',
+    icon: '🗺️',
+    next: 'Add 3+ plot beats to move to Characters',
+  },
+  'characters': {
+    label: 'Character Development',
+    color: 'text-pink-400 bg-pink-400/10 border-pink-400/30',
+    icon: '👥',
+    next: 'Create 2+ characters to move to Scenes',
+  },
+  'scenes': {
+    label: 'Scene Planning',
+    color: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
+    icon: '🎬',
+    next: 'Plan 3+ scenes to move to Writing',
+  },
+  'writing': {
+    label: 'Writing',
+    color: 'text-green-400 bg-green-400/10 border-green-400/30',
+    icon: '✍️',
+    next: 'Write 70% of target word count to move to Revision',
+  },
+  'revision': {
+    label: 'Revision',
+    color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
+    icon: '🔄',
+    next: 'Reach word count target with finalized chapters to Complete',
+  },
+  'complete': {
+    label: 'Complete',
+    color: 'text-success bg-success/10 border-success/30',
+    icon: '🎉',
+    next: null,
+  },
+}
 
 interface SectionProps {
   project: Project
@@ -227,6 +273,68 @@ export function StatsSection({ project }: SectionProps) {
     }
   }, [project.statistics?.wordsPerDay])
 
+  // Calculate projected completion date based on current writing pace
+  const projectedCompletion = useMemo(() => {
+    const targetWords = project.specification?.targetWordCount || 80000
+    const totalWords = (project.chapters || []).reduce((sum, ch) => sum + (ch.wordCount || 0), 0)
+    const wordsRemaining = Math.max(0, targetWords - totalWords)
+
+    // Use daily average to project completion
+    const dailyAverage = dailyAverageStats.dailyAverage
+
+    if (dailyAverage <= 0 || wordsRemaining === 0) {
+      return {
+        daysRemaining: wordsRemaining === 0 ? 0 : null,
+        estimatedDate: wordsRemaining === 0 ? 'Complete!' : null,
+        confidence: wordsRemaining === 0 ? 'complete' : 'insufficient_data',
+        message: wordsRemaining === 0
+          ? 'Congratulations! You\'ve reached your word count target!'
+          : 'Write for a few more days to see projected completion date',
+      }
+    }
+
+    // Calculate days remaining
+    const daysRemaining = Math.ceil(wordsRemaining / dailyAverage)
+
+    // Calculate estimated completion date
+    const completionDate = new Date()
+    completionDate.setDate(completionDate.getDate() + daysRemaining)
+
+    // Format the date
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: completionDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+    })
+    const formattedDate = dateFormatter.format(completionDate)
+
+    // Determine confidence level based on data quality
+    const confidence = dailyAverageStats.daysWithData >= 5
+      ? 'high'
+      : dailyAverageStats.daysWithData >= 3
+      ? 'medium'
+      : 'low'
+
+    // Generate message
+    let message: string
+    if (daysRemaining <= 7) {
+      message = `Almost there! Just ${daysRemaining} days at your current pace`
+    } else if (daysRemaining <= 30) {
+      message = `On track to finish in about ${Math.round(daysRemaining / 7)} weeks`
+    } else if (daysRemaining <= 90) {
+      message = `Estimated ${Math.round(daysRemaining / 30)} months to completion`
+    } else {
+      message = `At current pace, approximately ${Math.round(daysRemaining / 30)} months remaining`
+    }
+
+    return {
+      daysRemaining,
+      estimatedDate: formattedDate,
+      confidence,
+      message,
+    }
+  }, [project.specification?.targetWordCount, project.chapters, dailyAverageStats])
+
   // Calculate status breakdown for pie chart visualization
   const chapterStatusBreakdown = useMemo(() => {
     const chapters = project.chapters || []
@@ -305,12 +413,34 @@ export function StatsSection({ project }: SectionProps) {
     }
   }, [project.qualityScores, project.chapters])
 
+  // Calculate current project phase
+  const currentPhase = calculateProjectPhase(project)
+  const phaseConfig = PHASE_CONFIG[currentPhase]
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-text-primary mb-2">Statistics</h1>
       <p className="text-text-secondary mb-6">
         Track your writing progress and maintain motivation.
       </p>
+
+      {/* Project Phase Card */}
+      <div className={`mb-6 p-4 rounded-lg border ${phaseConfig.color}`}>
+        <div className="flex items-start gap-4">
+          <span className="text-3xl">{phaseConfig.icon}</span>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-lg">Current Phase: {phaseConfig.label}</h3>
+            </div>
+            {phaseConfig.next && (
+              <p className="text-sm opacity-80">{phaseConfig.next}</p>
+            )}
+            {currentPhase === 'complete' && (
+              <p className="text-sm text-success">Congratulations! Your novel is complete! 🎉</p>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Session Stats Card - prominently featured */}
       {isSessionTrackingEnabled ? (
@@ -348,6 +478,40 @@ export function StatsSection({ project }: SectionProps) {
           </div>
         </div>
       )}
+
+      {/* Projected Completion Card */}
+      <div className="mb-6 p-4 bg-gradient-to-r from-accent/10 via-purple-500/10 to-pink-500/10 border border-accent/20 rounded-lg">
+        <div className="flex items-start gap-4">
+          <div className="p-2 bg-accent/20 rounded-lg">
+            <Target className="h-6 w-6 text-accent" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-text-primary">Projected Completion</h3>
+              {projectedCompletion.confidence === 'high' && (
+                <span className="px-2 py-0.5 text-xs bg-success/20 text-success rounded">High confidence</span>
+              )}
+              {projectedCompletion.confidence === 'medium' && (
+                <span className="px-2 py-0.5 text-xs bg-warning/20 text-warning rounded">Medium confidence</span>
+              )}
+              {projectedCompletion.confidence === 'low' && (
+                <span className="px-2 py-0.5 text-xs bg-error/20 text-error rounded">Low confidence</span>
+              )}
+            </div>
+            {projectedCompletion.estimatedDate ? (
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-accent">{projectedCompletion.estimatedDate}</span>
+                {projectedCompletion.daysRemaining !== null && projectedCompletion.daysRemaining > 0 && (
+                  <span className="text-text-secondary">({projectedCompletion.daysRemaining} days)</span>
+                )}
+              </div>
+            ) : (
+              <div className="text-text-secondary italic">No estimate available</div>
+            )}
+            <p className="text-sm text-text-secondary mt-1">{projectedCompletion.message}</p>
+          </div>
+        </div>
+      </div>
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">

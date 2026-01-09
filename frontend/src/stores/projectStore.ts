@@ -1,7 +1,67 @@
 import { create } from 'zustand'
-import type { Project, WritingStatistics } from '@/types/project'
+import type { Project, WritingStatistics, ProjectPhase } from '@/types/project'
 
 type SaveStatus = 'unsaved' | 'saving' | 'saved'
+
+// Calculate the appropriate project phase based on progress
+export function calculateProjectPhase(project: Project): ProjectPhase {
+  const spec = project.specification
+  const chapters = project.chapters || []
+  const scenes = project.scenes || []
+  const characters = project.characters || []
+  const plotBeats = project.plot?.beats || []
+
+  // Count completed chapters
+  const finalizedChapters = chapters.filter(c =>
+    c.status === 'final' || c.status === 'locked'
+  ).length
+  const draftedChapters = chapters.filter(c =>
+    c.status === 'draft' || c.status === 'revision' || c.status === 'final' || c.status === 'locked'
+  ).length
+
+  // Check for completion
+  const targetWordCount = spec?.targetWordCount || 80000
+  const totalWords = chapters.reduce((sum, ch) => sum + (ch.wordCount || 0), 0)
+  const isComplete = totalWords >= targetWordCount && finalizedChapters > 0
+
+  if (isComplete) {
+    return 'complete'
+  }
+
+  // Check for revision phase (have chapters, mostly done writing)
+  if (draftedChapters >= 3 && totalWords >= targetWordCount * 0.7) {
+    return 'revision'
+  }
+
+  // Check for writing phase (have scene blueprints and characters)
+  if (scenes.length >= 3 && characters.length >= 2 && plotBeats.length >= 3) {
+    return 'writing'
+  }
+
+  // Check for scenes phase (have characters and plot)
+  if (characters.length >= 2 && plotBeats.length >= 3) {
+    return 'scenes'
+  }
+
+  // Check for characters phase (have plot structure)
+  if (plotBeats.length >= 3) {
+    return 'characters'
+  }
+
+  // Check for plotting phase (have spec filled out)
+  const hasSpec = spec && (
+    (spec.genre && spec.genre.length > 0) ||
+    spec.targetAudience ||
+    (spec.themes && spec.themes.length > 0)
+  )
+
+  if (hasSpec) {
+    return 'plotting'
+  }
+
+  // Default to specification phase
+  return 'specification'
+}
 
 interface ProjectState {
   // Current project
