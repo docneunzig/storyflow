@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
-import { AlertTriangle, X, ChevronDown, ChevronUp, BookOpen, Sparkles } from 'lucide-react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { AlertTriangle, X, ChevronDown, ChevronUp, BookOpen, Sparkles, Check, Eye, EyeOff, Wrench } from 'lucide-react'
 import type { WikiEntry, Chapter } from '@/types/project'
 
 interface ConsistencyViolation {
@@ -7,6 +7,7 @@ interface ConsistencyViolation {
   matchedText: string
   reason: string
   severity: 'warning' | 'error'
+  status: 'pending' | 'ignored' | 'acknowledged' | 'fixed'
 }
 
 interface WikiConsistencyWarningProps {
@@ -105,6 +106,7 @@ function checkRuleViolation(content: string, rule: WikiEntry): ConsistencyViolat
           matchedText: sentence.trim(),
           reason: `This passage describes magic being used but doesn't mention the required gestures. Rule: "${rule.name}"`,
           severity: 'warning',
+          status: 'pending',
         }
       }
     }
@@ -123,6 +125,7 @@ function checkRuleViolation(content: string, rule: WikiEntry): ConsistencyViolat
             matchedText: sentence.trim(),
             reason: `This passage may conflict with the rule "${rule.name}": ${rule.description}`,
             severity: 'warning',
+            status: 'pending',
           }
         }
       }
@@ -140,6 +143,7 @@ export function WikiConsistencyWarning({
 }: WikiConsistencyWarningProps) {
   const [isExpanded, setIsExpanded] = useState(true)
   const [dismissed, setDismissed] = useState(false)
+  const [violationStatuses, setViolationStatuses] = useState<Record<string, ConsistencyViolation['status']>>({})
 
   // Get only rules from wiki entries
   const rules = useMemo(() =>
@@ -155,11 +159,14 @@ export function WikiConsistencyWarning({
     for (const rule of rules) {
       const violation = checkRuleViolation(chapter.content, rule)
       if (violation) {
+        // Apply any saved status
+        const key = `${rule.id}-${violation.matchedText.substring(0, 50)}`
+        violation.status = violationStatuses[key] || 'pending'
         found.push(violation)
       }
     }
     return found
-  }, [chapter.content, rules])
+  }, [chapter.content, rules, violationStatuses])
 
   // Reset dismissed state when violations change
   useEffect(() => {
@@ -167,6 +174,18 @@ export function WikiConsistencyWarning({
       setDismissed(false)
     }
   }, [violations.length])
+
+  // Handle resolution actions
+  const handleResolution = useCallback((violation: ConsistencyViolation, status: ConsistencyViolation['status']) => {
+    const key = `${violation.rule.id}-${violation.matchedText.substring(0, 50)}`
+    setViolationStatuses(prev => ({
+      ...prev,
+      [key]: status
+    }))
+  }, [])
+
+  // Count pending violations
+  const pendingCount = violations.filter(v => v.status === 'pending').length
 
   if (!isVisible || dismissed || violations.length === 0) {
     return null
@@ -182,7 +201,7 @@ export function WikiConsistencyWarning({
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-warning" aria-hidden="true" />
           <span className="font-medium text-warning">
-            Wiki Consistency Warning{violations.length > 1 ? 's' : ''} ({violations.length})
+            Wiki Consistency Warning{violations.length > 1 ? 's' : ''} ({pendingCount} pending / {violations.length} total)
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -242,6 +261,60 @@ export function WikiConsistencyWarning({
                   <Sparkles className="h-3 w-3" aria-hidden="true" />
                   {violation.reason}
                 </p>
+              </div>
+
+              {/* Resolution Options */}
+              <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {violation.status === 'pending' ? (
+                    <>
+                      <button
+                        onClick={() => handleResolution(violation, 'ignored')}
+                        className="px-3 py-1.5 text-xs bg-surface border border-border rounded-lg hover:bg-surface-elevated transition-colors flex items-center gap-1.5"
+                        title="Ignore this warning - it's not a real issue"
+                      >
+                        <EyeOff className="h-3 w-3" aria-hidden="true" />
+                        Ignore
+                      </button>
+                      <button
+                        onClick={() => handleResolution(violation, 'acknowledged')}
+                        className="px-3 py-1.5 text-xs bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors flex items-center gap-1.5"
+                        title="Acknowledge and fix later"
+                      >
+                        <Eye className="h-3 w-3" aria-hidden="true" />
+                        Acknowledge
+                      </button>
+                      <button
+                        onClick={() => handleResolution(violation, 'fixed')}
+                        className="px-3 py-1.5 text-xs bg-success/10 text-success border border-success/30 rounded-lg hover:bg-success/20 transition-colors flex items-center gap-1.5"
+                        title="Mark as fixed - I've corrected the issue"
+                      >
+                        <Wrench className="h-3 w-3" aria-hidden="true" />
+                        Fix First
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 text-xs rounded-full flex items-center gap-1 ${
+                        violation.status === 'ignored'
+                          ? 'bg-text-secondary/10 text-text-secondary'
+                          : violation.status === 'acknowledged'
+                          ? 'bg-accent/10 text-accent'
+                          : 'bg-success/10 text-success'
+                      }`}>
+                        <Check className="h-3 w-3" aria-hidden="true" />
+                        {violation.status === 'ignored' ? 'Ignored' :
+                         violation.status === 'acknowledged' ? 'Acknowledged' : 'Fixed'}
+                      </span>
+                      <button
+                        onClick={() => handleResolution(violation, 'pending')}
+                        className="text-xs text-text-secondary hover:text-text-primary underline"
+                      >
+                        Undo
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}
