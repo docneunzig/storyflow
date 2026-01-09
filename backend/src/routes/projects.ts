@@ -15,9 +15,47 @@ router.get('/', (req, res) => {
   res.json(projectList)
 })
 
+// Validation helper
+function validateProjectInput(data: any): { valid: boolean; error?: string } {
+  if (data.metadata) {
+    // Validate working title if provided
+    if (data.metadata.workingTitle !== undefined) {
+      if (typeof data.metadata.workingTitle !== 'string') {
+        return { valid: false, error: 'Working title must be a string' }
+      }
+      if (data.metadata.workingTitle.length > 200) {
+        return { valid: false, error: 'Working title must be less than 200 characters' }
+      }
+    }
+    // Validate author name if provided
+    if (data.metadata.authorName !== undefined && typeof data.metadata.authorName !== 'string') {
+      return { valid: false, error: 'Author name must be a string' }
+    }
+  }
+
+  // Validate arrays if provided
+  if (data.characters !== undefined && !Array.isArray(data.characters)) {
+    return { valid: false, error: 'Characters must be an array' }
+  }
+  if (data.chapters !== undefined && !Array.isArray(data.chapters)) {
+    return { valid: false, error: 'Chapters must be an array' }
+  }
+  if (data.scenes !== undefined && !Array.isArray(data.scenes)) {
+    return { valid: false, error: 'Scenes must be an array' }
+  }
+
+  return { valid: true }
+}
+
 // POST /api/projects - Create new project
 router.post('/', (req, res) => {
   const { metadata } = req.body
+
+  // Server-side validation
+  const validation = validateProjectInput(req.body)
+  if (!validation.valid) {
+    return res.status(400).json({ error: validation.error })
+  }
 
   const now = new Date().toISOString()
   const project: Project = {
@@ -64,6 +102,12 @@ router.put('/:id', (req, res) => {
   const existing = projects.get(req.params.id)
   if (!existing) {
     return res.status(404).json({ error: 'Project not found' })
+  }
+
+  // Server-side validation
+  const validation = validateProjectInput(req.body)
+  if (!validation.valid) {
+    return res.status(400).json({ error: validation.error })
   }
 
   const updated: Project = {
