@@ -86,6 +86,39 @@ async function simulateAIGeneration(
   return { result, cancelled: false }
 }
 
+// Get tense-specific prose examples
+function getTenseProse(tense: string, pov: string): { description: string; sampleNarration: string } {
+  const tenseLower = (tense || '').toLowerCase()
+  const povLower = (pov || '').toLowerCase()
+
+  // Determine POV pronouns
+  const isFirstPerson = povLower.includes('first')
+  const subject = isFirstPerson ? 'I' : 'She'
+  const possessive = isFirstPerson ? 'my' : 'her'
+
+  // Present Tense
+  if (tenseLower.includes('present')) {
+    return {
+      description: 'Present Tense',
+      sampleNarration: `${subject} walk${isFirstPerson ? '' : 's'} through the doorway, ${possessive} heart pounding in ${possessive} chest. Something about this place feels wrong—${subject} can sense it in ${possessive} bones. Looking around, ${subject} notice${isFirstPerson ? '' : 's'} the shadows seem to shift. "Hello?" ${subject} call${isFirstPerson ? '' : 's'} out. There is no answer.`
+    }
+  }
+
+  // Future Tense
+  if (tenseLower.includes('future')) {
+    return {
+      description: 'Future Tense',
+      sampleNarration: `${subject} will walk through the doorway, ${possessive} heart will pound in ${possessive} chest. Something about this place will feel wrong. ${subject} will look around, noticing shadows that will seem to shift. "${isFirstPerson ? 'I' : 'She'}'ll call out, 'Hello?'" There will be no answer.`
+    }
+  }
+
+  // Default - Past Tense
+  return {
+    description: 'Past Tense',
+    sampleNarration: `${subject} walked through the doorway, ${possessive} heart pounding in ${possessive} chest. Something about this place felt wrong—${subject} could sense it in ${possessive} bones. Looking around, ${subject} noticed the shadows seemed to shift. "Hello?" ${subject} called out. There was no answer.`
+  }
+}
+
 // Get POV-specific prose examples
 function getPOVProse(pov: string): { description: string; sampleNarration: string } {
   const povLower = (pov || '').toLowerCase()
@@ -178,17 +211,20 @@ function generateSampleChapterContent(context: Record<string, any>): string {
   const synopsis = context.synopsis || 'A new chapter begins.'
   const setting = context.setting || context.worldSetting || ''
   const pov = context.pov || context.pointOfView || ''
+  const tense = context.tense || context.narrativeTense || 'past'
   const settingElements = getSettingElements(setting)
   const povProse = getPOVProse(pov)
+  const tenseProse = getTenseProse(tense, pov)
 
   let chapterContent = `Chapter: ${title}\n\n`
   chapterContent += `[Setting: ${setting || 'Not specified'}]\n`
-  chapterContent += `[POV: ${povProse.description}]\n\n`
+  chapterContent += `[POV: ${povProse.description}]\n`
+  chapterContent += `[Tense: ${tenseProse.description}]\n\n`
   chapterContent += `${synopsis}\n\n`
 
-  // Include POV-appropriate sample narration
-  chapterContent += `--- Sample Narrative (${povProse.description}) ---\n\n`
-  chapterContent += `${povProse.sampleNarration}\n\n`
+  // Include POV and tense-appropriate sample narration
+  chapterContent += `--- Sample Narrative (${povProse.description}, ${tenseProse.description}) ---\n\n`
+  chapterContent += `${tenseProse.sampleNarration}\n\n`
   chapterContent += `--- End Sample ---\n\n`
 
   // Include setting-appropriate prose
