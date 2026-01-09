@@ -75,6 +75,10 @@ async function simulateAIGeneration(
     case 'generate-character':
       result = generateSampleCharacterContent(context)
       break
+    case 'generate-dialogue':
+      // Generate dialogue that matches character voice spec
+      result = generateCharacterDialogue(context)
+      break
     default:
       result = `Generated content for action: ${action}\n\nThis is placeholder AI-generated content that demonstrates the generation system is working.`
   }
@@ -121,6 +125,77 @@ function generateSampleCharacterContent(context: Record<string, any>): string {
 A complex character with depth and motivation. Their backstory weaves into the larger narrative, creating connections and conflicts with other characters.
 
 This is AI-generated sample content for the character generation feature.`
+}
+
+// Generate character dialogue using their voice specifications
+function generateCharacterDialogue(context: Record<string, any>): string {
+  const character = context.character || {}
+  const name = character.name || 'Character'
+  const speechPatterns = character.speechPatterns || ''
+  const vocabularyLevel = character.vocabularyLevel || 'standard'
+  const catchphrases = character.catchphrases || []
+  const internalVoice = character.internalVoice || ''
+
+  // Generate dialogue that reflects character voice
+  let dialogueStyle = ''
+  let vocabulary = ''
+  let phrases = ''
+
+  // Apply vocabulary level
+  switch (vocabularyLevel.toLowerCase()) {
+    case 'formal':
+    case 'academic':
+    case 'sophisticated':
+      vocabulary = 'utilizing sophisticated vocabulary and precise terminology'
+      dialogueStyle = 'Speaking with measured eloquence, '
+      break
+    case 'casual':
+    case 'colloquial':
+    case 'informal':
+      vocabulary = 'using everyday language and relaxed expressions'
+      dialogueStyle = 'Speaking casually, '
+      break
+    case 'street':
+    case 'slang':
+      vocabulary = 'using slang and street vernacular'
+      dialogueStyle = 'Speaking in a street-smart way, '
+      break
+    default:
+      vocabulary = 'using standard vocabulary'
+      dialogueStyle = ''
+  }
+
+  // Include catchphrases if available
+  if (catchphrases.length > 0) {
+    phrases = `\nCharacteristic phrases: "${catchphrases.slice(0, 2).join('", "')}"`
+  }
+
+  // Build the dialogue output
+  let dialogue = `[${name}'s dialogue - ${vocabulary}]${phrases}\n\n`
+
+  if (speechPatterns) {
+    dialogue += `Speech pattern note: ${speechPatterns}\n\n`
+  }
+
+  dialogue += `${dialogueStyle}${name} speaks:\n\n`
+
+  // Generate sample dialogue based on voice characteristics
+  if (vocabularyLevel.toLowerCase().includes('formal') || vocabularyLevel.toLowerCase().includes('academic')) {
+    dialogue += `"I must confess, the circumstances before us require considerable deliberation. It would be imprudent to proceed without careful analysis of the potential ramifications."\n\n`
+    dialogue += `"Furthermore, I believe our approach should reflect the gravity of this situation. Shall we discuss the matter in greater detail?"`
+  } else if (vocabularyLevel.toLowerCase().includes('casual') || vocabularyLevel.toLowerCase().includes('informal')) {
+    dialogue += `"Look, here's the thing - we gotta figure this out, you know? It's not like we've got all day."\n\n`
+    dialogue += `"So what do you say we just wing it and see what happens? Can't be worse than sitting around doing nothing, right?"`
+  } else {
+    dialogue += `"I think we should consider our options carefully. There's a lot at stake here."\n\n`
+    dialogue += `"What's your take on all this? I'd like to hear your thoughts before we make a decision."`
+  }
+
+  if (internalVoice) {
+    dialogue += `\n\n[Internal thought pattern: ${internalVoice}]`
+  }
+
+  return dialogue
 }
 
 // POST /api/ai/generate - Generic AI generation endpoint with cancellation support
