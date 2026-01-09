@@ -1,14 +1,30 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film, GitBranch, List, BookOpen } from 'lucide-react'
+import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film, GitBranch, List, BookOpen, Sparkles, X } from 'lucide-react'
 import type { Project, Character, CharacterRole, CharacterRelationship, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
-import { updateProject } from '@/lib/db'
+import { updateProject, generateId } from '@/lib/db'
 import { CharacterModal } from '@/components/ui/CharacterModal'
 import { RelationshipModal } from '@/components/ui/RelationshipModal'
 import { RelationshipMap } from '@/components/ui/RelationshipMap'
 import { Inspector } from '@/components/layout/Inspector'
 import { toast } from '@/components/ui/Toaster'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { AIProgressModal } from '@/components/ui/AIProgressModal'
+
+// Character option type for AI-generated options
+interface CharacterOption {
+  name: string
+  role: CharacterRole
+  archetype: string
+  personalitySummary: string
+  strengths: string[]
+  flaws: string[]
+  desires: string[]
+  misbelief: string
+  backstory: string
+  approach: string // Description of this interpretation
+}
 
 interface SectionProps {
   project: Project
@@ -53,6 +69,22 @@ export function CharactersSection({ project }: SectionProps) {
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
   const [inspectorCharacter, setInspectorCharacter] = useState<Character | null>(null)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
+
+  // AI generation state
+  const [showAIProgress, setShowAIProgress] = useState(false)
+  const [characterOptions, setCharacterOptions] = useState<CharacterOption[]>([])
+  const [showOptionsModal, setShowOptionsModal] = useState(false)
+
+  const {
+    status: aiStatus,
+    progress: aiProgress,
+    message: aiMessage,
+    error: aiError,
+    isGenerating,
+    generate,
+    cancel,
+    reset: resetAI,
+  } = useAIGeneration()
 
   // Read filter state from URL query params
   const roleFilter = (searchParams.get('role') as CharacterRole | 'all') || 'all'
@@ -394,6 +426,148 @@ export function CharactersSection({ project }: SectionProps) {
     }
   }
 
+  // Generate sample character options (fallback)
+  const generateSampleCharacterOptions = (): CharacterOption[] => {
+    return [
+      {
+        name: 'Elena Vance',
+        role: 'protagonist',
+        archetype: 'Reluctant Hero',
+        personalitySummary: 'A pragmatic scientist who discovers an uncomfortable truth and must choose between safety and exposing it.',
+        strengths: ['Analytical mind', 'Resilience', 'Integrity'],
+        flaws: ['Emotionally guarded', 'Overthinks', 'Difficulty trusting'],
+        desires: ['Truth', 'Recognition', 'Peace'],
+        misbelief: 'Logic is the only reliable guide through chaos',
+        backstory: 'After a childhood marked by broken promises, Elena built walls of rationality. Her career in research became her sanctuary.',
+        approach: 'The Intellectual - driven by logic and evidence, struggles with emotional connections',
+      },
+      {
+        name: 'Marcus Chen',
+        role: 'protagonist',
+        archetype: 'Anti-Hero',
+        personalitySummary: 'A former insider who switched sides, now navigating moral gray areas to achieve justice.',
+        strengths: ['Street smarts', 'Adaptability', 'Charisma'],
+        flaws: ['Past guilt', 'Impulsive', 'Trust issues'],
+        desires: ['Redemption', 'Justice', 'A fresh start'],
+        misbelief: 'I can only fix what I broke by breaking more rules',
+        backstory: 'Marcus worked for the wrong side until he saw too much. Now he uses his insider knowledge to take them down.',
+        approach: 'The Reformer - morally complex, uses questionable means for righteous ends',
+      },
+      {
+        name: 'Sage Morgan',
+        role: 'protagonist',
+        archetype: 'Everyman',
+        personalitySummary: 'An ordinary person thrust into extraordinary circumstances, finding hidden depths of courage.',
+        strengths: ['Empathy', 'Resourcefulness', 'Determination'],
+        flaws: ['Self-doubt', 'Avoidance', 'Fear of conflict'],
+        desires: ['Normalcy', 'Protection of loved ones', 'Purpose'],
+        misbelief: 'I\'m nobody special - heroes are other people',
+        backstory: 'Sage lived a quiet life until fate intervened. Their journey is about discovering that ordinary people can do extraordinary things.',
+        approach: 'The Accidental Hero - relatable, transforms through the story',
+      },
+    ]
+  }
+
+  // Generate 3 character options with AI
+  const handleGenerateCharacterOptions = useCallback(async () => {
+    setShowAIProgress(true)
+
+    const context = {
+      specification: project.specification,
+      existingCharacters: (project.characters || []).map(c => ({
+        name: c.name,
+        role: c.role,
+        archetype: c.archetype,
+      })),
+      genre: project.specification?.genre || 'general fiction',
+    }
+
+    const result = await generate({
+      agentTarget: 'character',
+      action: 'generate-3-options',
+      context,
+    })
+
+    if (result) {
+      try {
+        const parsed = JSON.parse(result)
+        if (Array.isArray(parsed) && parsed.length === 3) {
+          setCharacterOptions(parsed)
+        } else {
+          // Generate sample options if parsing fails
+          setCharacterOptions(generateSampleCharacterOptions())
+        }
+      } catch {
+        setCharacterOptions(generateSampleCharacterOptions())
+      }
+      setShowAIProgress(false)
+      setShowOptionsModal(true)
+    } else if (aiError) {
+      toast({ title: 'Failed to generate options', variant: 'error' })
+      setShowAIProgress(false)
+    }
+  }, [project.specification, project.characters, generate, aiError])
+
+  // Handle closing AI progress modal
+  const handleCloseAIProgress = useCallback(() => {
+    setShowAIProgress(false)
+    if (characterOptions.length > 0) {
+      setShowOptionsModal(true)
+    }
+    resetAI()
+  }, [characterOptions.length, resetAI])
+
+  // Handle selecting a character option
+  const handleSelectCharacterOption = async (option: CharacterOption) => {
+    try {
+      setSaveStatus('saving')
+
+      const newCharacter: Character = {
+        id: generateId(),
+        name: option.name,
+        aliases: [],
+        role: option.role,
+        archetype: option.archetype,
+        age: null,
+        gender: '',
+        physicalDescription: '',
+        distinguishingFeatures: [],
+        personalitySummary: option.personalitySummary,
+        strengths: option.strengths,
+        flaws: option.flaws,
+        fears: [],
+        desires: option.desires,
+        needs: [],
+        misbelief: option.misbelief,
+        backstory: option.backstory,
+        formativeExperiences: [],
+        secrets: [],
+        speechPatterns: '',
+        vocabularyLevel: '',
+        catchphrases: [],
+        internalVoice: '',
+        characterArc: '',
+        arcCatalyst: '',
+        firstAppearance: null,
+        scenesPresent: [],
+        status: 'alive',
+        userNotes: `Generated approach: ${option.approach}`,
+      }
+
+      const updatedCharacters = [...(project.characters || []), newCharacter]
+      await updateProject(project.id, { characters: updatedCharacters })
+      updateProjectStore(project.id, { characters: updatedCharacters })
+      setSaveStatus('saved')
+      setShowOptionsModal(false)
+      setCharacterOptions([])
+      toast({ title: `Character "${option.name}" created`, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to create character:', error)
+      toast({ title: 'Failed to create character', variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+  }
+
   const scenes = project.scenes || []
 
   return (
@@ -506,6 +680,14 @@ export function CharactersSection({ project }: SectionProps) {
             {sortDirection === 'asc' && <ArrowUp className="h-4 w-4" aria-hidden="true" />}
             {sortDirection === 'desc' && <ArrowDown className="h-4 w-4" aria-hidden="true" />}
             <span>Sort</span>
+          </button>
+          <button
+            onClick={handleGenerateCharacterOptions}
+            disabled={isGenerating}
+            className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            Generate 3 Options
           </button>
           <button
             onClick={() => handleOpenModal()}
@@ -1001,6 +1183,95 @@ export function CharactersSection({ project }: SectionProps) {
               setInspectorCharacter(null)
             }}
           />
+        </div>
+      )}
+
+      {/* AI Progress Modal */}
+      <AIProgressModal
+        isOpen={showAIProgress}
+        onClose={handleCloseAIProgress}
+        onCancel={cancel}
+        status={aiStatus}
+        progress={aiProgress}
+        message={aiMessage}
+        error={aiError}
+        title="Generating Character Options"
+      />
+
+      {/* Character Options Selection Modal */}
+      {showOptionsModal && characterOptions.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowOptionsModal(false)}
+          />
+          <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-4xl mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-accent" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-text-primary">Choose Your Character</h2>
+              </div>
+              <button
+                onClick={() => setShowOptionsModal(false)}
+                className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
+              </button>
+            </div>
+            <p className="px-4 pt-3 text-sm text-text-secondary">
+              Select one of these 3 distinct character interpretations. Each offers a different personality and approach.
+            </p>
+            <div className="p-4 grid gap-4">
+              {characterOptions.map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleSelectCharacterOption(option)}
+                  className="p-4 bg-surface-elevated border border-border rounded-lg hover:border-accent/50 transition-colors text-left"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <span className="text-xs font-medium text-accent bg-accent/10 px-2 py-0.5 rounded mr-2">
+                        Option {index + 1}
+                      </span>
+                      <h3 className="inline font-medium text-text-primary">{option.name}</h3>
+                      <span className="ml-2 text-xs px-2 py-0.5 rounded bg-surface border border-border">
+                        {option.role.charAt(0).toUpperCase() + option.role.slice(1)}
+                      </span>
+                      {option.archetype && (
+                        <span className="ml-2 text-xs text-accent">{option.archetype}</span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-sm text-text-secondary mb-2">{option.personalitySummary}</p>
+                  <p className="text-xs text-accent mb-3">Approach: {option.approach}</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-success">Strengths: </span>
+                      <span className="text-text-secondary">{option.strengths.join(', ')}</span>
+                    </div>
+                    <div>
+                      <span className="text-error">Flaws: </span>
+                      <span className="text-text-secondary">{option.flaws.join(', ')}</span>
+                    </div>
+                  </div>
+                  {option.misbelief && (
+                    <p className="text-xs text-warning mt-2">
+                      Misbelief: "{option.misbelief}"
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="p-4 border-t border-border flex justify-end">
+              <button
+                onClick={() => setShowOptionsModal(false)}
+                className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
