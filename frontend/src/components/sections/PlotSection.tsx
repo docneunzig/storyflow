@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react'
-import { Plus, Target, Edit2, Trash2, Users, MapPin, BookOpen, Layers, Sparkles } from 'lucide-react'
+import { Plus, Target, Edit2, Trash2, Users, MapPin, BookOpen, Layers, Sparkles, List, GitBranch } from 'lucide-react'
 import type { Project, PlotBeat, PlotStructure, PlotFramework } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject, generateId } from '@/lib/db'
 import { PlotBeatModal } from '@/components/ui/PlotBeatModal'
+import { PlotCanvas } from '@/components/ui/PlotCanvas'
 import { toast } from '@/components/ui/Toaster'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
@@ -35,10 +36,13 @@ const STATUS_COLORS: Record<string, string> = {
   locked: 'bg-warning/20 text-warning border-warning/30',
 }
 
+type ViewMode = 'list' | 'canvas'
+
 export function PlotSection({ project }: SectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingBeat, setEditingBeat] = useState<PlotBeat | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
 
   // AI generation state
@@ -145,6 +149,11 @@ export function PlotSection({ project }: SectionProps) {
     setIsModalOpen(false)
     setEditingBeat(null)
   }
+
+  // Handle beat click from canvas
+  const handleBeatClick = useCallback((beat: PlotBeat) => {
+    handleOpenModal(beat)
+  }, [])
 
   // Generate 3 plot options with AI
   const handleGeneratePlotOptions = useCallback(async () => {
@@ -298,6 +307,33 @@ export function PlotSection({ project }: SectionProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* View mode toggle */}
+          <div className="flex items-center bg-surface-elevated rounded-lg border border-border p-0.5">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-accent text-white'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+              title="List view"
+            >
+              <List className="h-4 w-4" aria-hidden="true" />
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('canvas')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                viewMode === 'canvas'
+                  ? 'bg-accent text-white'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+              title="Canvas view"
+            >
+              <GitBranch className="h-4 w-4" aria-hidden="true" />
+              Canvas
+            </button>
+          </div>
           <button
             onClick={handleGeneratePlotOptions}
             disabled={isGenerating}
@@ -341,7 +377,15 @@ export function PlotSection({ project }: SectionProps) {
       </div>
 
       {/* Plot Beats */}
-      {sortedBeats.length === 0 ? (
+      {viewMode === 'canvas' ? (
+        /* Canvas View */
+        <PlotCanvas
+          beats={sortedBeats}
+          framework={plot.framework}
+          onNodeClick={handleBeatClick}
+          getCharacterName={getCharacterName}
+        />
+      ) : sortedBeats.length === 0 ? (
         <div className="card text-center py-12">
           <Target className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
           <h3 className="text-lg font-medium text-text-primary mb-2">No plot beats yet</h3>
