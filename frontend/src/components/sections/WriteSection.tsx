@@ -80,7 +80,7 @@ function detectCharacterFirstAppearances(
     const nameAppears = contentLower.includes(character.name.toLowerCase())
 
     // Check if any alias appears in content
-    const aliasAppears = character.aliases.some(alias =>
+    const aliasAppears = (character.aliases || []).some(alias =>
       alias && contentLower.includes(alias.toLowerCase())
     )
 
