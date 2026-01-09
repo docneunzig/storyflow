@@ -147,11 +147,35 @@ export function useAIGeneration() {
           return null
         }
 
+        // Convert technical errors to user-friendly messages
+        let userMessage = 'Generation failed'
+        let userError = err.message
+
+        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+          userMessage = 'Connection lost'
+          userError = 'Unable to connect to the AI service. Please check your internet connection and try again.'
+        } else if (err.message.includes('timeout') || err.message.includes('TIMEOUT')) {
+          userMessage = 'Request timed out'
+          userError = 'The AI service is taking longer than expected. Please try again in a moment.'
+        } else if (err.message.includes('503') || err.message.includes('Service Unavailable')) {
+          userMessage = 'Service temporarily unavailable'
+          userError = 'The AI service is currently experiencing high demand. Please try again in a few minutes.'
+        } else if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+          userMessage = 'Authentication error'
+          userError = 'There was a problem with your session. Please refresh the page and try again.'
+        } else if (err.message.includes('429') || err.message.includes('Too Many Requests')) {
+          userMessage = 'Rate limit reached'
+          userError = 'You\'ve made too many requests. Please wait a moment before trying again.'
+        } else if (err.message.includes('500') || err.message.includes('Internal Server')) {
+          userMessage = 'Server error'
+          userError = 'Something went wrong on our end. Please try again in a moment.'
+        }
+
         updateProgress({
           status: 'error',
           progress: 0,
-          message: 'Generation failed',
-          error: err.message,
+          message: userMessage,
+          error: userError,
         })
       }
       return null

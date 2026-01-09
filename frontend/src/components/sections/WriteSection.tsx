@@ -59,6 +59,43 @@ function createRevisionHistory(
   }
 }
 
+// Helper to detect character first appearances in chapter content
+function detectCharacterFirstAppearances(
+  chapterContent: string,
+  chapterTitle: string,
+  chapterNumber: number,
+  characters: { id: string; name: string; aliases: string[]; firstAppearance: string | null }[]
+): { id: string; firstAppearance: string }[] {
+  const updates: { id: string; firstAppearance: string }[] = []
+
+  if (!chapterContent) return updates
+
+  const contentLower = chapterContent.toLowerCase()
+
+  for (const character of characters) {
+    // Skip characters that already have a first appearance recorded
+    if (character.firstAppearance) continue
+
+    // Check if character name appears in content
+    const nameAppears = contentLower.includes(character.name.toLowerCase())
+
+    // Check if any alias appears in content
+    const aliasAppears = character.aliases.some(alias =>
+      alias && contentLower.includes(alias.toLowerCase())
+    )
+
+    if (nameAppears || aliasAppears) {
+      // Format: "Chapter X: Title"
+      updates.push({
+        id: character.id,
+        firstAppearance: `Chapter ${chapterNumber}: ${chapterTitle}`
+      })
+    }
+  }
+
+  return updates
+}
+
 // Helper to update daily word count tracking
 function updateDailyWordCount(
   currentStats: WritingStatistics | null,
@@ -163,8 +200,33 @@ export function WriteSection({ project }: SectionProps) {
         updatedStatistics = updateDailyWordCount(project.statistics, wordsAdded)
       }
 
-      await updateProject(project.id, { chapters: updatedChapters, statistics: updatedStatistics, revisions: updatedRevisions })
-      updateProjectStore(project.id, { chapters: updatedChapters, statistics: updatedStatistics, revisions: updatedRevisions })
+      // Detect character first appearances in chapter content
+      let updatedCharacters = project.characters || []
+      if (chapter.content) {
+        const firstAppearanceUpdates = detectCharacterFirstAppearances(
+          chapter.content,
+          chapter.title,
+          chapter.number,
+          updatedCharacters
+        )
+
+        if (firstAppearanceUpdates.length > 0) {
+          updatedCharacters = updatedCharacters.map(char => {
+            const update = firstAppearanceUpdates.find(u => u.id === char.id)
+            if (update) {
+              return { ...char, firstAppearance: update.firstAppearance }
+            }
+            return char
+          })
+          toast({
+            title: `Detected first appearance for ${firstAppearanceUpdates.length} character(s)`,
+            variant: 'success'
+          })
+        }
+      }
+
+      await updateProject(project.id, { chapters: updatedChapters, statistics: updatedStatistics, revisions: updatedRevisions, characters: updatedCharacters })
+      updateProjectStore(project.id, { chapters: updatedChapters, statistics: updatedStatistics, revisions: updatedRevisions, characters: updatedCharacters })
       setSaveStatus('saved')
       setEditingChapter(null)
 

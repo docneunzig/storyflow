@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, ChevronLeft, User, Film, Link2, X, Edit2, Trash2 } from 'lucide-react'
+import { ChevronRight, ChevronLeft, User, Film, Link2, X, Edit2, Trash2, BookOpen } from 'lucide-react'
 import type { Character, Scene, CharacterRelationship } from '@/types/project'
 
 interface InspectorProps {
@@ -134,6 +134,13 @@ export function Inspector({
               <span className="text-text-secondary/70">Status:</span>{' '}
               <span className="capitalize">{selectedCharacter.status}</span>
             </p>
+            {selectedCharacter.firstAppearance && (
+              <p className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border">
+                <BookOpen className="h-3 w-3 text-accent" aria-hidden="true" />
+                <span className="text-text-secondary/70">First Appearance:</span>{' '}
+                <span className="text-accent text-xs">{selectedCharacter.firstAppearance}</span>
+              </p>
+            )}
           </div>
         </div>
 

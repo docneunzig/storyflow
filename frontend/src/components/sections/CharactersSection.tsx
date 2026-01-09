@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film, GitBranch, List } from 'lucide-react'
+import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film, GitBranch, List, BookOpen } from 'lucide-react'
 import type { Project, Character, CharacterRole, CharacterRelationship, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
@@ -748,6 +748,16 @@ export function CharactersSection({ project }: SectionProps) {
                             </span>
                           )}
                         </div>
+                      </div>
+                    )}
+
+                    {/* First Appearance */}
+                    {character.firstAppearance && (
+                      <div className="mt-2 pt-2 border-t border-border">
+                        <p className="flex items-center gap-1.5 text-xs text-text-secondary">
+                          <BookOpen className="h-3 w-3 text-accent" aria-hidden="true" />
+                          <span>First: {character.firstAppearance}</span>
+                        </p>
                       </div>
                     )}
 
