@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film, GitBranch, List, BookOpen, Sparkles, X } from 'lucide-react'
+import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film, GitBranch, List, BookOpen, Sparkles, X, Mic } from 'lucide-react'
 import type { Project, Character, CharacterRole, CharacterRelationship, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject, generateId } from '@/lib/db'
@@ -11,6 +11,7 @@ import { toast } from '@/components/ui/Toaster'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
+import { VoiceConsistencyChecker } from '@/components/ui/VoiceConsistencyChecker'
 
 // Character option type for AI-generated options
 interface CharacterOption {
@@ -74,6 +75,7 @@ export function CharactersSection({ project }: SectionProps) {
   const [showAIProgress, setShowAIProgress] = useState(false)
   const [characterOptions, setCharacterOptions] = useState<CharacterOption[]>([])
   const [showOptionsModal, setShowOptionsModal] = useState(false)
+  const [showVoiceChecker, setShowVoiceChecker] = useState(false)
 
   const {
     status: aiStatus,
@@ -690,6 +692,14 @@ export function CharactersSection({ project }: SectionProps) {
             Generate 3 Options
           </button>
           <button
+            onClick={() => setShowVoiceChecker(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-pink-500/10 text-pink-400 border border-pink-500/30 rounded-lg hover:bg-pink-500/20 transition-colors"
+            title="Check character voice consistency"
+          >
+            <Mic className="h-4 w-4" aria-hidden="true" />
+            Voice Check
+          </button>
+          <button
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
           >
@@ -1274,6 +1284,15 @@ export function CharactersSection({ project }: SectionProps) {
           </div>
         </div>
       )}
+
+      {/* Voice Consistency Checker Modal */}
+      <VoiceConsistencyChecker
+        characters={characters}
+        chapters={project.chapters || []}
+        scenes={scenes}
+        isOpen={showVoiceChecker}
+        onClose={() => setShowVoiceChecker(false)}
+      />
     </div>
   )
 }
