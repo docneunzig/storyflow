@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft, GripVertical, LayoutGrid, LayoutList, Layers, Grid3X3 } from 'lucide-react'
+import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft, GripVertical, LayoutGrid, LayoutList, Layers, Grid3X3, Sparkles, X } from 'lucide-react'
 import type { Project, Scene, Chapter } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
@@ -7,6 +7,20 @@ import { SceneModal } from '@/components/ui/SceneModal'
 import { SceneTimeline } from '@/components/ui/SceneTimeline'
 import { SceneCharacterMatrix } from '@/components/ui/SceneCharacterMatrix'
 import { toast } from '@/components/ui/Toaster'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { AIProgressModal } from '@/components/ui/AIProgressModal'
+
+interface SceneOption {
+  title: string
+  summary: string
+  conflictType: string
+  conflictDescription: string
+  sceneGoal: string
+  openingEmotion: string
+  closingEmotion: string
+  pacing: string
+  tone: string
+}
 
 type ViewMode = 'cards' | 'timeline' | 'chapters' | 'matrix'
 
@@ -35,7 +49,11 @@ export function ScenesSection({ project }: SectionProps) {
   const [draggedSceneId, setDraggedSceneId] = useState<string | null>(null)
   const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
+  const [showAIProgress, setShowAIProgress] = useState(false)
+  const [sceneOptions, setSceneOptions] = useState<SceneOption[]>([])
+  const [showOptionsModal, setShowOptionsModal] = useState(false)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
+  const { generate, isGenerating, progress, currentStep } = useAIGeneration()
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, sceneId: string) => {
@@ -191,6 +209,126 @@ export function ScenesSection({ project }: SectionProps) {
     setEditingScene(null)
   }
 
+  // Generate sample scene options (fallback when AI is unavailable)
+  const generateSampleSceneOptions = (): SceneOption[] => {
+    return [
+      {
+        title: 'The Confrontation',
+        summary: 'Tensions reach a boiling point as characters face off in a high-stakes verbal duel that will change their relationship forever.',
+        conflictType: 'Internal/External',
+        conflictDescription: 'Character must choose between loyalty and truth while facing opposition from a trusted ally.',
+        sceneGoal: 'Reveal hidden motivations and shift power dynamics',
+        openingEmotion: 'Tense anticipation',
+        closingEmotion: 'Shocked revelation',
+        pacing: 'Fast',
+        tone: 'Dramatic',
+      },
+      {
+        title: 'The Discovery',
+        summary: 'A seemingly innocent investigation leads to an unexpected discovery that raises more questions than answers.',
+        conflictType: 'Mystery/Investigation',
+        conflictDescription: 'Uncovering clues that point to a deeper conspiracy while dealing with misdirection.',
+        sceneGoal: 'Plant crucial plot seeds and build intrigue',
+        openingEmotion: 'Curious determination',
+        closingEmotion: 'Unsettled realization',
+        pacing: 'Moderate',
+        tone: 'Suspenseful',
+      },
+      {
+        title: 'The Quiet Before',
+        summary: 'An intimate moment of reflection and connection between characters, allowing deeper bonds to form before coming challenges.',
+        conflictType: 'Emotional/Relational',
+        conflictDescription: 'Characters must overcome past hurts and miscommunications to forge a genuine connection.',
+        sceneGoal: 'Deepen character relationships and provide emotional grounding',
+        openingEmotion: 'Guarded vulnerability',
+        closingEmotion: 'Hopeful connection',
+        pacing: 'Slow',
+        tone: 'Intimate',
+      },
+    ]
+  }
+
+  // Handle generating scene options with AI
+  const handleGenerateSceneOptions = async () => {
+    setShowAIProgress(true)
+    try {
+      const result = await generate({
+        type: 'scene_options',
+        context: {
+          projectTitle: project.title,
+          genre: project.metadata?.genre,
+          existingScenes: scenes.map(s => ({ title: s.title, summary: s.summary })),
+          characters: characters.map(c => ({ name: c.name, role: c.role })),
+        },
+        prompt: 'Generate 3 distinct scene options with different approaches, conflicts, and pacing',
+      })
+
+      if (result?.options && Array.isArray(result.options)) {
+        setSceneOptions(result.options as SceneOption[])
+      } else {
+        // Use sample data as fallback
+        setSceneOptions(generateSampleSceneOptions())
+      }
+      setShowOptionsModal(true)
+    } catch (error) {
+      console.error('Failed to generate scene options:', error)
+      // Use sample data as fallback
+      setSceneOptions(generateSampleSceneOptions())
+      setShowOptionsModal(true)
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  // Handle selecting a scene option
+  const handleSelectSceneOption = async (option: SceneOption) => {
+    const newScene: Scene = {
+      id: `scene-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      title: option.title,
+      chapterId: null,
+      sequenceInChapter: scenes.length + 1,
+      plotBeatId: null,
+      locationId: null,
+      timeInStory: '',
+      weatherAtmosphere: '',
+      povCharacterId: null,
+      charactersPresent: [],
+      summary: option.summary,
+      detailedOutline: '',
+      openingHook: '',
+      keyMoments: [],
+      closingHook: '',
+      sceneGoal: option.sceneGoal,
+      conflictType: option.conflictType,
+      conflictDescription: option.conflictDescription,
+      characterGoals: [],
+      openingEmotion: option.openingEmotion,
+      closingEmotion: option.closingEmotion,
+      tone: option.tone,
+      estimatedWordCount: 1500,
+      pacing: option.pacing,
+      setupFor: [],
+      payoffFor: [],
+      status: 'outline',
+      userNotes: '',
+    }
+
+    try {
+      setSaveStatus('saving')
+      const updatedScenes = [...scenes, newScene]
+      await updateProject(project.id, { scenes: updatedScenes })
+      updateProjectStore(project.id, { scenes: updatedScenes })
+      setSaveStatus('saved')
+      setShowOptionsModal(false)
+      setSceneOptions([])
+      toast({ title: `Scene "${newScene.title}" created`, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to create scene:', error)
+      toast({ title: 'Failed to create scene', variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+  }
+
   const scenes = project.scenes || []
   const characters = project.characters || []
   const chapters = project.chapters || []
@@ -290,13 +428,23 @@ export function ScenesSection({ project }: SectionProps) {
             Build detailed scene blueprints with timeline and chapter views.
           </p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          New Scene
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleGenerateSceneOptions}
+            disabled={isGenerating}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded-lg hover:bg-purple-500/20 transition-colors disabled:opacity-50"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            Generate 3 Options
+          </button>
+          <button
+            onClick={() => handleOpenModal()}
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            New Scene
+          </button>
+        </div>
       </div>
 
       {scenes.length === 0 ? (
@@ -704,6 +852,98 @@ export function ScenesSection({ project }: SectionProps) {
         plotBeats={plotBeats}
         allScenes={scenes}
       />
+
+      {/* AI Progress Modal */}
+      <AIProgressModal
+        isOpen={showAIProgress}
+        title="Generating Scene Options"
+        progress={progress}
+        currentStep={currentStep}
+      />
+
+      {/* Scene Options Selection Modal */}
+      {showOptionsModal && sceneOptions.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowOptionsModal(false)}
+          />
+          <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-4xl mx-4 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-400" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Choose a Scene Approach
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowOptionsModal(false)}
+                className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* Options Grid */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <p className="text-text-secondary mb-4">
+                Select one of the following scene approaches to create your new scene:
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {sceneOptions.map((option, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSelectSceneOption(option)}
+                    className="text-left p-4 rounded-lg border border-border bg-surface-elevated hover:border-purple-500/50 hover:bg-purple-500/5 transition-all group"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold text-text-primary group-hover:text-purple-400 transition-colors">
+                        {option.title}
+                      </h3>
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        option.pacing === 'Fast' ? 'bg-orange-500/20 text-orange-400' :
+                        option.pacing === 'Slow' ? 'bg-blue-500/20 text-blue-400' :
+                        'bg-text-secondary/20 text-text-secondary'
+                      }`}>
+                        {option.pacing}
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-secondary mb-3 line-clamp-3">
+                      {option.summary}
+                    </p>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-error">Conflict:</span>
+                        <span className="text-text-secondary">{option.conflictType}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-accent">Tone:</span>
+                        <span className="text-text-secondary">{option.tone}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-success">Emotion Arc:</span>
+                        <span className="text-text-secondary">{option.openingEmotion} → {option.closingEmotion}</span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-border flex justify-end gap-2">
+              <button
+                onClick={() => setShowOptionsModal(false)}
+                className="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
