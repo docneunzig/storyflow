@@ -35,6 +35,7 @@ import {
 import type { Project, Chapter, ChapterQualityScore, QualityDimensions } from '@/types/project'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
+import { CircularProgress } from '@/components/ui/CircularProgress'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject as updateProjectInDb } from '@/lib/db'
 
@@ -1075,12 +1076,6 @@ export function ReviewSection({ project }: SectionProps) {
     return 'text-error'
   }
 
-  const getScoreBarColor = (score: number) => {
-    if (score >= 8) return 'bg-success'
-    if (score >= 6) return 'bg-warning'
-    return 'bg-error'
-  }
-
   return (
     <div className="h-full flex flex-col">
       <div className="flex-shrink-0 mb-6">
@@ -1200,10 +1195,13 @@ export function ReviewSection({ project }: SectionProps) {
                 <div className="flex-1 overflow-y-auto space-y-4">
                   {/* Overall Score */}
                   <div className="p-4 border border-border rounded-lg bg-surface">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-text-primary">Overall Score</h3>
-                      <div className={`text-3xl font-bold ${getScoreColor(critiqueResult.overallScore)}`}>
-                        {critiqueResult.overallScore.toFixed(1)}/10
+                    <div className="flex items-center gap-6 mb-4">
+                      <CircularProgress value={critiqueResult.overallScore} size="lg" />
+                      <div>
+                        <h3 className="font-semibold text-text-primary mb-1">Overall Score</h3>
+                        <div className={`text-3xl font-bold ${getScoreColor(critiqueResult.overallScore)}`}>
+                          {critiqueResult.overallScore.toFixed(1)}/10
+                        </div>
                       </div>
                     </div>
                     <p className="text-sm text-text-secondary">{critiqueResult.summary}</p>
@@ -1472,22 +1470,14 @@ export function ReviewSection({ project }: SectionProps) {
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className={`text-sm font-bold ${getScoreColor(score.score)}`}>
-                                    {score.score.toFixed(1)}
-                                  </span>
+                                  {/* Circular Progress Score */}
+                                  <CircularProgress value={score.score} size="sm" />
                                   {isExpanded ? (
                                     <ChevronUp className="h-4 w-4 text-text-secondary" />
                                   ) : (
                                     <ChevronDown className="h-4 w-4 text-text-secondary" />
                                   )}
                                 </div>
-                              </div>
-                              {/* Score Bar */}
-                              <div className="mt-2 h-1.5 bg-surface rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full ${getScoreBarColor(score.score)} transition-all`}
-                                  style={{ width: `${score.score * 10}%` }}
-                                />
                               </div>
                             </button>
                             {isExpanded && (
