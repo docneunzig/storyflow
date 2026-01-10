@@ -195,7 +195,7 @@ function analyzeVoiceConsistency(
 export function VoiceConsistencyChecker({
   characters,
   chapters,
-  scenes,
+  scenes: _scenes,
   isOpen,
   onClose,
 }: VoiceConsistencyCheckerProps) {

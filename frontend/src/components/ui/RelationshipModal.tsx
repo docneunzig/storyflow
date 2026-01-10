@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, Film } from 'lucide-react'
 import type { Character, CharacterRelationship, RelationshipType, Scene } from '@/types/project'
-import { generateId } from '@/lib/db'
 
 interface RelationshipModalProps {
   isOpen: boolean

@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
+import { ChevronDown, ChevronUp, RotateCcw, Sparkles, X } from 'lucide-react'
 import type { Project, NovelSpecification, TargetAudience, POV, Tense } from '@/types/project'
 import { updateProject as updateProjectInDb } from '@/lib/db'
 import { useProjectStore } from '@/stores/projectStore'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { AIProgressModal } from '@/components/ui/AIProgressModal'
+import { toast } from '@/components/ui/Toaster'
 
 interface SectionProps {
   project: Project
@@ -268,9 +271,176 @@ export function SpecificationSection({ project }: SectionProps) {
     }))
   }
 
+  // AI Generation
+  const { generate, isGenerating, progress, message, status, cancel, reset: resetAI } = useAIGeneration()
+  const [showAIProgress, setShowAIProgress] = useState(false)
+  const [aiProgressTitle, setAIProgressTitle] = useState('Generating Suggestions')
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestionType, setSuggestionType] = useState<'title' | 'tone' | 'theme' | null>(null)
+  const [showSuggestionsModal, setShowSuggestionsModal] = useState(false)
+
+  // Generate title suggestions
+  const handleSuggestTitles = async () => {
+    setAIProgressTitle('Generating Title Ideas')
+    setSuggestionType('title')
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'specification',
+        action: 'suggest-titles',
+        context: {
+          genre: spec.genre,
+          themes: spec.themes,
+          tone: spec.tone,
+          targetAudience: spec.targetAudience,
+          currentTitle: workingTitle,
+        },
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result)
+          if (Array.isArray(parsed)) {
+            setSuggestions(parsed)
+          } else {
+            setSuggestions([
+              'The Untold Story',
+              'Shadows of Tomorrow',
+              'Whispers in the Wind',
+            ])
+          }
+        } catch {
+          setSuggestions([
+            'Beyond the Horizon',
+            'The Last Chapter',
+            'Echoes of the Heart',
+          ])
+        }
+        setShowSuggestionsModal(true)
+      }
+    } catch (error) {
+      console.error('Failed to generate title suggestions:', error)
+      toast({ title: 'Failed to generate suggestions', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  // Generate tone suggestions
+  const handleSuggestTones = async () => {
+    setAIProgressTitle('Generating Tone Ideas')
+    setSuggestionType('tone')
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'specification',
+        action: 'suggest-tones',
+        context: {
+          genre: spec.genre,
+          themes: spec.themes,
+          targetAudience: spec.targetAudience,
+        },
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result)
+          if (Array.isArray(parsed)) {
+            setSuggestions(parsed)
+          } else {
+            setSuggestions([
+              'Dark and atmospheric with moments of hope',
+              'Witty and fast-paced with emotional depth',
+              'Lyrical and contemplative, slowly building tension',
+            ])
+          }
+        } catch {
+          setSuggestions([
+            'Suspenseful with underlying warmth',
+            'Gritty and realistic with dry humor',
+            'Dreamlike and surreal with grounded emotions',
+          ])
+        }
+        setShowSuggestionsModal(true)
+      }
+    } catch (error) {
+      console.error('Failed to generate tone suggestions:', error)
+      toast({ title: 'Failed to generate suggestions', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  // Generate theme suggestions
+  const handleSuggestThemes = async () => {
+    setAIProgressTitle('Generating Theme Ideas')
+    setSuggestionType('theme')
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'specification',
+        action: 'suggest-themes',
+        context: {
+          genre: spec.genre,
+          currentThemes: spec.themes,
+          targetAudience: spec.targetAudience,
+          title: workingTitle,
+        },
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result)
+          if (Array.isArray(parsed)) {
+            setSuggestions(parsed)
+          } else {
+            setSuggestions([
+              'The cost of ambition',
+              'Finding home after displacement',
+              'The weight of secrets',
+            ])
+          }
+        } catch {
+          setSuggestions([
+            'Redemption through sacrifice',
+            'The masks we wear',
+            'Memory and identity',
+          ])
+        }
+        setShowSuggestionsModal(true)
+      }
+    } catch (error) {
+      console.error('Failed to generate theme suggestions:', error)
+      toast({ title: 'Failed to generate suggestions', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  // Apply selected suggestion
+  const handleApplySuggestion = (suggestion: string) => {
+    if (suggestionType === 'title') {
+      handleTitleChange(suggestion)
+    } else if (suggestionType === 'tone') {
+      updateSpec('tone', suggestion)
+    } else if (suggestionType === 'theme') {
+      // Add theme if not already in list
+      if (!spec.themes.includes(suggestion)) {
+        updateSpec('themes', [...spec.themes, suggestion])
+      }
+    }
+    setShowSuggestionsModal(false)
+    setSuggestions([])
+    setSuggestionType(null)
+    toast({ title: 'Suggestion applied', variant: 'success' })
+  }
+
   // Validation function for numeric fields
   const validateNumericField = (
-    field: string,
+    _field: string,
     value: number,
     min: number,
     max: number,
@@ -432,17 +602,27 @@ export function SpecificationSection({ project }: SectionProps) {
               <label className="block text-sm font-medium text-text-secondary mb-1">
                 Working Title <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                value={workingTitle}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                aria-invalid={errors.workingTitle ? 'true' : undefined}
-                aria-describedby={errors.workingTitle ? 'title-error' : undefined}
-                className={`w-full px-3 py-2 bg-surface border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none ${
-                  errors.workingTitle ? 'border-error' : 'border-border'
-                }`}
-                placeholder="Enter your novel's title"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={workingTitle}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  aria-invalid={errors.workingTitle ? 'true' : undefined}
+                  aria-describedby={errors.workingTitle ? 'title-error' : undefined}
+                  className={`flex-1 px-3 py-2 bg-surface border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none ${
+                    errors.workingTitle ? 'border-error' : 'border-border'
+                  }`}
+                  placeholder="Enter your novel's title"
+                />
+                <button
+                  onClick={handleSuggestTitles}
+                  disabled={isGenerating}
+                  className="px-3 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
+                  title="Get AI title suggestions"
+                >
+                  <Sparkles className="h-4 w-4" />
+                </button>
+              </div>
               {errors.workingTitle && (
                 <p id="title-error" className="text-xs text-error mt-1" role="alert">{errors.workingTitle}</p>
               )}
@@ -607,13 +787,23 @@ export function SpecificationSection({ project }: SectionProps) {
             <label className="block text-sm font-medium text-text-secondary mb-1">
               Tone
             </label>
-            <input
-              type="text"
-              value={spec.tone}
-              onChange={(e) => updateSpec('tone', e.target.value)}
-              className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none"
-              placeholder="e.g., Dark and gritty with moments of dark humor"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={spec.tone}
+                onChange={(e) => updateSpec('tone', e.target.value)}
+                className="flex-1 px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none"
+                placeholder="e.g., Dark and gritty with moments of dark humor"
+              />
+              <button
+                onClick={handleSuggestTones}
+                disabled={isGenerating}
+                className="px-3 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
+                title="Get AI tone suggestions"
+              >
+                <Sparkles className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </AccordionSection>
 
@@ -801,6 +991,18 @@ export function SpecificationSection({ project }: SectionProps) {
           isExpanded={expandedSections.themes}
           onToggle={() => toggleSection('themes')}
         >
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-text-secondary">Select themes that resonate with your story</p>
+            <button
+              onClick={handleSuggestThemes}
+              disabled={isGenerating}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
+              title="Get AI theme suggestions"
+            >
+              <Sparkles className="h-4 w-4" />
+              Suggest Themes
+            </button>
+          </div>
           <div className="flex flex-wrap gap-2">
             {THEMES.map(theme => (
               <button
@@ -866,6 +1068,86 @@ export function SpecificationSection({ project }: SectionProps) {
           </div>
         </AccordionSection>
       </div>
+
+      {/* AI Progress Modal */}
+      <AIProgressModal
+        isOpen={showAIProgress}
+        onClose={() => {
+          setShowAIProgress(false)
+          resetAI()
+        }}
+        onCancel={cancel}
+        status={status}
+        title={aiProgressTitle}
+        progress={progress}
+        message={message}
+      />
+
+      {/* Suggestions Modal */}
+      {showSuggestionsModal && suggestions.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowSuggestionsModal(false)
+              setSuggestions([])
+              setSuggestionType(null)
+            }}
+          />
+          <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-lg mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-accent" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  {suggestionType === 'title' ? 'Title Suggestions' :
+                   suggestionType === 'tone' ? 'Tone Suggestions' :
+                   'Theme Suggestions'}
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSuggestionsModal(false)
+                  setSuggestions([])
+                  setSuggestionType(null)
+                }}
+                className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+              >
+                <X className="h-5 w-5 text-text-secondary" />
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="text-sm text-text-secondary mb-4">
+                Click on a suggestion to apply it:
+              </p>
+              <div className="space-y-2">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleApplySuggestion(suggestion)}
+                    className="w-full p-3 text-left bg-surface-elevated border border-border rounded-lg hover:border-accent hover:bg-accent/5 transition-colors group"
+                  >
+                    <p className="text-sm text-text-primary group-hover:text-accent transition-colors">
+                      {suggestion}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end">
+              <button
+                onClick={() => {
+                  setShowSuggestionsModal(false)
+                  setSuggestions([])
+                  setSuggestionType(null)
+                }}
+                className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

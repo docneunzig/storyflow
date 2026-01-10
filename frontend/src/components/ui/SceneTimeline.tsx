@@ -25,12 +25,6 @@ const POV_COLORS = [
 
 const NO_POV_COLOR = { border: 'border-text-secondary', bg: 'bg-text-secondary/10', dot: 'bg-text-secondary', text: 'text-text-secondary' }
 
-const STATUS_COLORS: Record<string, string> = {
-  outline: 'border-text-secondary bg-text-secondary/10',
-  drafted: 'border-accent bg-accent/10',
-  revised: 'border-success bg-success/10',
-  locked: 'border-warning bg-warning/10',
-}
 
 const PACING_INDICATORS: Record<string, { color: string; width: string }> = {
   Slow: { color: 'bg-blue-400', width: 'w-8' },

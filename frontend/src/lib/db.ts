@@ -154,6 +154,7 @@ export function createEmptyProject(title: string, authorName: string = ''): Proj
       currentPhase: 'specification',
     },
     specification: null,
+    brainstorm: null,
     plot: null,
     characters: [],
     scenes: [],

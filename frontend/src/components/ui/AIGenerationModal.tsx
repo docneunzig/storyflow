@@ -169,10 +169,10 @@ export function AIGenerationModal({ isOpen, onClose, project, currentSection }: 
       })) || [],
 
       // World-building context from wiki
-      wikiContext: project.wiki?.slice(0, 10).map(w => ({
+      wikiContext: project.worldbuildingEntries?.slice(0, 10).map((w: { name: string; category: string; content?: string }) => ({
         name: w.name,
         category: w.category,
-        description: w.description,
+        description: w.content || '',
       })) || [],
 
       // Current chapter count for numbering
@@ -223,13 +223,16 @@ export function AIGenerationModal({ isOpen, onClose, project, currentSection }: 
         toast({ title: 'Chapter added to your project', variant: 'success' })
       } else if (selectedType === 'character') {
         // Create a new character
-        const newCharacter = {
+        const newCharacter: import('@/types/project').Character = {
           id: `char-${Date.now()}`,
           name: `AI Character ${(project.characters?.length || 0) + 1}`,
-          role: 'supporting' as const,
+          role: 'supporting',
           archetype: 'Everyman',
+          age: null,
+          gender: '',
+          physicalDescription: '',
           personalitySummary: result,
-          status: 'alive' as const,
+          status: 'alive',
           aliases: [],
           distinguishingFeatures: [],
           strengths: [],
@@ -237,15 +240,19 @@ export function AIGenerationModal({ isOpen, onClose, project, currentSection }: 
           fears: [],
           desires: [],
           needs: [],
+          misbelief: '',
+          backstory: '',
           formativeExperiences: [],
           secrets: [],
           speechPatterns: '',
+          vocabularyLevel: '',
           catchphrases: [],
           internalVoice: '',
           characterArc: '',
           arcCatalyst: '',
+          firstAppearance: null,
           scenesPresent: [],
-          notes: '',
+          userNotes: '',
         }
         const updatedCharacters = [...(project.characters || []), newCharacter]
         await updateProject(project.id, { characters: updatedCharacters })
@@ -253,21 +260,35 @@ export function AIGenerationModal({ isOpen, onClose, project, currentSection }: 
         toast({ title: 'Character added to your project', variant: 'success' })
       } else if (selectedType === 'scene') {
         // Create a new scene
-        const newScene = {
+        const newScene: import('@/types/project').Scene = {
           id: `scene-${Date.now()}`,
           title: `AI Generated Scene ${(project.scenes?.length || 0) + 1}`,
-          status: 'outline' as const,
-          pacing: 'moderate' as const,
+          chapterId: null,
+          sequenceInChapter: 1,
+          plotBeatId: null,
+          locationId: null,
+          timeInStory: '',
+          weatherAtmosphere: '',
+          povCharacterId: null,
+          charactersPresent: [],
           summary: result,
-          estimatedWordCount: 2000,
+          detailedOutline: '',
+          openingHook: '',
+          keyMoments: [],
+          closingHook: '',
+          sceneGoal: '',
+          conflictType: '',
+          conflictDescription: '',
+          characterGoals: [],
           openingEmotion: '',
           closingEmotion: '',
           tone: '',
-          openingHook: '',
-          closingHook: '',
-          notes: '',
-          sequenceInChapter: 1,
-          charactersPresent: [],
+          estimatedWordCount: 2000,
+          pacing: 'moderate',
+          setupFor: [],
+          payoffFor: [],
+          status: 'outline',
+          userNotes: '',
         }
         const updatedScenes = [...(project.scenes || []), newScene]
         await updateProject(project.id, { scenes: updatedScenes })
@@ -276,13 +297,14 @@ export function AIGenerationModal({ isOpen, onClose, project, currentSection }: 
       } else if (selectedType === 'plot-beat') {
         // Create a new plot beat
         const existingBeats = project.plot?.beats || []
-        const newBeat = {
+        const newBeat: import('@/types/project').PlotBeat = {
           id: `beat-${Date.now()}`,
           frameworkPosition: 'custom',
           title: `AI Plot Beat ${existingBeats.length + 1}`,
           summary: result,
           detailedDescription: '',
           charactersInvolved: [],
+          location: null,
           timelinePosition: existingBeats.length + 1,
           emotionalArc: '',
           stakes: '',
@@ -290,11 +312,14 @@ export function AIGenerationModal({ isOpen, onClose, project, currentSection }: 
           payoffs: [],
           chapterTarget: null,
           wordCountEstimate: 0,
-          status: 'outline' as const,
-          notes: '',
+          status: 'outline',
+          userNotes: '',
         }
-        const updatedPlot = {
-          ...project.plot,
+        const updatedPlot: import('@/types/project').PlotStructure = {
+          framework: project.plot?.framework || 'Three-Act Structure',
+          overallArc: project.plot?.overallArc || '',
+          centralConflict: project.plot?.centralConflict || '',
+          stakes: project.plot?.stakes || '',
           beats: [...existingBeats, newBeat],
         }
         await updateProject(project.id, { plot: updatedPlot })

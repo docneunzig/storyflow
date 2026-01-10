@@ -174,7 +174,7 @@ export function RelationshipMap({ characters, relationships, onNodeClick }: Rela
     return relationships.map((rel, index): Edge => {
       const sourceName = charNameMap.get(rel.sourceCharacterId) || 'Unknown'
       const targetName = charNameMap.get(rel.targetCharacterId) || 'Unknown'
-      const tooltipText = `${sourceName} → ${targetName}: ${rel.relationshipType}${rel.description ? `\n${rel.description}` : ''}`
+      const tooltipText = `${sourceName} → ${targetName}: ${rel.relationshipType}${rel.dynamicDescription ? `\n${rel.dynamicDescription}` : ''}`
 
       return {
         id: `${rel.sourceCharacterId}-${rel.targetCharacterId}-${index}`,
@@ -203,7 +203,7 @@ export function RelationshipMap({ characters, relationships, onNodeClick }: Rela
         // Store tooltip data for hover
         data: {
           tooltip: tooltipText,
-          description: rel.description,
+          description: rel.dynamicDescription,
           evolution: rel.evolution,
         },
       }

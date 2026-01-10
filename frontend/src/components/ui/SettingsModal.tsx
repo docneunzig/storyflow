@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Moon, Sun, LogOut, Clock, Activity } from 'lucide-react'
+import { X, Moon, Sun, LogOut, Clock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useThemeStore } from '@/stores/themeStore'
 

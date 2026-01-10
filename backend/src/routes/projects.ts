@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
-import type { Project, ProjectMetadata } from '../types/project.js'
+import type { Project } from '../types/project.js'
 
 const router = Router()
 
@@ -9,7 +9,7 @@ const router = Router()
 const projects = new Map<string, Project>()
 
 // GET /api/projects - List all projects
-router.get('/', (req, res) => {
+router.get('/', (_req, res) => {
   const projectList = Array.from(projects.values())
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
   res.json(projectList)

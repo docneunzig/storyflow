@@ -18,18 +18,18 @@ app.use('/api/ai', aiRouter) // Status endpoint needs to be accessible without a
 app.use('/api/projects', requireAuth, projectsRouter)
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
 // Error handling
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Error:', err)
   res.status(500).json({ error: 'Internal server error' })
 })
 
 // 404 handler
-app.use((req, res) => {
+app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' })
 })
 

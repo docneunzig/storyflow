@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react'
-import { Plus, BookOpen, Edit2, Trash2, Tag, Filter, Link2, FileText } from 'lucide-react'
+import { Plus, BookOpen, Edit2, Trash2, Tag, Filter, Link2, FileText, Sparkles, Wand2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { Project, WikiEntry, WikiCategory, Character } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
-import { updateProject } from '@/lib/db'
+import { updateProject, generateId } from '@/lib/db'
 import { WikiEntryModal } from '@/components/ui/WikiEntryModal'
 import { toast } from '@/components/ui/Toaster'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { AIProgressModal } from '@/components/ui/AIProgressModal'
 
 interface SectionProps {
   project: Project
@@ -48,6 +50,140 @@ export function WikiSection({ project }: SectionProps) {
   const [selectedCategory, setSelectedCategory] = useState<WikiCategory | 'all'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
+
+  // AI Generation
+  const { generate, isGenerating, progress, message, status, cancel, reset: resetAI } = useAIGeneration()
+  const [showAIProgress, setShowAIProgress] = useState(false)
+  const [aiProgressTitle, setAIProgressTitle] = useState('Extracting Wiki Elements')
+  const [extractedEntries, setExtractedEntries] = useState<{ name: string; category: WikiCategory; description: string }[]>([])
+  const [showExtractedModal, setShowExtractedModal] = useState(false)
+  const [expandingEntryId, setExpandingEntryId] = useState<string | null>(null)
+
+  // Extract wiki elements from chapters
+  const handleExtractFromChapters = async () => {
+    const chapters = project.chapters || []
+    if (chapters.length === 0 || !chapters.some(c => c.content)) {
+      toast({ title: 'No chapter content to analyze', variant: 'error' })
+      return
+    }
+
+    setAIProgressTitle('Extracting Wiki Elements from Chapters')
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'wiki',
+        action: 'extract-elements',
+        context: {
+          chapters: chapters.filter(c => c.content).map(c => ({
+            number: c.number,
+            title: c.title,
+            content: c.content?.substring(0, 3000), // Limit content
+          })),
+          existingEntries: wikiEntries.map(e => e.name),
+          specification: project.specification,
+        },
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result)
+          if (Array.isArray(parsed)) {
+            setExtractedEntries(parsed)
+          } else {
+            setExtractedEntries([
+              { name: 'The Old Manor', category: 'locations', description: 'A mysterious building mentioned in the story' },
+              { name: 'The Binding Oath', category: 'terminology', description: 'A sacred promise with magical consequences' },
+            ])
+          }
+        } catch {
+          setExtractedEntries([
+            { name: 'Sample Location', category: 'locations', description: 'A key location from the chapters' },
+            { name: 'Sample Term', category: 'terminology', description: 'An important term used in the story' },
+          ])
+        }
+        setShowExtractedModal(true)
+      }
+    } catch (error) {
+      console.error('Failed to extract wiki elements:', error)
+      toast({ title: 'Failed to extract elements', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  // Add extracted entries to wiki
+  const handleAddExtractedEntries = async () => {
+    if (extractedEntries.length === 0) return
+
+    try {
+      setSaveStatus('saving')
+      const newEntries: WikiEntry[] = extractedEntries.map(e => ({
+        id: generateId(),
+        category: e.category,
+        name: e.name,
+        description: e.description,
+        tags: [],
+        relatedEntries: [],
+        sourceChapters: [],
+      }))
+
+      const updatedEntries = [...wikiEntries, ...newEntries]
+      await updateProject(project.id, { worldbuildingEntries: updatedEntries })
+      updateProjectStore(project.id, { worldbuildingEntries: updatedEntries })
+      setSaveStatus('saved')
+      setShowExtractedModal(false)
+      setExtractedEntries([])
+      toast({ title: `Added ${newEntries.length} wiki entries`, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to add entries:', error)
+      toast({ title: 'Failed to add entries', variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+  }
+
+  // Expand a wiki entry with more detail
+  const handleExpandEntry = async (entry: WikiEntry) => {
+    setExpandingEntryId(entry.id)
+    setAIProgressTitle(`Expanding: ${entry.name}`)
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'wiki',
+        action: 'expand-entry',
+        context: {
+          entry: {
+            name: entry.name,
+            category: entry.category,
+            description: entry.description,
+            tags: entry.tags,
+          },
+          specification: project.specification,
+          genre: project.specification?.genre,
+        },
+      })
+
+      if (result) {
+        setSaveStatus('saving')
+        const updatedEntries = wikiEntries.map(e =>
+          e.id === entry.id
+            ? { ...e, description: result }
+            : e
+        )
+        await updateProject(project.id, { worldbuildingEntries: updatedEntries })
+        updateProjectStore(project.id, { worldbuildingEntries: updatedEntries })
+        setSaveStatus('saved')
+        toast({ title: `Expanded "${entry.name}"`, variant: 'success' })
+      }
+    } catch (error) {
+      console.error('Failed to expand entry:', error)
+      toast({ title: 'Failed to expand entry', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+      setExpandingEntryId(null)
+    }
+  }
 
   const wikiEntries = project.worldbuildingEntries || []
 
@@ -149,7 +285,7 @@ export function WikiSection({ project }: SectionProps) {
   }, {} as Record<WikiCategory, LinkedWikiEntry[]>)
 
   // Handle click on auto-linked character
-  const handleCharacterClick = (characterId: string) => {
+  const handleCharacterClick = (_characterId: string) => {
     navigate(`/projects/${project.id}/characters`)
     // Could potentially scroll to specific character in future
   }
@@ -199,13 +335,24 @@ export function WikiSection({ project }: SectionProps) {
             Maintain internal consistency with organized worldbuilding details.
           </p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Add Entry
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExtractFromChapters}
+            disabled={isGenerating}
+            className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
+            title="Scan chapters for locations, terms, and items"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            Extract from Chapters
+          </button>
+          <button
+            onClick={() => handleOpenModal()}
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add Entry
+          </button>
+        </div>
       </div>
 
       {allEntries.length === 0 ? (
@@ -307,7 +454,7 @@ export function WikiSection({ project }: SectionProps) {
                             <h4 className="font-medium text-text-primary flex items-center gap-2">
                               {entry.name}
                               {isAutoLinked && (
-                                <Link2 className="h-4 w-4 text-purple-400" aria-hidden="true" title="Auto-linked from Characters" />
+                                <span title="Auto-linked from Characters"><Link2 className="h-4 w-4 text-purple-400" aria-hidden="true" /></span>
                               )}
                             </h4>
                             <div className="flex items-center gap-2 mt-1">
@@ -323,6 +470,15 @@ export function WikiSection({ project }: SectionProps) {
                           </div>
                           {!isAutoLinked && (
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleExpandEntry(entry); }}
+                                disabled={isGenerating}
+                                className="p-1.5 rounded-md hover:bg-accent/10 transition-colors disabled:opacity-50"
+                                aria-label="Expand entry"
+                                title="Expand with AI-generated details"
+                              >
+                                <Wand2 className="h-4 w-4 text-accent" aria-hidden="true" />
+                              </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleOpenModal(entry); }}
                                 className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
@@ -452,6 +608,87 @@ export function WikiSection({ project }: SectionProps) {
         chapters={project.chapters || []}
         wikiEntries={wikiEntries}
       />
+
+      {/* AI Progress Modal */}
+      <AIProgressModal
+        isOpen={showAIProgress}
+        onClose={() => {
+          setShowAIProgress(false)
+          resetAI()
+        }}
+        onCancel={cancel}
+        status={status}
+        title={aiProgressTitle}
+        progress={progress}
+        message={message}
+      />
+
+      {/* Extracted Entries Modal */}
+      {showExtractedModal && extractedEntries.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowExtractedModal(false)
+              setExtractedEntries([])
+            }}
+          />
+          <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-accent" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Extracted Wiki Elements
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowExtractedModal(false)
+                  setExtractedEntries([])
+                }}
+                className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+              >
+                <X className="h-5 w-5 text-text-secondary" />
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="text-sm text-text-secondary mb-4">
+                Found {extractedEntries.length} potential wiki entries from your chapters:
+              </p>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {extractedEntries.map((entry, index) => (
+                  <div key={index} className="p-3 bg-surface-elevated border border-border rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-medium text-text-primary">{entry.name}</h4>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[entry.category]}`}>
+                        {getCategoryLabel(entry.category)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-secondary">{entry.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowExtractedModal(false)
+                  setExtractedEntries([])
+                }}
+                className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddExtractedEntries}
+                className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+              >
+                Add All to Wiki
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

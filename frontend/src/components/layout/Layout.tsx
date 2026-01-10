@@ -14,12 +14,13 @@ import { toast } from '@/components/ui/Toaster'
 // Navigation sections mapped to number keys
 const NAV_SHORTCUTS: Record<string, string> = {
   '1': 'specification',
-  '2': 'plot',
-  '3': 'characters',
-  '4': 'scenes',
-  '5': 'write',
-  '6': 'review',
-  '7': 'export',
+  '2': 'brainstorm',
+  '3': 'plot',
+  '4': 'characters',
+  '5': 'scenes',
+  '6': 'write',
+  '7': 'review',
+  '8': 'export',
 }
 
 export function Layout() {
@@ -31,7 +32,7 @@ export function Layout() {
   const [isFocusMode, setIsFocusMode] = useState(false)
   const [isFindOpen, setIsFindOpen] = useState(false)
   const [isAIGenerationOpen, setIsAIGenerationOpen] = useState(false)
-  const { saveStatus, setSaveStatus, currentProject } = useProjectStore()
+  const { saveStatus, currentProject } = useProjectStore()
 
   // Extract current section from URL path
   const getCurrentSection = () => {

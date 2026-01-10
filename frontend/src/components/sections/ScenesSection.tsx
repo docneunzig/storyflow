@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft, GripVertical, LayoutGrid, LayoutList, Layers, Grid3X3, Sparkles, X } from 'lucide-react'
+import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft, GripVertical, LayoutGrid, LayoutList, Layers, Grid3X3, Sparkles, X, FileText, Wand2 } from 'lucide-react'
 import type { Project, Scene, Chapter } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
@@ -50,10 +50,14 @@ export function ScenesSection({ project }: SectionProps) {
   const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
   const [showAIProgress, setShowAIProgress] = useState(false)
+  const [aiProgressTitle, setAIProgressTitle] = useState('Generating Scene Options')
   const [sceneOptions, setSceneOptions] = useState<SceneOption[]>([])
   const [showOptionsModal, setShowOptionsModal] = useState(false)
+  const [showProseModal, setShowProseModal] = useState(false)
+  const [generatedProse, setGeneratedProse] = useState('')
+  const [proseSceneId, setProseSceneId] = useState<string | null>(null)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
-  const { generate, isGenerating, progress, currentStep } = useAIGeneration()
+  const { generate, isGenerating, progress, message, status, cancel } = useAIGeneration()
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, sceneId: string) => {
@@ -253,18 +257,27 @@ export function ScenesSection({ project }: SectionProps) {
     setShowAIProgress(true)
     try {
       const result = await generate({
-        type: 'scene_options',
+        agentTarget: 'writer',
+        action: 'generate-scene',
         context: {
-          projectTitle: project.title,
-          genre: project.metadata?.genre,
+          projectTitle: project.metadata.workingTitle,
+          genre: project.specification?.genre,
           existingScenes: scenes.map(s => ({ title: s.title, summary: s.summary })),
           characters: characters.map(c => ({ name: c.name, role: c.role })),
         },
-        prompt: 'Generate 3 distinct scene options with different approaches, conflicts, and pacing',
       })
 
-      if (result?.options && Array.isArray(result.options)) {
-        setSceneOptions(result.options as SceneOption[])
+      if (result) {
+        try {
+          const parsed = JSON.parse(result)
+          if (parsed?.options && Array.isArray(parsed.options)) {
+            setSceneOptions(parsed.options as SceneOption[])
+          } else {
+            setSceneOptions(generateSampleSceneOptions())
+          }
+        } catch {
+          setSceneOptions(generateSampleSceneOptions())
+        }
       } else {
         // Use sample data as fallback
         setSceneOptions(generateSampleSceneOptions())
@@ -325,6 +338,84 @@ export function ScenesSection({ project }: SectionProps) {
     } catch (error) {
       console.error('Failed to create scene:', error)
       toast({ title: 'Failed to create scene', variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+  }
+
+  // Handle generating prose from scene outline
+  const handleGenerateProse = async (scene: Scene, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+
+    setProseSceneId(scene.id)
+    setAIProgressTitle(`Generating Prose: ${scene.title}`)
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'writer',
+        action: 'generate-scene-prose',
+        context: {
+          scene: {
+            title: scene.title,
+            summary: scene.summary,
+            detailedOutline: scene.detailedOutline,
+            sceneGoal: scene.sceneGoal,
+            conflictType: scene.conflictType,
+            conflictDescription: scene.conflictDescription,
+            openingEmotion: scene.openingEmotion,
+            closingEmotion: scene.closingEmotion,
+            tone: scene.tone,
+            pacing: scene.pacing,
+            timeInStory: scene.timeInStory,
+            weatherAtmosphere: scene.weatherAtmosphere,
+          },
+          povCharacter: characters.find(c => c.id === scene.povCharacterId),
+          charactersPresent: scene.charactersPresent?.map(id => characters.find(c => c.id === id)).filter(Boolean),
+          projectTitle: project.metadata.workingTitle,
+          specification: project.specification,
+        },
+      })
+
+      if (result) {
+        setGeneratedProse(result)
+        setShowProseModal(true)
+      }
+    } catch (error) {
+      console.error('Failed to generate prose:', error)
+      toast({ title: 'Failed to generate prose', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  // Accept generated prose and save to scene
+  const handleAcceptProse = async () => {
+    if (!proseSceneId || !generatedProse) return
+
+    try {
+      setSaveStatus('saving')
+      const updatedScenes = scenes.map(s =>
+        s.id === proseSceneId
+          ? {
+              ...s,
+              detailedOutline: generatedProse,
+              status: s.status === 'outline' ? 'drafted' : s.status,
+            }
+          : s
+      )
+
+      await updateProject(project.id, { scenes: updatedScenes })
+      updateProjectStore(project.id, { scenes: updatedScenes })
+      setSaveStatus('saved')
+      setShowProseModal(false)
+      setGeneratedProse('')
+      setProseSceneId(null)
+
+      const scene = scenes.find(s => s.id === proseSceneId)
+      toast({ title: `Prose saved to "${scene?.title}"`, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to save prose:', error)
+      toast({ title: 'Failed to save prose', variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -702,6 +793,15 @@ export function ScenesSection({ project }: SectionProps) {
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
+                      onClick={(e) => handleGenerateProse(scene, e)}
+                      disabled={isGenerating}
+                      className="p-1.5 rounded-md hover:bg-accent/10 transition-colors disabled:opacity-50"
+                      aria-label="Generate prose"
+                      title="Generate prose from outline"
+                    >
+                      <Wand2 className="h-4 w-4 text-accent" aria-hidden="true" />
+                    </button>
+                    <button
                       onClick={() => handleOpenModal(scene)}
                       className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
                       aria-label="Edit scene"
@@ -856,9 +956,12 @@ export function ScenesSection({ project }: SectionProps) {
       {/* AI Progress Modal */}
       <AIProgressModal
         isOpen={showAIProgress}
-        title="Generating Scene Options"
+        onClose={() => setShowAIProgress(false)}
+        onCancel={cancel}
+        status={status}
+        title={aiProgressTitle}
         progress={progress}
-        currentStep={currentStep}
+        message={message}
       />
 
       {/* Scene Options Selection Modal */}
@@ -940,6 +1043,74 @@ export function ScenesSection({ project }: SectionProps) {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generated Prose Preview Modal */}
+      {showProseModal && generatedProse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowProseModal(false)
+              setGeneratedProse('')
+              setProseSceneId(null)
+            }}
+          />
+          <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-4xl mx-4 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-accent" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Generated Prose
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowProseModal(false)
+                  setGeneratedProse('')
+                  setProseSceneId(null)
+                }}
+                className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* Prose Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="prose prose-invert prose-lg max-w-none font-serif whitespace-pre-wrap">
+                {generatedProse}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-border flex justify-between items-center">
+              <p className="text-sm text-text-secondary">
+                {generatedProse.split(/\s+/).length.toLocaleString()} words
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowProseModal(false)
+                    setGeneratedProse('')
+                    setProseSceneId(null)
+                  }}
+                  className="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAcceptProse}
+                  className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+                >
+                  Save to Scene
+                </button>
+              </div>
             </div>
           </div>
         </div>

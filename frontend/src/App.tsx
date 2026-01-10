@@ -48,6 +48,7 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="specification" replace /> },
           { path: 'specification', element: <ProjectWorkspace section="specification" /> },
+          { path: 'brainstorm', element: <ProjectWorkspace section="brainstorm" /> },
           { path: 'plot', element: <ProjectWorkspace section="plot" /> },
           { path: 'characters', element: <ProjectWorkspace section="characters" /> },
           { path: 'characters/:characterId', element: <ProjectWorkspace section="character-detail" /> },

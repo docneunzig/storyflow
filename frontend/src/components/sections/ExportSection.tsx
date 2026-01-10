@@ -1,7 +1,9 @@
 import { useState, useRef } from 'react'
-import { Download, Upload, FileJson, FileText, Loader2, FileType } from 'lucide-react'
+import { Download, Upload, FileJson, FileText, Loader2, FileType, Sparkles, BookOpen, Mail, BookMarked, Copy, Check, X } from 'lucide-react'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { AIProgressModal } from '@/components/ui/AIProgressModal'
 import type { Project } from '@/types/project'
-import { createProject, updateProject } from '@/lib/db'
+import { createProject } from '@/lib/db'
 import { useProjectStore } from '@/stores/projectStore'
 import { toast } from '@/components/ui/Toaster'
 import { useNavigate } from 'react-router-dom'
@@ -95,11 +97,120 @@ const DOCX_PRESETS: Record<DOCXPreset, DOCXPresetConfig> = {
 
 export function ExportSection({ project }: SectionProps) {
   const navigate = useNavigate()
-  const { setCurrentProject } = useProjectStore()
+  useProjectStore() // State subscription only
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [selectedPreset, setSelectedPreset] = useState<DOCXPreset>('standard-manuscript')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // AI Generation state
+  const { generate, isGenerating, cancel } = useAIGeneration()
+  const [showAIProgress, setShowAIProgress] = useState(false)
+  const [aiProgressTitle, setAIProgressTitle] = useState('Generating...')
+  const [generatedContent, setGeneratedContent] = useState<{ type: string; content: string } | null>(null)
+  const [copiedToClipboard, setCopiedToClipboard] = useState(false)
+
+  // AI Generation handlers
+  async function handleGenerateSynopsis(length: 'elevator' | 'one-page' | 'two-page') {
+    const lengthLabels = {
+      'elevator': 'Elevator Pitch',
+      'one-page': 'One-Page Synopsis',
+      'two-page': 'Two-Page Synopsis'
+    }
+    setAIProgressTitle(`Generating ${lengthLabels[length]}`)
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate(
+        'export',
+        'generate-synopsis',
+        {
+          specification: project.specification,
+          plot: project.plot,
+          characters: project.characters,
+          chapters: project.chapters,
+          length
+        }
+      )
+
+      if (result && !result.includes('cancelled')) {
+        setGeneratedContent({ type: lengthLabels[length], content: result })
+        toast({ title: 'Success', description: `${lengthLabels[length]} generated!`, variant: 'success' })
+      }
+    } catch (error) {
+      console.error('Synopsis generation failed:', error)
+      toast({ title: 'Error', description: 'Failed to generate synopsis', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  async function handleGenerateQueryLetter() {
+    setAIProgressTitle('Generating Query Letter')
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate(
+        'export',
+        'generate-query-letter',
+        {
+          specification: project.specification,
+          plot: project.plot,
+          characters: project.characters,
+          chapters: project.chapters
+        }
+      )
+
+      if (result && !result.includes('cancelled')) {
+        setGeneratedContent({ type: 'Query Letter', content: result })
+        toast({ title: 'Success', description: 'Query letter generated!', variant: 'success' })
+      }
+    } catch (error) {
+      console.error('Query letter generation failed:', error)
+      toast({ title: 'Error', description: 'Failed to generate query letter', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  async function handleGenerateBookDescription() {
+    setAIProgressTitle('Generating Book Description')
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate(
+        'export',
+        'generate-book-description',
+        {
+          specification: project.specification,
+          plot: project.plot,
+          characters: project.characters
+        }
+      )
+
+      if (result && !result.includes('cancelled')) {
+        setGeneratedContent({ type: 'Book Description', content: result })
+        toast({ title: 'Success', description: 'Book description generated!', variant: 'success' })
+      }
+    } catch (error) {
+      console.error('Book description generation failed:', error)
+      toast({ title: 'Error', description: 'Failed to generate book description', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  async function handleCopyToClipboard() {
+    if (!generatedContent) return
+    try {
+      await navigator.clipboard.writeText(generatedContent.content)
+      setCopiedToClipboard(true)
+      toast({ title: 'Copied', description: 'Content copied to clipboard', variant: 'success' })
+      setTimeout(() => setCopiedToClipboard(false), 2000)
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to copy to clipboard', variant: 'error' })
+    }
+  }
 
   async function exportAsJSON() {
     setIsExporting(true)
@@ -736,6 +847,169 @@ export function ExportSection({ project }: SectionProps) {
           </button>
         </div>
       </div>
+
+      {/* AI Publishing Tools */}
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-accent" />
+          AI Publishing Tools
+        </h2>
+        <p className="text-text-secondary text-sm mb-4">
+          Generate professional publishing materials using AI assistance.
+        </p>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {/* Synopsis Generator */}
+          <div className="card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-accent/10 rounded-lg">
+                <BookOpen className="h-6 w-6 text-accent" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-text-primary">Synopsis</h3>
+                <p className="text-sm text-text-secondary">Story summary for agents</p>
+              </div>
+            </div>
+            <p className="text-text-secondary text-sm mb-4">
+              Generate a synopsis of your novel at different lengths for query submissions.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => handleGenerateSynopsis('elevator')}
+                disabled={isGenerating}
+                className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
+              >
+                <Sparkles className="h-3 w-3" />
+                Elevator Pitch (2-3 sentences)
+              </button>
+              <button
+                onClick={() => handleGenerateSynopsis('one-page')}
+                disabled={isGenerating}
+                className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
+              >
+                <Sparkles className="h-3 w-3" />
+                One-Page Synopsis
+              </button>
+              <button
+                onClick={() => handleGenerateSynopsis('two-page')}
+                disabled={isGenerating}
+                className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
+              >
+                <Sparkles className="h-3 w-3" />
+                Two-Page Synopsis
+              </button>
+            </div>
+          </div>
+
+          {/* Query Letter Generator */}
+          <div className="card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-success/10 rounded-lg">
+                <Mail className="h-6 w-6 text-success" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-text-primary">Query Letter</h3>
+                <p className="text-sm text-text-secondary">Industry-standard format</p>
+              </div>
+            </div>
+            <p className="text-text-secondary text-sm mb-4">
+              Generate a professional query letter to pitch your novel to literary agents.
+            </p>
+            <button
+              onClick={handleGenerateQueryLetter}
+              disabled={isGenerating}
+              className="btn-primary w-full flex items-center justify-center gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              Generate Query Letter
+            </button>
+          </div>
+
+          {/* Book Description Generator */}
+          <div className="card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-warning/10 rounded-lg">
+                <BookMarked className="h-6 w-6 text-warning" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-text-primary">Book Description</h3>
+                <p className="text-sm text-text-secondary">Back-cover copy</p>
+              </div>
+            </div>
+            <p className="text-text-secondary text-sm mb-4">
+              Generate compelling back-cover copy that hooks readers and sells your story.
+            </p>
+            <button
+              onClick={handleGenerateBookDescription}
+              disabled={isGenerating}
+              className="btn-primary w-full flex items-center justify-center gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              Generate Description
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Progress Modal */}
+      <AIProgressModal
+        isOpen={showAIProgress}
+        title={aiProgressTitle}
+        onCancel={() => {
+          cancel()
+          setShowAIProgress(false)
+        }}
+      />
+
+      {/* Generated Content Modal */}
+      {generatedContent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-surface rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="text-lg font-semibold text-text-primary">{generatedContent.type}</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyToClipboard}
+                  className="p-2 rounded-lg hover:bg-surface-elevated transition-colors"
+                  title="Copy to clipboard"
+                >
+                  {copiedToClipboard ? (
+                    <Check className="h-5 w-5 text-success" />
+                  ) : (
+                    <Copy className="h-5 w-5 text-text-secondary" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setGeneratedContent(null)}
+                  className="p-2 rounded-lg hover:bg-surface-elevated transition-colors"
+                >
+                  <X className="h-5 w-5 text-text-secondary" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1">
+              <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+                {generatedContent.content}
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end gap-3">
+              <button
+                onClick={() => setGeneratedContent(null)}
+                className="btn-secondary"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleCopyToClipboard}
+                className="btn-primary flex items-center gap-2"
+              >
+                {copiedToClipboard ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copiedToClipboard ? 'Copied!' : 'Copy to Clipboard'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

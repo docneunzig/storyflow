@@ -134,44 +134,53 @@ export function PlotBeatModal({
     }
   }, [title, summary, frameworkPosition, emotionalArc, stakes, generate])
 
+  // Helper function to reset form to initial state
+  const resetForm = useCallback(() => {
+    setTitle('')
+    setSummary('')
+    setDetailedDescription('')
+    setFrameworkPosition(FRAMEWORK_POSITIONS[framework][0] || '')
+    setCharactersInvolved([])
+    setLocation('')
+    setTimelinePosition(1)
+    setEmotionalArc('')
+    setStakes('')
+    setChapterTarget(null)
+    setWordCountEstimate(2500)
+    setStatus('outline')
+    setUserNotes('')
+    setForeshadowing([])
+    setPayoffs([])
+  }, [framework])
+
+  // Helper function to populate form with beat data
+  const populateForm = useCallback((beat: PlotBeat) => {
+    setTitle(beat.title)
+    setSummary(beat.summary)
+    setDetailedDescription(beat.detailedDescription || '')
+    setFrameworkPosition(beat.frameworkPosition)
+    setCharactersInvolved(beat.charactersInvolved || [])
+    setLocation(beat.location || '')
+    setTimelinePosition(beat.timelinePosition)
+    setEmotionalArc(beat.emotionalArc || '')
+    setStakes(beat.stakes || '')
+    setChapterTarget(beat.chapterTarget)
+    setWordCountEstimate(beat.wordCountEstimate)
+    setStatus(beat.status)
+    setUserNotes(beat.userNotes || '')
+    setForeshadowing(beat.foreshadowing || [])
+    setPayoffs(beat.payoffs || [])
+  }, [])
+
   useEffect(() => {
-    if (isOpen) {
-      if (editBeat) {
-        setTitle(editBeat.title)
-        setSummary(editBeat.summary)
-        setDetailedDescription(editBeat.detailedDescription || '')
-        setFrameworkPosition(editBeat.frameworkPosition)
-        setCharactersInvolved(editBeat.charactersInvolved || [])
-        setLocation(editBeat.location || '')
-        setTimelinePosition(editBeat.timelinePosition)
-        setEmotionalArc(editBeat.emotionalArc || '')
-        setStakes(editBeat.stakes || '')
-        setChapterTarget(editBeat.chapterTarget)
-        setWordCountEstimate(editBeat.wordCountEstimate)
-        setStatus(editBeat.status)
-        setUserNotes(editBeat.userNotes || '')
-        setForeshadowing(editBeat.foreshadowing || [])
-        setPayoffs(editBeat.payoffs || [])
-      } else {
-        // Reset form for new beat
-        setTitle('')
-        setSummary('')
-        setDetailedDescription('')
-        setFrameworkPosition(FRAMEWORK_POSITIONS[framework][0] || '')
-        setCharactersInvolved([])
-        setLocation('')
-        setTimelinePosition(1)
-        setEmotionalArc('')
-        setStakes('')
-        setChapterTarget(null)
-        setWordCountEstimate(2500)
-        setStatus('outline')
-        setUserNotes('')
-        setForeshadowing([])
-        setPayoffs([])
-      }
+    if (!isOpen) return
+
+    if (editBeat) {
+      populateForm(editBeat)
+    } else {
+      resetForm()
     }
-  }, [isOpen, editBeat, framework])
+  }, [isOpen, editBeat, populateForm, resetForm])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -201,20 +210,12 @@ export function PlotBeatModal({
     onClose()
   }
 
-  // Toggle functions for foreshadowing/payoffs
-  const toggleForeshadowing = (beatId: string) => {
-    setForeshadowing(prev =>
-      prev.includes(beatId)
-        ? prev.filter(id => id !== beatId)
-        : [...prev, beatId]
-    )
-  }
-
-  const togglePayoff = (beatId: string) => {
-    setPayoffs(prev =>
-      prev.includes(beatId)
-        ? prev.filter(id => id !== beatId)
-        : [...prev, beatId]
+  // Generic toggle function for array state
+  const toggleArrayItem = (item: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
+    setter(prev =>
+      prev.includes(item)
+        ? prev.filter(id => id !== item)
+        : [...prev, item]
     )
   }
 
@@ -228,13 +229,6 @@ export function PlotBeatModal({
     .filter(b => b.id !== editBeat?.id && b.timelinePosition < timelinePosition)
     .sort((a, b) => a.timelinePosition - b.timelinePosition)
 
-  const toggleCharacter = (charId: string) => {
-    setCharactersInvolved(prev =>
-      prev.includes(charId)
-        ? prev.filter(id => id !== charId)
-        : [...prev, charId]
-    )
-  }
 
   if (!isOpen) return null
 
@@ -398,7 +392,7 @@ export function PlotBeatModal({
                   <button
                     key={char.id}
                     type="button"
-                    onClick={() => toggleCharacter(char.id)}
+                    onClick={() => toggleArrayItem(char.id, setCharactersInvolved)}
                     aria-pressed={charactersInvolved.includes(char.id)}
                     className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
                       charactersInvolved.includes(char.id)
@@ -505,7 +499,7 @@ export function PlotBeatModal({
                       <button
                         key={beat.id}
                         type="button"
-                        onClick={() => toggleForeshadowing(beat.id)}
+                        onClick={() => toggleArrayItem(beat.id, setForeshadowing)}
                         aria-pressed={foreshadowing.includes(beat.id)}
                         className={`w-full text-left px-2 py-1.5 text-xs rounded border transition-colors ${
                           foreshadowing.includes(beat.id)
@@ -535,7 +529,7 @@ export function PlotBeatModal({
                       <button
                         key={beat.id}
                         type="button"
-                        onClick={() => togglePayoff(beat.id)}
+                        onClick={() => toggleArrayItem(beat.id, setPayoffs)}
                         aria-pressed={payoffs.includes(beat.id)}
                         className={`w-full text-left px-2 py-1.5 text-xs rounded border transition-colors ${
                           payoffs.includes(beat.id)

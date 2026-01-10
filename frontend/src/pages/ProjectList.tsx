@@ -155,7 +155,7 @@ export function ProjectList() {
                         {formatDate(project.updatedAt)}
                       </span>
                       <span className="capitalize">{project.metadata?.currentPhase || 'specification'}</span>
-                      {project.statistics?.totalWords > 0 && (
+                      {project.statistics && project.statistics.totalWords && project.statistics.totalWords > 0 && (
                         <span>{project.statistics.totalWords.toLocaleString()} words</span>
                       )}
                     </div>

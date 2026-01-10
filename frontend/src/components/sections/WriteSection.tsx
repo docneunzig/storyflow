@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, BookOpen, Edit2, Trash2, FileText, Lock, Film, ChevronDown, ChevronUp, History, X, Star, ArrowRight } from 'lucide-react'
+import { useState, useRef, useCallback } from 'react'
+import { Plus, BookOpen, Edit2, Trash2, FileText, Lock, Film, ChevronDown, ChevronUp, History, X, Star, ArrowRight, Sparkles, Play, Wand2 } from 'lucide-react'
 import type { Project, Chapter, WikiEntry, DailyWordCount, WritingStatistics, RevisionHistory } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
@@ -8,6 +8,9 @@ import { WikiAutoExtractModal } from '@/components/ui/WikiAutoExtractModal'
 import { WikiConsistencyWarning } from '@/components/ui/WikiConsistencyWarning'
 import { toast } from '@/components/ui/Toaster'
 import { useNavigate } from 'react-router-dom'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { AIProgressModal } from '@/components/ui/AIProgressModal'
+import { InlineAIToolbar, AIOptionsModal } from '@/components/write/InlineAIToolbar'
 
 interface SectionProps {
   project: Project
@@ -151,6 +154,333 @@ export function WriteSection({ project }: SectionProps) {
   const [lastSavedChapter, setLastSavedChapter] = useState<Chapter | null>(null)
   const [showRevisionHistory, setShowRevisionHistory] = useState(false)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
+
+  // AI generation state
+  const {
+    status: aiStatus,
+    progress: aiProgress,
+    message: aiMessage,
+    isGenerating,
+    generate,
+    cancel: cancelGeneration,
+    reset: resetAI,
+  } = useAIGeneration()
+
+  // AI-related state
+  const [showAIProgress, setShowAIProgress] = useState(false)
+  const [aiProgressTitle, setAIProgressTitle] = useState('')
+  const [selectedText, setSelectedText] = useState('')
+  const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null)
+  const [showAlternatives, setShowAlternatives] = useState(false)
+  const [alternatives, setAlternatives] = useState<string[]>([])
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  // Handle text selection in chapter content
+  const handleTextSelection = useCallback(() => {
+    const selection = window.getSelection()
+    if (selection && selection.toString().trim().length > 0) {
+      const text = selection.toString()
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      setSelectedText(text)
+      setSelectionRect(rect)
+    } else {
+      setSelectedText('')
+      setSelectionRect(null)
+    }
+  }, [])
+
+  // Clear selection when clicking elsewhere
+  const handleClearSelection = useCallback(() => {
+    setSelectedText('')
+    setSelectionRect(null)
+  }, [])
+
+  // AI action handlers
+  const handleAIExpand = async () => {
+    if (!selectedText || !selectedChapterId) return
+
+    setAIProgressTitle('Expanding Selection')
+    setShowAIProgress(true)
+    handleClearSelection()
+
+    try {
+      const result = await generate({
+        agentTarget: 'writer',
+        action: 'expand-selection',
+        context: {
+          selectedText,
+          chapterId: selectedChapterId,
+          projectId: project.id,
+          specification: project.specification,
+          characters: project.characters?.map(c => ({ name: c.name, role: c.role })),
+        },
+      })
+
+      if (result) {
+        // Replace selected text with expanded version
+        const chapter = project.chapters.find(c => c.id === selectedChapterId)
+        if (chapter && chapter.content) {
+          const newContent = chapter.content.replace(selectedText, result)
+          await handleUpdateChapterContent(chapter, newContent)
+          toast({ title: 'Selection expanded', variant: 'success' })
+        }
+      }
+    } catch (error) {
+      toast({ title: 'Failed to expand selection', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+      resetAI()
+    }
+  }
+
+  const handleAICondense = async () => {
+    if (!selectedText || !selectedChapterId) return
+
+    setAIProgressTitle('Condensing Selection')
+    setShowAIProgress(true)
+    handleClearSelection()
+
+    try {
+      const result = await generate({
+        agentTarget: 'writer',
+        action: 'condense-selection',
+        context: {
+          selectedText,
+          chapterId: selectedChapterId,
+          projectId: project.id,
+        },
+      })
+
+      if (result) {
+        const chapter = project.chapters.find(c => c.id === selectedChapterId)
+        if (chapter && chapter.content) {
+          const newContent = chapter.content.replace(selectedText, result)
+          await handleUpdateChapterContent(chapter, newContent)
+          toast({ title: 'Selection condensed', variant: 'success' })
+        }
+      }
+    } catch (error) {
+      toast({ title: 'Failed to condense selection', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+      resetAI()
+    }
+  }
+
+  const handleAIRewrite = async () => {
+    if (!selectedText || !selectedChapterId) return
+
+    setAIProgressTitle('Rewriting Selection')
+    setShowAIProgress(true)
+    handleClearSelection()
+
+    try {
+      const result = await generate({
+        agentTarget: 'writer',
+        action: 'rewrite-selection',
+        context: {
+          selectedText,
+          chapterId: selectedChapterId,
+          projectId: project.id,
+          specification: project.specification,
+        },
+      })
+
+      if (result) {
+        const chapter = project.chapters.find(c => c.id === selectedChapterId)
+        if (chapter && chapter.content) {
+          const newContent = chapter.content.replace(selectedText, result)
+          await handleUpdateChapterContent(chapter, newContent)
+          toast({ title: 'Selection rewritten', variant: 'success' })
+        }
+      }
+    } catch (error) {
+      toast({ title: 'Failed to rewrite selection', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+      resetAI()
+    }
+  }
+
+  const handleAIAlternatives = async () => {
+    if (!selectedText || !selectedChapterId) return
+
+    setShowAlternatives(true)
+    setAlternatives([])
+    handleClearSelection()
+
+    try {
+      const result = await generate({
+        agentTarget: 'writer',
+        action: 'generate-alternatives',
+        context: {
+          selectedText,
+          chapterId: selectedChapterId,
+          projectId: project.id,
+          specification: project.specification,
+        },
+      })
+
+      if (result) {
+        // Parse alternatives from result (expected format: JSON array or newline-separated)
+        try {
+          const parsed = JSON.parse(result)
+          setAlternatives(Array.isArray(parsed) ? parsed : [result])
+        } catch {
+          // If not JSON, split by double newline
+          setAlternatives(result.split('\n\n').filter(a => a.trim()))
+        }
+      }
+    } catch (error) {
+      toast({ title: 'Failed to generate alternatives', variant: 'error' })
+      setShowAlternatives(false)
+    }
+  }
+
+  const handleSelectAlternative = async (alternative: string) => {
+    if (!selectedChapterId) return
+
+    const chapter = project.chapters.find(c => c.id === selectedChapterId)
+    if (chapter && chapter.content && selectedText) {
+      const newContent = chapter.content.replace(selectedText, alternative)
+      await handleUpdateChapterContent(chapter, newContent)
+      toast({ title: 'Alternative applied', variant: 'success' })
+    }
+    setShowAlternatives(false)
+    setAlternatives([])
+    resetAI()
+  }
+
+  // Continue writing from current position
+  const handleContinueWriting = async () => {
+    if (!selectedChapterId) return
+
+    const chapter = project.chapters.find(c => c.id === selectedChapterId)
+    if (!chapter) return
+
+    setAIProgressTitle('Continuing Your Story')
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'writer',
+        action: 'continue-writing',
+        context: {
+          currentContent: chapter.content || '',
+          chapterId: selectedChapterId,
+          projectId: project.id,
+          specification: project.specification,
+          characters: project.characters?.map(c => ({
+            name: c.name,
+            role: c.role,
+            personalitySummary: c.personalitySummary,
+            speechPatterns: c.speechPatterns,
+          })),
+          scenes: project.scenes?.filter(s => s.chapterId === selectedChapterId),
+        },
+      })
+
+      if (result) {
+        const newContent = (chapter.content || '') + '\n\n' + result
+        await handleUpdateChapterContent(chapter, newContent)
+        toast({ title: 'Content added', variant: 'success' })
+      }
+    } catch (error) {
+      toast({ title: 'Failed to continue writing', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+      resetAI()
+    }
+  }
+
+  // Generate chapter draft from scene outlines
+  const handleGenerateChapterDraft = async () => {
+    if (!selectedChapterId) return
+
+    const chapter = project.chapters.find(c => c.id === selectedChapterId)
+    if (!chapter) return
+
+    const chapterScenes = project.scenes?.filter(s => s.chapterId === selectedChapterId) || []
+
+    if (chapterScenes.length === 0) {
+      toast({
+        title: 'No scenes assigned',
+        description: 'Assign scenes to this chapter first, or use the chapter modal to generate content.',
+        variant: 'error'
+      })
+      return
+    }
+
+    setAIProgressTitle('Generating Chapter Draft')
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'writer',
+        action: 'generate-chapter-draft',
+        context: {
+          chapterId: selectedChapterId,
+          chapterTitle: chapter.title,
+          chapterNumber: chapter.number,
+          projectId: project.id,
+          specification: project.specification,
+          scenes: chapterScenes.map(s => ({
+            title: s.title,
+            summary: s.summary,
+            detailedOutline: s.detailedOutline,
+            povCharacterId: s.povCharacterId,
+            pacing: s.pacing,
+            tone: s.tone,
+            conflictType: s.conflictType,
+          })),
+          characters: project.characters?.map(c => ({
+            id: c.id,
+            name: c.name,
+            role: c.role,
+            personalitySummary: c.personalitySummary,
+            speechPatterns: c.speechPatterns,
+            vocabularyLevel: c.vocabularyLevel,
+          })),
+          previousChapterContent: getPreviousChapterContent(chapter.number),
+        },
+      })
+
+      if (result) {
+        await handleUpdateChapterContent(chapter, result)
+        toast({ title: 'Chapter draft generated', variant: 'success' })
+      }
+    } catch (error) {
+      toast({ title: 'Failed to generate draft', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+      resetAI()
+    }
+  }
+
+  // Get previous chapter content for context
+  const getPreviousChapterContent = (currentNumber: number): string => {
+    const prevChapter = project.chapters.find(c => c.number === currentNumber - 1)
+    if (prevChapter?.content) {
+      // Return last 1000 characters for context
+      return prevChapter.content.slice(-1000)
+    }
+    return ''
+  }
+
+  // Helper to update chapter content
+  const handleUpdateChapterContent = async (chapter: Chapter, newContent: string) => {
+    const wordCount = newContent.trim().split(/\s+/).filter(w => w).length
+    const updatedChapter: Chapter = {
+      ...chapter,
+      content: newContent,
+      wordCount,
+      status: chapter.status === 'outline' ? 'draft' : chapter.status,
+    }
+
+    // Use the existing save handler
+    await handleSaveChapter(updatedChapter)
+  }
 
   const handleSaveChapter = async (chapter: Chapter) => {
     try {
@@ -503,6 +833,27 @@ export function WriteSection({ project }: SectionProps) {
                   >
                     Edit Details
                   </button>
+                  {/* AI Action Buttons */}
+                  <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border">
+                    <button
+                      onClick={handleContinueWriting}
+                      disabled={isGenerating}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
+                      title="AI continues writing from where the chapter left off"
+                    >
+                      <Play className="h-4 w-4" />
+                      Continue Writing
+                    </button>
+                    <button
+                      onClick={handleGenerateChapterDraft}
+                      disabled={isGenerating || chapterScenes.length === 0}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
+                      title={chapterScenes.length === 0 ? "Assign scenes to this chapter first" : "Generate a complete draft from scene outlines"}
+                    >
+                      <Wand2 className="h-4 w-4" />
+                      Generate Draft
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -579,8 +930,12 @@ export function WriteSection({ project }: SectionProps) {
                   )}
 
                   {selectedChapter.content ? (
-                    <div className="max-w-3xl mx-auto">
-                      <div className="prose prose-invert prose-lg font-serif whitespace-pre-wrap">
+                    <div
+                      ref={contentRef}
+                      className="max-w-3xl mx-auto"
+                      onMouseUp={handleTextSelection}
+                    >
+                      <div className="prose prose-invert prose-lg font-serif whitespace-pre-wrap selection:bg-accent/30">
                         {selectedChapter.content}
                       </div>
                     </div>
@@ -783,6 +1138,48 @@ export function WriteSection({ project }: SectionProps) {
           </div>
         </div>
       )}
+
+      {/* Inline AI Toolbar - appears on text selection */}
+      <InlineAIToolbar
+        selectedText={selectedText}
+        selectionRect={selectionRect}
+        onExpand={handleAIExpand}
+        onCondense={handleAICondense}
+        onRewrite={handleAIRewrite}
+        onAlternatives={handleAIAlternatives}
+        onClose={handleClearSelection}
+        isGenerating={isGenerating}
+      />
+
+      {/* AI Progress Modal */}
+      {showAIProgress && (
+        <AIProgressModal
+          isOpen={showAIProgress}
+          onClose={() => {
+            cancelGeneration()
+            setShowAIProgress(false)
+            resetAI()
+          }}
+          title={aiProgressTitle}
+          status={aiStatus}
+          progress={aiProgress}
+          message={aiMessage}
+        />
+      )}
+
+      {/* AI Alternatives Modal */}
+      <AIOptionsModal
+        isOpen={showAlternatives}
+        onClose={() => {
+          setShowAlternatives(false)
+          setAlternatives([])
+          resetAI()
+        }}
+        title="Choose an Alternative"
+        options={alternatives}
+        onSelect={handleSelectAlternative}
+        isLoading={isGenerating && alternatives.length === 0}
+      />
     </div>
   )
 }

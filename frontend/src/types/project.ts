@@ -5,6 +5,7 @@ export interface Project {
   version: number
   metadata: ProjectMetadata
   specification: NovelSpecification | null
+  brainstorm: BrainstormSession | null
   plot: PlotStructure | null
   characters: Character[]
   scenes: Scene[]
@@ -321,4 +322,135 @@ export interface ComparableTitle {
   author: string
   similarity: string
   marketPerformance: string
+}
+
+// Brainstorm Session Types
+export interface BrainstormSession {
+  id: string
+  projectId: string
+
+  // Input
+  rawText: string
+  taggedSections: TaggedSection[]
+
+  // Q&A Phase
+  questionsAsked: BrainstormQuestion[]
+  answersGiven: BrainstormAnswer[]
+
+  // Generated Foundations
+  plotFoundation: PlotFoundation | null
+  characterFoundation: CharacterFoundation | null
+  sceneFoundation: SceneFoundation | null
+
+  // Meta
+  createdAt: string
+  updatedAt: string
+  finalized: boolean
+  version: number
+}
+
+export interface TaggedSection {
+  startIndex: number
+  endIndex: number
+  tag: BrainstormTag
+  text: string
+}
+
+export type BrainstormTag = 'character' | 'setting' | 'plot' | 'theme' | 'scene' | 'question' | 'inspiration'
+
+export interface BrainstormQuestion {
+  id: string
+  category: string
+  questionText: string
+  contextQuote: string | null
+  priority: number
+}
+
+export interface BrainstormAnswer {
+  questionId: string
+  answerText: string
+  skipped: boolean
+  timestamp: string
+}
+
+// Foundation Types
+export type ConfidenceLevel = 'explicit' | 'inferred' | 'suggested'
+
+export interface PlotFoundation {
+  premise: string
+  centralConflict: string
+  suggestedStructure: {
+    framework: string
+    reasoning: string
+  }
+  keyPlotPoints: PlotSeed[]
+  potentialSubplots: string[]
+  openQuestions: string[]
+}
+
+export interface PlotSeed {
+  id: string
+  title: string
+  description: string
+  storyPhase: 'beginning' | 'middle' | 'end'
+  confidence: ConfidenceLevel
+  sourceQuote: string | null
+  selected: boolean
+}
+
+export interface CharacterFoundation {
+  identifiedCharacters: CharacterSeed[]
+  relationshipHints: RelationshipSeed[]
+  missingArchetypes: string[]
+  openQuestions: string[]
+}
+
+export interface CharacterSeed {
+  id: string
+  name: string | null
+  workingName: string
+  role: string
+  knownTraits: string[]
+  inferredTraits: string[]
+  potentialArc: string | null
+  keyRelationships: string[]
+  confidence: ConfidenceLevel
+  sourceQuotes: string[]
+  selected: boolean
+}
+
+export interface RelationshipSeed {
+  character1: string
+  character2: string
+  relationshipType: string
+  description: string
+  confidence: ConfidenceLevel
+}
+
+export interface SceneFoundation {
+  envisionedScenes: SceneSeed[]
+  suggestedScenes: SceneSeed[]
+  keyMoments: string[]
+  settingNotes: SettingSeed[]
+  openQuestions: string[]
+}
+
+export interface SceneSeed {
+  id: string
+  title: string
+  description: string
+  charactersInvolved: string[]
+  emotionalBeat: string
+  storyFunction: string
+  vividness: 'detailed' | 'sketched' | 'implied'
+  sourceQuote: string | null
+  selected: boolean
+}
+
+export interface SettingSeed {
+  id: string
+  name: string
+  description: string
+  atmosphere: string
+  confidence: ConfidenceLevel
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { X, Sparkles, MapPin, User, Sword, BookOpen, Plus, Check, AlertTriangle } from 'lucide-react'
+import { X, Sparkles, Plus, Check } from 'lucide-react'
 import type { WikiCategory, WikiEntry, Chapter, Character } from '@/types/project'
 import { generateId } from '@/lib/db'
 
@@ -18,18 +18,6 @@ interface WikiAutoExtractModalProps {
   chapter: Chapter
   existingWikiEntries: WikiEntry[]
   existingCharacters: Character[]
-}
-
-// Category icons for display
-const CATEGORY_ICONS: Record<WikiCategory, typeof MapPin> = {
-  locations: MapPin,
-  characters: User,
-  objects: Sword,
-  terminology: BookOpen,
-  magicTechnology: Sparkles,
-  culturesFactions: User,
-  timeline: BookOpen,
-  rules: BookOpen,
 }
 
 const CATEGORY_COLORS: Record<WikiCategory, string> = {
@@ -297,7 +285,6 @@ export function WikiAutoExtractModal({
 
               <div className="space-y-3">
                 {extractedNouns.map((noun, index) => {
-                  const Icon = CATEGORY_ICONS[noun.category]
                   return (
                     <div
                       key={`${noun.name}-${index}`}

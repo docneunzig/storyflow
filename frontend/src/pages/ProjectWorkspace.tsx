@@ -6,6 +6,7 @@ import { getProject } from '@/lib/db'
 
 // Section component imports (stubs for now)
 import { SpecificationSection } from '@/components/sections/SpecificationSection'
+import { BrainstormSection } from '@/components/sections/BrainstormSection'
 import { PlotSection } from '@/components/sections/PlotSection'
 import { CharactersSection } from '@/components/sections/CharactersSection'
 import { ScenesSection } from '@/components/sections/ScenesSection'
@@ -94,6 +95,8 @@ export function ProjectWorkspace({ section }: ProjectWorkspaceProps) {
   switch (section) {
     case 'specification':
       return <SpecificationSection project={currentProject} />
+    case 'brainstorm':
+      return <BrainstormSection project={currentProject} />
     case 'plot':
       return <PlotSection project={currentProject} />
     case 'characters':

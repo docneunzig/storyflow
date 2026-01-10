@@ -253,7 +253,7 @@ export function ReviewSection({ project }: SectionProps) {
   const [improvementHistory, setImprovementHistory] = useState<{ iteration: number; score: number; timestamp: string }[]>([])
   const [iterationLimitWarning, setIterationLimitWarning] = useState<string | null>(null)
   const [showContinueConfirmation, setShowContinueConfirmation] = useState(false)
-  const [skipRequested, setSkipRequested] = useState(false)
+  const [, setSkipRequested] = useState(false)
   const [skippedToFinal, setSkippedToFinal] = useState(false)
 
   // Locked passages state
@@ -823,19 +823,6 @@ export function ReviewSection({ project }: SectionProps) {
     setLockedPassages(prev => prev.filter((_, i) => i !== index))
   }, [])
 
-  // Check if a position is within a locked passage
-  const isPositionLocked = useCallback((position: number): boolean => {
-    return lockedPassages.some(p => position >= p.start && position <= p.end)
-  }, [lockedPassages])
-
-  // Check if text selection overlaps with locked passages
-  const isSelectionLocked = useCallback((start: number, end: number): boolean => {
-    return lockedPassages.some(p =>
-      (start >= p.start && start <= p.end) ||
-      (end >= p.start && end <= p.end) ||
-      (start <= p.start && end >= p.end)
-    )
-  }, [lockedPassages])
 
   // Generate mock revised content based on approved suggestions
   // Respects locked passages - locked text will not be modified

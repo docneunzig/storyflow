@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import ReactFlow, {
   Node,
   Edge,
@@ -174,7 +174,7 @@ function getPositionColor(position: string): string {
 // Calculate positions for nodes based on framework
 function calculateFrameworkLayout(
   beats: PlotBeat[],
-  framework: PlotFramework
+  _framework: PlotFramework
 ): { x: number; y: number }[] {
   const positions: { x: number; y: number }[] = []
   const count = beats.length
@@ -191,7 +191,7 @@ function calculateFrameworkLayout(
   const sortedBeats = [...beats].sort((a, b) => a.timelinePosition - b.timelinePosition)
 
   // Position beats in a horizontal timeline with slight vertical variation
-  sortedBeats.forEach((beat, index) => {
+  sortedBeats.forEach((_beat, index) => {
     // Create slight wave pattern for visual interest
     const verticalOffset = Math.sin(index * 0.5) * verticalVariation
 

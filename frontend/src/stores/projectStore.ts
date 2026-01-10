@@ -6,6 +6,7 @@ type SaveStatus = 'unsaved' | 'saving' | 'saved'
 // Calculate the appropriate project phase based on progress
 export function calculateProjectPhase(project: Project): ProjectPhase {
   const spec = project.specification
+  const brainstorm = project.brainstorm
   const chapters = project.chapters || []
   const scenes = project.scenes || []
   const characters = project.characters || []
@@ -48,14 +49,15 @@ export function calculateProjectPhase(project: Project): ProjectPhase {
     return 'characters'
   }
 
-  // Check for plotting phase (have spec filled out)
+  // Check for plotting phase (have spec filled out OR brainstorm finalized)
   const hasSpec = spec && (
     (spec.genre && spec.genre.length > 0) ||
     spec.targetAudience ||
     (spec.themes && spec.themes.length > 0)
   )
+  const hasBrainstorm = brainstorm && brainstorm.finalized
 
-  if (hasSpec) {
+  if (hasSpec || hasBrainstorm) {
     return 'plotting'
   }
 

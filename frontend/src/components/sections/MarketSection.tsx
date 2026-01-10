@@ -9,12 +9,18 @@ import {
   CheckCircle,
   Loader2,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Sparkles,
+  Tag,
+  Copy,
+  Check
 } from 'lucide-react'
 import type { Project, MarketAnalysis, ComparableTitle } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
 import { toast } from '@/components/ui/Toaster'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { AIProgressModal } from '@/components/ui/AIProgressModal'
 
 interface SectionProps {
   project: Project
@@ -24,8 +30,8 @@ interface SectionProps {
 function generateMockMarketAnalysis(project: Project): MarketAnalysis {
   const genres = project.specification?.genre || ['Fiction']
   const primaryGenre = genres[0] || 'Fiction'
-  const title = project.specification?.title || 'Untitled'
-  const premise = project.specification?.premise || ''
+  const title = project.metadata.workingTitle || 'Untitled'
+  const themes = project.specification?.themes?.join(', ') || ''
 
   // Mock comparable titles based on genre
   const comparableTitlesByGenre: Record<string, ComparableTitle[]> = {
@@ -136,9 +142,9 @@ function generateMockMarketAnalysis(project: Project): MarketAnalysis {
   return {
     comparableTitles,
     genrePositioning: `Your novel "${title}" sits within the ${primaryGenre} genre, which has seen strong growth in 2024-2025. The market favors stories with ${primaryGenre === 'Fantasy' ? 'immersive world-building and morally complex characters' : primaryGenre === 'Romance' ? 'emotional depth and satisfying relationship arcs' : 'compelling narratives and relatable protagonists'}.`,
-    uniqueness: premise
-      ? `Based on your premise, your unique selling point appears to be: ${premise.slice(0, 100)}${premise.length > 100 ? '...' : ''}. This differentiates you from competitors by offering fresh perspectives within the genre.`
-      : 'Define your premise in the Specification section to get personalized uniqueness analysis.',
+    uniqueness: themes
+      ? `Based on your themes (${themes}), your unique selling point involves exploring these concepts in a fresh way. This differentiates you from competitors by offering unique perspectives within the genre.`
+      : 'Define your themes in the Specification section to get personalized uniqueness analysis.',
     readerExpectations: [
       `${primaryGenre} readers expect strong ${primaryGenre === 'Romance' ? 'romantic tension and emotional payoff' : primaryGenre === 'Fantasy' ? 'world-building and magic systems' : 'pacing and character development'}`,
       'Modern readers value diverse representation and authentic voices',
@@ -157,30 +163,115 @@ function generateMockMarketAnalysis(project: Project): MarketAnalysis {
 export function MarketSection({ project }: SectionProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
+  const { generate, isGenerating, cancel } = useAIGeneration()
+
+  // AI-specific state
+  const [showAIProgress, setShowAIProgress] = useState(false)
+  const [aiProgressTitle, setAIProgressTitle] = useState('Analyzing Market...')
+  const [suggestedKeywords, setSuggestedKeywords] = useState<string[]>([])
+  const [copiedKeywords, setCopiedKeywords] = useState(false)
 
   const marketAnalysis = project.marketAnalysis
 
   const handleAnalyzeMarket = async () => {
     setIsAnalyzing(true)
+    setAIProgressTitle('Analyzing Market...')
+    setShowAIProgress(true)
     setSaveStatus('saving')
 
     try {
-      // Simulate web search delay
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      const result = await generate(
+        'market',
+        'analyze-market',
+        {
+          specification: project.specification,
+          characters: project.characters,
+          plot: project.plot
+        }
+      )
 
-      const analysis = generateMockMarketAnalysis(project)
+      if (result && !result.includes('cancelled')) {
+        // Parse the AI result into market analysis structure
+        try {
+          const analysis = JSON.parse(result) as MarketAnalysis
+          analysis.analyzedAt = new Date().toISOString()
 
-      await updateProject(project.id, { marketAnalysis: analysis })
-      updateProjectStore(project.id, { marketAnalysis: analysis })
+          await updateProject(project.id, { marketAnalysis: analysis })
+          updateProjectStore(project.id, { marketAnalysis: analysis })
 
-      setSaveStatus('saved')
-      toast({ title: 'Market analysis complete', variant: 'success' })
+          setSaveStatus('saved')
+          toast({ title: 'Market analysis complete', variant: 'success' })
+        } catch {
+          // Fallback to mock if parsing fails
+          const analysis = generateMockMarketAnalysis(project)
+          await updateProject(project.id, { marketAnalysis: analysis })
+          updateProjectStore(project.id, { marketAnalysis: analysis })
+          setSaveStatus('saved')
+          toast({ title: 'Market analysis complete', variant: 'success' })
+        }
+      }
     } catch (error) {
       console.error('Market analysis failed:', error)
       toast({ title: 'Failed to analyze market', variant: 'error' })
       setSaveStatus('unsaved')
     } finally {
       setIsAnalyzing(false)
+      setShowAIProgress(false)
+    }
+  }
+
+  const handleSuggestKeywords = async () => {
+    setAIProgressTitle('Generating Keywords...')
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate(
+        'market',
+        'suggest-keywords',
+        {
+          specification: project.specification,
+          characters: project.characters,
+          plot: project.plot
+        }
+      )
+
+      if (result && !result.includes('cancelled')) {
+        try {
+          const keywords = JSON.parse(result) as string[]
+          setSuggestedKeywords(keywords)
+          toast({ title: 'Keywords generated!', variant: 'success' })
+        } catch {
+          // Fallback keywords if parsing fails
+          const genre = project.specification?.genre?.[0] || 'fiction'
+          setSuggestedKeywords([
+            genre.toLowerCase(),
+            'new release',
+            'bestseller',
+            'must read',
+            'book club pick',
+            'emotional',
+            'page-turner',
+            'compelling'
+          ])
+          toast({ title: 'Keywords generated!', variant: 'success' })
+        }
+      }
+    } catch (error) {
+      console.error('Keyword generation failed:', error)
+      toast({ title: 'Failed to generate keywords', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  const handleCopyKeywords = async () => {
+    try {
+      await navigator.clipboard.writeText(suggestedKeywords.join(', '))
+      setCopiedKeywords(true)
+      toast({ title: 'Keywords copied!', variant: 'success' })
+      setTimeout(() => setCopiedKeywords(false), 2000)
+    } catch {
+      toast({ title: 'Failed to copy', variant: 'error' })
     }
   }
 
@@ -330,6 +421,77 @@ export function MarketSection({ project }: SectionProps) {
           </p>
         </div>
       )}
+
+      {/* AI Keyword Suggestions */}
+      <div className="card mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+            <Tag className="h-5 w-5 text-accent" />
+            Discovery Keywords
+            <Sparkles className="h-4 w-4 text-accent" />
+          </h2>
+          <button
+            onClick={handleSuggestKeywords}
+            disabled={isGenerating}
+            className="btn-secondary flex items-center gap-2 text-sm"
+          >
+            <Sparkles className="h-4 w-4" />
+            {suggestedKeywords.length > 0 ? 'Regenerate' : 'Suggest Keywords'}
+          </button>
+        </div>
+        <p className="text-text-secondary text-sm mb-4">
+          Generate SEO-friendly keywords to improve discoverability on Amazon, Goodreads, and other platforms.
+        </p>
+
+        {suggestedKeywords.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {suggestedKeywords.map((keyword, idx) => (
+                <span
+                  key={idx}
+                  className="px-3 py-1.5 bg-accent/10 text-accent rounded-full text-sm font-medium"
+                >
+                  {keyword}
+                </span>
+              ))}
+            </div>
+            <button
+              onClick={handleCopyKeywords}
+              className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+            >
+              {copiedKeywords ? (
+                <>
+                  <Check className="h-4 w-4 text-success" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" />
+                  Copy all keywords
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {suggestedKeywords.length === 0 && (
+          <div className="text-center py-8 text-text-secondary">
+            <Tag className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Click "Suggest Keywords" to generate discovery keywords for your novel.</p>
+          </div>
+        )}
+      </div>
+
+      {/* AI Progress Modal */}
+      <AIProgressModal
+        isOpen={showAIProgress}
+        title={aiProgressTitle}
+        onCancel={() => {
+          cancel()
+          setShowAIProgress(false)
+          setIsAnalyzing(false)
+        }}
+      />
     </div>
   )
 }

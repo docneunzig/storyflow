@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film, GitBranch, List, BookOpen, Sparkles, X, Mic } from 'lucide-react'
+import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film, GitBranch, List, BookOpen, Sparkles, X, Mic, Wand2, MessageSquare } from 'lucide-react'
 import type { Project, Character, CharacterRole, CharacterRelationship, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject, generateId } from '@/lib/db'
@@ -73,9 +73,14 @@ export function CharactersSection({ project }: SectionProps) {
 
   // AI generation state
   const [showAIProgress, setShowAIProgress] = useState(false)
+  const [aiProgressTitle, setAIProgressTitle] = useState('Generating Character Options')
   const [characterOptions, setCharacterOptions] = useState<CharacterOption[]>([])
   const [showOptionsModal, setShowOptionsModal] = useState(false)
   const [showVoiceChecker, setShowVoiceChecker] = useState(false)
+  const [deepeningCharacterId, setDeepeningCharacterId] = useState<string | null>(null)
+  const [showDialogueModal, setShowDialogueModal] = useState(false)
+  const [generatedDialogue, setGeneratedDialogue] = useState('')
+  const [dialogueCharacters, setDialogueCharacters] = useState<[string, string] | null>(null)
 
   const {
     status: aiStatus,
@@ -417,7 +422,7 @@ export function CharactersSection({ project }: SectionProps) {
   }
 
   // Handle navigation from inspector
-  const handleNavigateToScene = (sceneId: string) => {
+  const handleNavigateToScene = (_sceneId: string) => {
     navigate(`/projects/${project.id}/scenes`)
   }
 
@@ -518,6 +523,108 @@ export function CharactersSection({ project }: SectionProps) {
     }
     resetAI()
   }, [characterOptions.length, resetAI])
+
+  // Deepen character with AI - adds psychological depth
+  const handleDeepenCharacter = async (character: Character) => {
+    setDeepeningCharacterId(character.id)
+    setAIProgressTitle(`Deepening: ${character.name}`)
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'character',
+        action: 'deepen-character',
+        context: {
+          character: {
+            name: character.name,
+            role: character.role,
+            archetype: character.archetype,
+            personalitySummary: character.personalitySummary,
+            backstory: character.backstory,
+            flaws: character.flaws,
+            desires: character.desires,
+            misbelief: character.misbelief,
+          },
+          specification: project.specification,
+        },
+      })
+
+      if (result) {
+        setSaveStatus('saving')
+        const updatedCharacters = characters.map(c =>
+          c.id === character.id
+            ? {
+                ...c,
+                backstory: result,
+                userNotes: (c.userNotes || '') + '\n\n[AI-deepened character backstory]',
+              }
+            : c
+        )
+        await updateProject(project.id, { characters: updatedCharacters })
+        updateProjectStore(project.id, { characters: updatedCharacters })
+        setSaveStatus('saved')
+        toast({ title: `Deepened "${character.name}"`, variant: 'success' })
+      }
+    } catch (error) {
+      console.error('Failed to deepen character:', error)
+      toast({ title: 'Failed to deepen character', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+      setDeepeningCharacterId(null)
+    }
+  }
+
+  // Generate dialogue between two characters
+  const handleGenerateDialogue = async (char1Id: string, char2Id: string) => {
+    const char1 = characters.find(c => c.id === char1Id)
+    const char2 = characters.find(c => c.id === char2Id)
+
+    if (!char1 || !char2) return
+
+    setDialogueCharacters([char1Id, char2Id])
+    setAIProgressTitle(`Generating Dialogue: ${char1.name} & ${char2.name}`)
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'character',
+        action: 'generate-dialogue',
+        context: {
+          character1: {
+            name: char1.name,
+            role: char1.role,
+            personalitySummary: char1.personalitySummary,
+            speechPatterns: char1.speechPatterns,
+            catchphrases: char1.catchphrases,
+            internalVoice: char1.internalVoice,
+          },
+          character2: {
+            name: char2.name,
+            role: char2.role,
+            personalitySummary: char2.personalitySummary,
+            speechPatterns: char2.speechPatterns,
+            catchphrases: char2.catchphrases,
+            internalVoice: char2.internalVoice,
+          },
+          relationship: relationships.find(r =>
+            (r.character1Id === char1Id && r.character2Id === char2Id) ||
+            (r.character1Id === char2Id && r.character2Id === char1Id)
+          ),
+          specification: project.specification,
+        },
+      })
+
+      if (result) {
+        setGeneratedDialogue(result)
+        setShowDialogueModal(true)
+      }
+    } catch (error) {
+      console.error('Failed to generate dialogue:', error)
+      toast({ title: 'Failed to generate dialogue', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
 
   // Handle selecting a character option
   const handleSelectCharacterOption = async (option: CharacterOption) => {
@@ -790,13 +897,27 @@ export function CharactersSection({ project }: SectionProps) {
                       </button>
                     </>
                   ) : (
-                    <button
-                      onClick={() => setBulkDeleteConfirm(true)}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-error/10 text-error rounded-lg hover:bg-error/20 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      Delete Selected
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {selectedCharacters.size === 2 && (
+                        <button
+                          onClick={() => {
+                            const [char1Id, char2Id] = Array.from(selectedCharacters)
+                            handleGenerateDialogue(char1Id, char2Id)
+                          }}
+                          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-accent/10 text-accent rounded-lg hover:bg-accent/20 transition-colors"
+                        >
+                          <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                          Generate Dialogue
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setBulkDeleteConfirm(true)}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-error/10 text-error rounded-lg hover:bg-error/20 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        Delete Selected
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
@@ -870,6 +991,15 @@ export function CharactersSection({ project }: SectionProps) {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleDeepenCharacter(character)}
+                          disabled={isGenerating}
+                          className="p-1.5 rounded-md hover:bg-accent/10 transition-colors disabled:opacity-50"
+                          aria-label="Deepen character"
+                          title="Add psychological depth with AI"
+                        >
+                          <Wand2 className="h-4 w-4 text-accent" aria-hidden="true" />
+                        </button>
                         <button
                           onClick={() => handleOpenModal(character)}
                           className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
@@ -1205,7 +1335,7 @@ export function CharactersSection({ project }: SectionProps) {
         progress={aiProgress}
         message={aiMessage}
         error={aiError}
-        title="Generating Character Options"
+        title={aiProgressTitle}
       />
 
       {/* Character Options Selection Modal */}
@@ -1293,6 +1423,60 @@ export function CharactersSection({ project }: SectionProps) {
         isOpen={showVoiceChecker}
         onClose={() => setShowVoiceChecker(false)}
       />
+
+      {/* Generated Dialogue Modal */}
+      {showDialogueModal && generatedDialogue && dialogueCharacters && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowDialogueModal(false)
+              setGeneratedDialogue('')
+              setDialogueCharacters(null)
+            }}
+          />
+          <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-accent" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Generated Dialogue
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDialogueModal(false)
+                  setGeneratedDialogue('')
+                  setDialogueCharacters(null)
+                }}
+                className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+              >
+                <X className="h-5 w-5 text-text-secondary" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="text-sm text-text-secondary mb-4">
+                Between: {characters.find(c => c.id === dialogueCharacters[0])?.name} & {characters.find(c => c.id === dialogueCharacters[1])?.name}
+              </div>
+              <div className="prose prose-invert prose-sm max-w-none font-serif whitespace-pre-wrap bg-surface-elevated p-4 rounded-lg border border-border">
+                {generatedDialogue}
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end">
+              <button
+                onClick={() => {
+                  setShowDialogueModal(false)
+                  setGeneratedDialogue('')
+                  setDialogueCharacters(null)
+                }}
+                className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

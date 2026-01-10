@@ -80,7 +80,7 @@ export function FindDialog({ isOpen, onClose }: FindDialogProps) {
 
     // Search scenes
     currentProject.scenes?.forEach(scene => {
-      const content = scene.content || ''
+      const content = scene.summary || scene.detailedOutline || ''
       const title = scene.title || ''
 
       if (title.toLowerCase().includes(queryLower)) {
@@ -112,7 +112,7 @@ export function FindDialog({ isOpen, onClose }: FindDialogProps) {
     // Search characters
     currentProject.characters?.forEach(character => {
       const name = character.name || ''
-      const bio = character.bio || ''
+      const personality = character.personalitySummary || ''
       const backstory = character.backstory || ''
 
       if (name.toLowerCase().includes(queryLower)) {
@@ -125,8 +125,8 @@ export function FindDialog({ isOpen, onClose }: FindDialogProps) {
         })
       }
 
-      if (bio.toLowerCase().includes(queryLower) || backstory.toLowerCase().includes(queryLower)) {
-        const searchText = bio.toLowerCase().includes(queryLower) ? bio : backstory
+      if (personality.toLowerCase().includes(queryLower) || backstory.toLowerCase().includes(queryLower)) {
+        const searchText = personality.toLowerCase().includes(queryLower) ? personality : backstory
         const searchTextLower = searchText.toLowerCase()
         const startIndex = searchTextLower.indexOf(queryLower)
         const contextStart = Math.max(0, startIndex - 30)
@@ -175,7 +175,7 @@ export function FindDialog({ isOpen, onClose }: FindDialogProps) {
 
     // Search plot beats
     currentProject.plot?.beats?.forEach((beat, idx) => {
-      const description = beat.description || ''
+      const description = beat.summary || beat.detailedDescription || ''
 
       if (description.toLowerCase().includes(queryLower)) {
         const descLower = description.toLowerCase()
@@ -186,7 +186,7 @@ export function FindDialog({ isOpen, onClose }: FindDialogProps) {
         searchResults.push({
           type: 'plot',
           id: beat.id,
-          title: `Plot Beat ${idx + 1}`,
+          title: `Plot Beat ${idx + 1}: ${beat.title}`,
           context: `...${context}...`,
           matchIndex: startIndex
         })

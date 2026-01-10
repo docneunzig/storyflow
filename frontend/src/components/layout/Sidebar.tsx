@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   FileText,
+  Lightbulb,
   GitBranch,
   Users,
   Film,
@@ -28,13 +29,13 @@ interface SidebarProps {
 
 // Define which sections are unlocked at each phase
 const PHASE_UNLOCKS: Record<ProjectPhase, string[]> = {
-  'specification': ['specification', 'wiki', 'stats'],
-  'plotting': ['specification', 'plot', 'wiki', 'stats'],
-  'characters': ['specification', 'plot', 'characters', 'wiki', 'stats'],
-  'scenes': ['specification', 'plot', 'characters', 'scenes', 'wiki', 'stats'],
-  'writing': ['specification', 'plot', 'characters', 'scenes', 'write', 'wiki', 'stats', 'market'],
-  'revision': ['specification', 'plot', 'characters', 'scenes', 'write', 'review', 'wiki', 'stats', 'market'],
-  'complete': ['specification', 'plot', 'characters', 'scenes', 'write', 'review', 'export', 'wiki', 'stats', 'market'],
+  'specification': ['specification', 'brainstorm', 'wiki', 'stats'],
+  'plotting': ['specification', 'brainstorm', 'plot', 'wiki', 'stats'],
+  'characters': ['specification', 'brainstorm', 'plot', 'characters', 'wiki', 'stats'],
+  'scenes': ['specification', 'brainstorm', 'plot', 'characters', 'scenes', 'wiki', 'stats'],
+  'writing': ['specification', 'brainstorm', 'plot', 'characters', 'scenes', 'write', 'wiki', 'stats', 'market'],
+  'revision': ['specification', 'brainstorm', 'plot', 'characters', 'scenes', 'write', 'review', 'wiki', 'stats', 'market'],
+  'complete': ['specification', 'brainstorm', 'plot', 'characters', 'scenes', 'write', 'review', 'export', 'wiki', 'stats', 'market'],
 }
 
 // Get the recommended section for current phase
@@ -68,12 +69,13 @@ function useIsMobile(breakpoint = 768) {
 
 const navItems = [
   { icon: FileText, label: 'Specification', path: 'specification', shortcut: '1' },
-  { icon: GitBranch, label: 'Plot', path: 'plot', shortcut: '2' },
-  { icon: Users, label: 'Characters', path: 'characters', shortcut: '3' },
-  { icon: Film, label: 'Scenes', path: 'scenes', shortcut: '4' },
-  { icon: PenTool, label: 'Write', path: 'write', shortcut: '5' },
-  { icon: CheckSquare, label: 'Review', path: 'review', shortcut: '6' },
-  { icon: Download, label: 'Export', path: 'export', shortcut: '7' },
+  { icon: Lightbulb, label: 'Brainstorm', path: 'brainstorm', shortcut: '2' },
+  { icon: GitBranch, label: 'Plot', path: 'plot', shortcut: '3' },
+  { icon: Users, label: 'Characters', path: 'characters', shortcut: '4' },
+  { icon: Film, label: 'Scenes', path: 'scenes', shortcut: '5' },
+  { icon: PenTool, label: 'Write', path: 'write', shortcut: '6' },
+  { icon: CheckSquare, label: 'Review', path: 'review', shortcut: '7' },
+  { icon: Download, label: 'Export', path: 'export', shortcut: '8' },
   { type: 'separator' as const },
   { icon: Book, label: 'Wiki', path: 'wiki' },
   { icon: BarChart2, label: 'Stats', path: 'stats' },
@@ -239,10 +241,14 @@ export function Sidebar({ projectId }: SidebarProps) {
                     <>
                       <span className="flex-1">{item.label}</span>
                       {recommended && unlocked && (
-                        <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" aria-hidden="true" title="Recommended" />
+                        <span title="Recommended">
+                          <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" aria-hidden="true" />
+                        </span>
                       )}
                       {!unlocked && (
-                        <Lock className="h-3 w-3 text-text-secondary/50" aria-hidden="true" title="Locked" />
+                        <span title="Locked">
+                          <Lock className="h-3 w-3 text-text-secondary/50" aria-hidden="true" />
+                        </span>
                       )}
                       {item.shortcut && unlocked && (
                         <kbd className="text-xs text-text-secondary bg-surface-elevated px-1.5 py-0.5 rounded">

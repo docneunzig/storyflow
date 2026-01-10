@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Plus, Target, Edit2, Trash2, Users, MapPin, BookOpen, Layers, Sparkles, List, GitBranch } from 'lucide-react'
+import { Plus, Target, Edit2, Trash2, Users, MapPin, BookOpen, Layers, Sparkles, List, GitBranch, Wand2, Zap, X } from 'lucide-react'
 import type { Project, PlotBeat, PlotStructure, PlotFramework } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject, generateId } from '@/lib/db'
@@ -48,8 +48,15 @@ export function PlotSection({ project }: SectionProps) {
 
   // AI generation state
   const [showAIProgress, setShowAIProgress] = useState(false)
+  const [aiProgressTitle, setAIProgressTitle] = useState('Generating Plot Options')
   const [plotOptions, setPlotOptions] = useState<PlotOption[]>([])
   const [showOptionsModal, setShowOptionsModal] = useState(false)
+  const [expandedBeatId, setExpandedBeatId] = useState<string | null>(null)
+  const [expandedScenes, setExpandedScenes] = useState<{ title: string; summary: string }[]>([])
+  const [showExpandModal, setShowExpandModal] = useState(false)
+  const [twistBeatId, setTwistBeatId] = useState<string | null>(null)
+  const [suggestedTwists, setSuggestedTwists] = useState<string[]>([])
+  const [showTwistsModal, setShowTwistsModal] = useState(false)
 
   const {
     status: aiStatus,
@@ -259,8 +266,11 @@ export function PlotSection({ project }: SectionProps) {
         chapterTarget: null,
         emotionalArc: '',
         stakes: '',
+        foreshadowing: [],
+        payoffs: [],
         wordCountEstimate: 3000,
         status: 'outline' as const,
+        userNotes: '',
       }))
 
       const updatedPlot: PlotStructure = {
@@ -286,6 +296,206 @@ export function PlotSection({ project }: SectionProps) {
     setShowAIProgress(false)
     resetAI()
   }, [resetAI])
+
+  // Expand beat into detailed scenes
+  const handleExpandBeat = async (beat: PlotBeat) => {
+    setExpandedBeatId(beat.id)
+    setAIProgressTitle(`Expanding: ${beat.title}`)
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'plot',
+        action: 'expand-beat',
+        context: {
+          beat: {
+            title: beat.title,
+            summary: beat.summary,
+            detailedDescription: beat.detailedDescription,
+            emotionalArc: beat.emotionalArc,
+            stakes: beat.stakes,
+            frameworkPosition: beat.frameworkPosition,
+          },
+          characters: (beat.charactersInvolved || []).map(id => {
+            const char = (project.characters || []).find(c => c.id === id)
+            return char ? { name: char.name, role: char.role } : null
+          }).filter(Boolean),
+          specification: project.specification,
+        },
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result)
+          if (Array.isArray(parsed)) {
+            setExpandedScenes(parsed)
+          } else if (parsed.scenes && Array.isArray(parsed.scenes)) {
+            setExpandedScenes(parsed.scenes)
+          } else {
+            setExpandedScenes([
+              { title: 'Scene 1', summary: 'Opening of the beat - establish the situation' },
+              { title: 'Scene 2', summary: 'Rising action - develop the conflict' },
+              { title: 'Scene 3', summary: 'Climax of the beat - peak intensity' },
+            ])
+          }
+        } catch {
+          setExpandedScenes([
+            { title: 'Scene 1: Opening', summary: 'Introduction of the beat\'s central conflict' },
+            { title: 'Scene 2: Development', summary: 'Escalation of tension and stakes' },
+            { title: 'Scene 3: Turning Point', summary: 'Critical moment that changes the situation' },
+          ])
+        }
+        setShowExpandModal(true)
+      }
+    } catch (error) {
+      console.error('Failed to expand beat:', error)
+      toast({ title: 'Failed to expand beat', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  // Create scenes from expanded beat
+  const handleCreateScenesFromExpansion = async () => {
+    if (!expandedBeatId || expandedScenes.length === 0) return
+
+    try {
+      setSaveStatus('saving')
+      const beat = plot.beats.find(b => b.id === expandedBeatId)
+
+      // Create scene objects
+      const newScenes = expandedScenes.map((s, i) => ({
+        id: generateId(),
+        title: s.title,
+        chapterId: null,
+        sequenceInChapter: i + 1,
+        plotBeatId: expandedBeatId,
+        locationId: null,
+        timeInStory: '',
+        weatherAtmosphere: '',
+        povCharacterId: null,
+        charactersPresent: beat?.charactersInvolved || [],
+        summary: s.summary,
+        detailedOutline: '',
+        openingHook: '',
+        keyMoments: [],
+        closingHook: '',
+        sceneGoal: '',
+        conflictType: '',
+        conflictDescription: '',
+        characterGoals: [],
+        openingEmotion: '',
+        closingEmotion: '',
+        tone: '',
+        estimatedWordCount: 1500,
+        pacing: 'Moderate',
+        setupFor: [],
+        payoffFor: [],
+        status: 'outline' as const,
+        userNotes: '',
+      }))
+
+      const existingScenes = project.scenes || []
+      const updatedScenes = [...existingScenes, ...newScenes]
+
+      await updateProject(project.id, { scenes: updatedScenes })
+      updateProjectStore(project.id, { scenes: updatedScenes })
+      setSaveStatus('saved')
+      setShowExpandModal(false)
+      setExpandedScenes([])
+      setExpandedBeatId(null)
+      toast({ title: `Created ${newScenes.length} scenes from "${beat?.title}"`, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to create scenes:', error)
+      toast({ title: 'Failed to create scenes', variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+  }
+
+  // Suggest twists for a beat
+  const handleSuggestTwists = async (beat: PlotBeat) => {
+    setTwistBeatId(beat.id)
+    setAIProgressTitle(`Finding Twists for: ${beat.title}`)
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'plot',
+        action: 'suggest-twists',
+        context: {
+          beat: {
+            title: beat.title,
+            summary: beat.summary,
+            stakes: beat.stakes,
+          },
+          existingBeats: plot.beats.map(b => ({ title: b.title, summary: b.summary })),
+          specification: project.specification,
+        },
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result)
+          if (Array.isArray(parsed)) {
+            setSuggestedTwists(parsed)
+          } else if (parsed.twists && Array.isArray(parsed.twists)) {
+            setSuggestedTwists(parsed.twists)
+          } else {
+            setSuggestedTwists([
+              'A trusted ally is revealed to have hidden motives',
+              'The protagonist discovers their initial goal was misdirected',
+              'A seemingly minor character becomes crucial to the resolution',
+            ])
+          }
+        } catch {
+          setSuggestedTwists([
+            'Unexpected betrayal from a trusted character',
+            'The stakes are revealed to be much higher than believed',
+            'A hidden connection between characters is exposed',
+          ])
+        }
+        setShowTwistsModal(true)
+      }
+    } catch (error) {
+      console.error('Failed to suggest twists:', error)
+      toast({ title: 'Failed to suggest twists', variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  // Apply a twist to the beat
+  const handleApplyTwist = async (twist: string) => {
+    if (!twistBeatId) return
+
+    try {
+      setSaveStatus('saving')
+      const updatedBeats = plot.beats.map(b =>
+        b.id === twistBeatId
+          ? {
+              ...b,
+              summary: b.summary + '\n\nTwist: ' + twist,
+              userNotes: (b.userNotes || '') + '\n\nSuggested twist: ' + twist,
+            }
+          : b
+      )
+
+      const updatedPlot: PlotStructure = { ...plot, beats: updatedBeats }
+      await updateProject(project.id, { plot: updatedPlot })
+      updateProjectStore(project.id, { plot: updatedPlot })
+      setSaveStatus('saved')
+      setShowTwistsModal(false)
+      setSuggestedTwists([])
+      setTwistBeatId(null)
+
+      const beat = plot.beats.find(b => b.id === twistBeatId)
+      toast({ title: `Twist added to "${beat?.title}"`, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to apply twist:', error)
+      toast({ title: 'Failed to apply twist', variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+  }
 
   const characters = project.characters || []
 
@@ -495,6 +705,25 @@ export function PlotSection({ project }: SectionProps) {
 
                   {/* Actions */}
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
+                    {/* AI Actions */}
+                    <button
+                      onClick={() => handleExpandBeat(beat)}
+                      disabled={isGenerating}
+                      className="p-1.5 rounded-md hover:bg-accent/10 transition-colors disabled:opacity-50"
+                      aria-label="Expand to scenes"
+                      title="Expand beat into detailed scenes"
+                    >
+                      <Wand2 className="h-4 w-4 text-accent" aria-hidden="true" />
+                    </button>
+                    <button
+                      onClick={() => handleSuggestTwists(beat)}
+                      disabled={isGenerating}
+                      className="p-1.5 rounded-md hover:bg-purple-500/10 transition-colors disabled:opacity-50"
+                      aria-label="Suggest twists"
+                      title="Suggest plot twists"
+                    >
+                      <Zap className="h-4 w-4 text-purple-400" aria-hidden="true" />
+                    </button>
                     {beat.status === 'locked' ? (
                       <span className="text-xs text-warning px-2 py-1 bg-warning/10 rounded" title="This beat is locked and cannot be edited">
                         🔒 Locked
@@ -562,7 +791,7 @@ export function PlotSection({ project }: SectionProps) {
         progress={aiProgress}
         message={aiMessage}
         error={aiError}
-        title="Generating Plot Options"
+        title={aiProgressTitle}
       />
 
       {/* Plot Options Selection Modal */}
@@ -624,6 +853,134 @@ export function PlotSection({ project }: SectionProps) {
                 className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expanded Scenes Modal */}
+      {showExpandModal && expandedScenes.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowExpandModal(false)
+              setExpandedScenes([])
+              setExpandedBeatId(null)
+            }}
+          />
+          <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Wand2 className="h-5 w-5 text-accent" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-text-primary">Expanded Scenes</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowExpandModal(false)
+                  setExpandedScenes([])
+                  setExpandedBeatId(null)
+                }}
+                className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+              >
+                <X className="h-5 w-5 text-text-secondary" />
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="text-sm text-text-secondary mb-4">
+                The following scenes were generated from this beat. Create them as new scenes?
+              </p>
+              <div className="space-y-3">
+                {expandedScenes.map((scene, index) => (
+                  <div key={index} className="p-3 bg-surface-elevated border border-border rounded-lg">
+                    <h4 className="font-medium text-text-primary mb-1">{scene.title}</h4>
+                    <p className="text-sm text-text-secondary">{scene.summary}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowExpandModal(false)
+                  setExpandedScenes([])
+                  setExpandedBeatId(null)
+                }}
+                className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateScenesFromExpansion}
+                className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+              >
+                Create {expandedScenes.length} Scenes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suggested Twists Modal */}
+      {showTwistsModal && suggestedTwists.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowTwistsModal(false)
+              setSuggestedTwists([])
+              setTwistBeatId(null)
+            }}
+          />
+          <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-purple-400" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-text-primary">Suggested Twists</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowTwistsModal(false)
+                  setSuggestedTwists([])
+                  setTwistBeatId(null)
+                }}
+                className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+              >
+                <X className="h-5 w-5 text-text-secondary" />
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="text-sm text-text-secondary mb-4">
+                Choose a twist to add to this beat, or use them as inspiration:
+              </p>
+              <div className="space-y-2">
+                {suggestedTwists.map((twist, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleApplyTwist(twist)}
+                    className="w-full p-4 text-left bg-surface-elevated border border-border rounded-lg hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors group"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm text-text-primary">{twist}</p>
+                      <span className="text-xs text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        Click to add
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end">
+              <button
+                onClick={() => {
+                  setShowTwistsModal(false)
+                  setSuggestedTwists([])
+                  setTwistBeatId(null)
+                }}
+                className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>
