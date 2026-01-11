@@ -13,11 +13,13 @@ import {
   Calendar,
   LineChart,
   Star,
-  EyeOff
+  EyeOff,
+  Clock
 } from 'lucide-react'
-import type { Project, ChapterQualityScore, ProjectPhase } from '@/types/project'
+import type { Project, ChapterQualityScore, ProjectPhase, ProjectDeadline } from '@/types/project'
 import { useProjectStore, calculateProjectPhase } from '@/stores/projectStore'
 import { getSessionTrackingEnabled } from '@/components/ui/SettingsModal'
+import { DeadlineDashboard } from '@/components/ui/DeadlineDashboard'
 
 // Phase display configuration
 const PHASE_CONFIG: Record<ProjectPhase, { label: string; color: string; icon: string; next: string | null }> = {
@@ -125,6 +127,9 @@ export function StatsSection({ project }: SectionProps) {
   // Get session start word count from store
   const sessionStartWordCount = useProjectStore((state) => state.sessionStartWordCount)
   const sessionStartTime = useProjectStore((state) => state.sessionStartTime)
+
+  // View mode: 'stats' or 'deadline'
+  const [viewMode, setViewMode] = useState<'stats' | 'deadline'>('stats')
 
   // Check if session tracking is enabled
   const [isSessionTrackingEnabled, setIsSessionTrackingEnabled] = useState(getSessionTrackingEnabled)
@@ -417,13 +422,64 @@ export function StatsSection({ project }: SectionProps) {
   const currentPhase = calculateProjectPhase(project)
   const phaseConfig = PHASE_CONFIG[currentPhase]
 
+  // Handlers for DeadlineDashboard
+  const handleSetDeadline = (deadline: ProjectDeadline) => {
+    // TODO: Implement deadline saving to project store
+    console.log('Set deadline:', deadline)
+  }
+
+  const handleUpdateMilestone = (milestoneId: string, completed: boolean) => {
+    // TODO: Implement milestone update
+    console.log('Update milestone:', milestoneId, completed)
+  }
+
   return (
     <div>
-      <h1 className="text-2xl font-bold text-text-primary mb-2">Statistics</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-2xl font-bold text-text-primary">Statistics</h1>
+        {/* View Mode Tabs */}
+        <div className="flex gap-1 p-1 bg-surface-elevated rounded-lg">
+          <button
+            onClick={() => setViewMode('stats')}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              viewMode === 'stats'
+                ? 'bg-accent text-white'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 inline mr-1.5" />
+            Overview
+          </button>
+          <button
+            onClick={() => setViewMode('deadline')}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              viewMode === 'deadline'
+                ? 'bg-accent text-white'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <Clock className="w-4 h-4 inline mr-1.5" />
+            Deadlines
+          </button>
+        </div>
+      </div>
       <p className="text-text-secondary mb-6">
         Track your writing progress and maintain motivation.
       </p>
 
+      {viewMode === 'deadline' ? (
+        <div className="h-[calc(100vh-200px)] border border-border rounded-lg overflow-hidden">
+          <DeadlineDashboard
+            deadline={null}
+            velocityStats={null}
+            currentWordCount={stats.totalWords}
+            dailyWordCounts={project.statistics?.wordsPerDay || []}
+            onSetDeadline={handleSetDeadline}
+            onUpdateMilestone={handleUpdateMilestone}
+          />
+        </div>
+      ) : (
+      <div>
       {/* Project Phase Card */}
       <div className={`mb-6 p-4 rounded-lg border ${phaseConfig.color}`}>
         <div className="flex items-start gap-4">
@@ -1394,6 +1450,8 @@ export function StatsSection({ project }: SectionProps) {
           </div>
         )}
       </div>
+      </div>
+      )}
     </div>
   )
 }

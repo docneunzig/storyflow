@@ -1,0 +1,484 @@
+import Anthropic from '@anthropic-ai/sdk'
+
+// Initialize Anthropic client - uses ANTHROPIC_API_KEY env var by default
+const anthropic = new Anthropic()
+
+// System prompts for different agent types
+const SYSTEM_PROMPTS: Record<string, string> = {
+  writer: `You are a world-class fiction writer with expertise in prose, narrative voice, and creative writing.
+You write vivid, engaging prose that matches the specified POV, tense, and style.
+Always maintain consistency with the story's specification, characters, and established facts.
+Your writing should feel natural, emotionally resonant, and appropriate for the target audience.`,
+
+  character: `You are an expert in character development and psychology.
+You create deep, nuanced characters with consistent voices, clear motivations, and believable flaws.
+When generating dialogue, each character should sound distinct and true to their personality.
+Consider the character's background, education, emotional state, and relationships when writing their voice.`,
+
+  plot: `You are a master story architect with deep knowledge of narrative structure.
+You understand three-act structure, hero's journey, save the cat beats, and other frameworks.
+You help develop compelling plot beats with proper setup/payoff, rising tension, and satisfying resolutions.
+Always consider the genre conventions and reader expectations.`,
+
+  review: `You are a professional book editor and literary critic.
+You provide constructive, specific feedback across 12 quality dimensions:
+- Plot Coherence, Character Consistency, Character Voice, Pacing
+- Dialogue Quality, Prose Style, Emotional Impact, Tension Management
+- Worldbuilding, Theme Expression, Market Appeal, Originality
+
+Score each dimension 1-10 and provide actionable improvement suggestions.
+Be honest but constructive - your goal is to help the author improve.`,
+
+  wiki: `You are a worldbuilding expert and continuity editor.
+You help maintain consistency across locations, timeline, magic systems, cultures, and lore.
+You extract and organize world elements from manuscript text.
+You flag potential continuity issues and contradictions.`,
+
+  market: `You are a publishing industry expert with knowledge of current market trends.
+You analyze manuscripts for market positioning, comparable titles, and genre fit.
+You understand reader expectations across different genres and subgenres.
+You provide insights on cover copy, query letters, and marketing angles.`,
+
+  brainstorm: `You are a creative development partner who helps authors develop raw ideas into story foundations.
+You ask probing questions that unlock story potential.
+You identify implicit plot structures, character archetypes, and thematic elements.
+You generate clear, actionable story seeds that authors can develop further.`,
+
+  continuity: `You are a meticulous continuity editor who tracks every detail in a manuscript.
+You extract facts about characters (physical descriptions, knowledge states, relationships),
+locations (descriptions, distances, features), timeline (dates, durations, sequences),
+and objects (locations, ownership, states).
+You flag contradictions and inconsistencies with specific citations.`,
+
+  voiceDNA: `You are a linguistic analyst specializing in character voice patterns.
+You analyze dialogue to extract voice fingerprints: sentence length, vocabulary,
+contractions, question patterns, emotional markers, filler words, and unique phrases.
+You can identify when a character's dialogue drifts from their established voice.`,
+
+  readerExperience: `You are a reader psychology expert who can model the naive reader experience.
+You track what information readers have at each point in the story.
+You predict emotional reactions, active questions, and twist impacts.
+You identify pacing issues and engagement drops from the reader's perspective.`,
+}
+
+// Build context string from project data
+function buildContext(context: Record<string, any>): string {
+  const parts: string[] = []
+
+  if (context.specification) {
+    const spec = context.specification
+    parts.push(`## Novel Specification
+- Title: ${spec.workingTitle || 'Untitled'}
+- Genre: ${spec.genre?.join(', ') || 'Not specified'}
+- Subgenre: ${spec.subgenre?.join(', ') || 'Not specified'}
+- Target Audience: ${spec.targetAudience || 'Adult'}
+- POV: ${spec.pov || 'Third Limited'}
+- Tense: ${spec.tense || 'Past'}
+- Tone: ${spec.tone || 'Not specified'}
+- Themes: ${spec.themes?.join(', ') || 'Not specified'}
+- Word Count Target: ${spec.targetWordCount || 80000}`)
+  }
+
+  if (context.characters && context.characters.length > 0) {
+    parts.push(`\n## Characters`)
+    for (const char of context.characters) {
+      parts.push(`### ${char.name} (${char.role || 'Supporting'})
+- Age: ${char.age || 'Unknown'}
+- Description: ${char.physicalDescription || 'Not described'}
+- Personality: ${char.personality?.join(', ') || 'Not specified'}
+- Speech Patterns: ${char.speechPatterns || 'Standard'}
+- Vocabulary Level: ${char.vocabularyLevel || 'Average'}`)
+    }
+  }
+
+  if (context.plotBeats && context.plotBeats.length > 0) {
+    parts.push(`\n## Plot Beats`)
+    for (const beat of context.plotBeats) {
+      parts.push(`- ${beat.title}: ${beat.summary || ''}`)
+    }
+  }
+
+  if (context.scenes && context.scenes.length > 0) {
+    parts.push(`\n## Scenes`)
+    for (const scene of context.scenes) {
+      parts.push(`- ${scene.title}: ${scene.description || ''}`)
+    }
+  }
+
+  if (context.previousContent) {
+    parts.push(`\n## Previous Content
+${context.previousContent}`)
+  }
+
+  if (context.selectedText) {
+    parts.push(`\n## Selected Text
+${context.selectedText}`)
+  }
+
+  if (context.currentChapter) {
+    parts.push(`\n## Current Chapter Content
+${context.currentChapter}`)
+  }
+
+  return parts.join('\n')
+}
+
+// Action-specific prompt builders
+const ACTION_PROMPTS: Record<string, (context: Record<string, any>) => string> = {
+  'generate-chapter': (ctx) => `Write a complete chapter for this novel.
+
+${buildContext(ctx)}
+
+${ctx.chapterOutline ? `Chapter outline to follow:\n${ctx.chapterOutline}` : ''}
+${ctx.targetWords ? `Target word count: ${ctx.targetWords}` : ''}
+
+Write the full chapter prose, maintaining the specified POV and tense throughout.
+Start directly with the narrative - do not include chapter numbers or titles.`,
+
+  'generate-scene': (ctx) => `Write a complete scene for this novel.
+
+${buildContext(ctx)}
+
+Scene details:
+${ctx.sceneOutline || 'Write an engaging scene that advances the plot.'}
+
+Write vivid, engaging prose that brings this scene to life.
+Maintain the specified POV and tense throughout.`,
+
+  'expand-selection': (ctx) => `Expand the following text with more detail, description, and depth while maintaining the same voice, style, POV, and tense.
+
+${buildContext(ctx)}
+
+Text to expand:
+"${ctx.selectedText}"
+
+Provide the expanded version only, without any commentary or explanation.`,
+
+  'condense-selection': (ctx) => `Condense the following text to be more concise while preserving the essential meaning, voice, and style.
+
+${buildContext(ctx)}
+
+Text to condense:
+"${ctx.selectedText}"
+
+Provide the condensed version only, without any commentary or explanation.`,
+
+  'rewrite-selection': (ctx) => `Rewrite the following text with different phrasing while maintaining the same meaning, tone, and style.
+
+${buildContext(ctx)}
+
+Text to rewrite:
+"${ctx.selectedText}"
+
+Provide the rewritten version only, without any commentary or explanation.`,
+
+  'generate-alternatives': (ctx) => `Generate 3 alternative versions of the following text, each with a different approach while maintaining the same general meaning.
+
+${buildContext(ctx)}
+
+Text to rewrite:
+"${ctx.selectedText}"
+
+Provide exactly 3 alternatives, separated by "---" on its own line. No numbering or labels.`,
+
+  'continue-writing': (ctx) => `Continue writing from where this text ends, maintaining the same voice, style, POV, and tense.
+
+${buildContext(ctx)}
+
+Text to continue from:
+"${ctx.selectedText || ctx.currentChapter}"
+
+Continue the narrative naturally. Write approximately ${ctx.targetWords || 500} words.`,
+
+  'analyze-brainstorm': (ctx) => `Analyze this brainstorm text and generate 5-7 clarifying questions that will help develop the story.
+
+Brainstorm text:
+${ctx.brainstormText}
+
+Generate questions that:
+1. Clarify the central conflict
+2. Explore character motivations
+3. Identify potential plot structures
+4. Uncover thematic elements
+5. Address gaps in the concept
+
+Format as JSON array: ["question1", "question2", ...]`,
+
+  'generate-foundations': (ctx) => `Based on this brainstorm and the author's answers, generate story foundations.
+
+Brainstorm:
+${ctx.brainstormText}
+
+Author's answers:
+${JSON.stringify(ctx.answers || {}, null, 2)}
+
+Generate a JSON object with:
+{
+  "plot": {
+    "premise": "one-sentence premise",
+    "centralConflict": "the main conflict",
+    "suggestedFramework": "Three-Act Structure" or similar,
+    "plotSeeds": [{"title": "", "description": "", "confidence": "explicit|inferred|suggested"}]
+  },
+  "characters": {
+    "identified": [{"name": "", "role": "", "traits": [], "confidence": ""}],
+    "suggestedArchetypes": ["mentor", "antagonist", etc.]
+  },
+  "scenes": {
+    "envisioned": [{"title": "", "description": ""}],
+    "suggested": [{"title": "", "description": ""}]
+  }
+}`,
+
+  'critique-chapter': (ctx) => `Provide a detailed critique of this chapter across all 12 quality dimensions.
+
+${buildContext(ctx)}
+
+Chapter to critique:
+${ctx.chapterContent}
+
+For each dimension, provide:
+1. Score (1-10)
+2. Specific observations
+3. Concrete improvement suggestions
+
+Format as JSON:
+{
+  "dimensions": {
+    "plotCoherence": {"score": 8, "observations": "...", "suggestions": ["..."]},
+    // ... all 12 dimensions
+  },
+  "overallScore": 7.5,
+  "prioritizedSuggestions": [{"dimension": "", "suggestion": "", "impact": "high|medium|low"}]
+}`,
+
+  'extract-facts': (ctx) => `Extract all factual assertions from this chapter that should be tracked for continuity.
+
+${buildContext(ctx)}
+
+Chapter content:
+${ctx.chapterContent}
+
+Extract facts about:
+- Physical descriptions (eye color, height, scars, etc.)
+- Character knowledge (who knows what)
+- Object locations
+- Relationship states
+- Timeline details
+
+Format as JSON array:
+[{
+  "subjectId": "character/location/object name",
+  "factType": "physical|knowledge|location|relationship|temporal",
+  "assertion": "has blue eyes",
+  "quote": "exact text from chapter",
+  "position": character_offset,
+  "confidence": "explicit|inferred"
+}]`,
+
+  'check-continuity': (ctx) => `Check for continuity conflicts between these facts.
+
+Established facts:
+${JSON.stringify(ctx.existingFacts, null, 2)}
+
+New facts from current chapter:
+${JSON.stringify(ctx.newFacts, null, 2)}
+
+Identify any contradictions. Format as JSON:
+{
+  "conflicts": [{
+    "existingFact": {...},
+    "newFact": {...},
+    "description": "Sarah's eye color changed from blue to green",
+    "severity": "high|medium|low"
+  }],
+  "warnings": ["potential issues that might not be contradictions"]
+}`,
+
+  'analyze-voice': (ctx) => `Analyze the dialogue for this character and build a voice fingerprint.
+
+Character: ${ctx.characterName}
+
+All dialogue samples:
+${ctx.dialogueSamples?.join('\n---\n')}
+
+Analyze and provide JSON:
+{
+  "avgSentenceLength": number,
+  "contractionRatio": 0.0-1.0,
+  "questionFrequency": 0.0-1.0,
+  "exclamationFrequency": 0.0-1.0,
+  "uniqueVocabulary": ["words this character uses uniquely"],
+  "prohibitedVocabulary": ["words this character would never use"],
+  "fillerWords": ["um", "like", etc.],
+  "catchphrases": ["recurring phrases"],
+  "emotionalMarkers": {"anger": 0.2, "joy": 0.3, ...},
+  "speechPatternNotes": "narrative description of voice"
+}`,
+
+  'check-voice-consistency': (ctx) => `Check if this dialogue matches the character's established voice.
+
+Character: ${ctx.characterName}
+Voice DNA: ${JSON.stringify(ctx.voiceDNA, null, 2)}
+
+Dialogue to check:
+"${ctx.dialogue}"
+
+Provide JSON:
+{
+  "matchScore": 0.0-1.0,
+  "deviations": [{"type": "vocabulary|length|pattern", "description": "..."}],
+  "suggestions": ["how to make it more in-character"]
+}`,
+
+  'predict-reader-state': (ctx) => `Predict the reader's experience at this point in the story.
+
+Previous chapters summary:
+${ctx.previousSummary}
+
+Current chapter:
+${ctx.chapterContent}
+
+Predict the reader's state:
+{
+  "knownFacts": ["facts the reader now knows"],
+  "activeQuestions": ["mysteries the reader is tracking"],
+  "emotionalState": {
+    "tension": 0.0-1.0,
+    "curiosity": 0.0-1.0,
+    "attachment": {"CharacterName": 0.0-1.0}
+  },
+  "predictedReactions": ["reader might feel confused about X", "twist will land well because Y"]
+}`,
+}
+
+export interface GenerationResult {
+  result: string
+  cancelled: boolean
+  usage?: {
+    inputTokens: number
+    outputTokens: number
+  }
+}
+
+export interface GenerationOptions {
+  agentType: string
+  action: string
+  context: Record<string, any>
+  generationId: string
+  maxTokens?: number
+  temperature?: number
+}
+
+// Check if generation was cancelled
+const activeGenerations = new Map<string, { cancelled: boolean }>()
+
+export function registerGeneration(id: string): void {
+  activeGenerations.set(id, { cancelled: false })
+}
+
+export function cancelGeneration(id: string): void {
+  const gen = activeGenerations.get(id)
+  if (gen) gen.cancelled = true
+}
+
+export function cleanupGeneration(id: string): void {
+  activeGenerations.delete(id)
+}
+
+export function isGenerationCancelled(id: string): boolean {
+  return activeGenerations.get(id)?.cancelled ?? false
+}
+
+// Main generation function using Claude
+export async function generateWithClaude(options: GenerationOptions): Promise<GenerationResult> {
+  const { agentType, action, context, generationId, maxTokens = 4096, temperature = 0.7 } = options
+
+  // Check for cancellation before starting
+  if (isGenerationCancelled(generationId)) {
+    return { result: '', cancelled: true }
+  }
+
+  // Get system prompt for agent type
+  const systemPrompt = SYSTEM_PROMPTS[agentType] || SYSTEM_PROMPTS.writer
+
+  // Get action-specific prompt builder
+  const promptBuilder = ACTION_PROMPTS[action]
+  if (!promptBuilder) {
+    // Fallback for unknown actions
+    return {
+      result: `Action "${action}" not yet implemented with Claude integration.`,
+      cancelled: false,
+    }
+  }
+
+  const userPrompt = promptBuilder(context)
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: maxTokens,
+      temperature,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    })
+
+    // Check for cancellation after API call
+    if (isGenerationCancelled(generationId)) {
+      return { result: '', cancelled: true }
+    }
+
+    // Extract text from response
+    const textContent = message.content.find((block) => block.type === 'text')
+    const result = textContent?.type === 'text' ? textContent.text : ''
+
+    return {
+      result,
+      cancelled: false,
+      usage: {
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens,
+      },
+    }
+  } catch (error) {
+    console.error('[Claude Service] Generation error:', error)
+    throw error
+  }
+}
+
+// Streaming generation for long content
+export async function* streamWithClaude(options: GenerationOptions): AsyncGenerator<string, void, unknown> {
+  const { agentType, action, context, generationId, maxTokens = 4096, temperature = 0.7 } = options
+
+  if (isGenerationCancelled(generationId)) {
+    return
+  }
+
+  const systemPrompt = SYSTEM_PROMPTS[agentType] || SYSTEM_PROMPTS.writer
+  const promptBuilder = ACTION_PROMPTS[action]
+
+  if (!promptBuilder) {
+    yield `Action "${action}" not yet implemented.`
+    return
+  }
+
+  const userPrompt = promptBuilder(context)
+
+  const stream = await anthropic.messages.stream({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: maxTokens,
+    temperature,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
+  })
+
+  for await (const event of stream) {
+    if (isGenerationCancelled(generationId)) {
+      return
+    }
+
+    if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+      yield event.delta.text
+    }
+  }
+}

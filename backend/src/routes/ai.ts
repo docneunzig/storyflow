@@ -1,9 +1,18 @@
 import { Router, Request, Response } from 'express'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import {
+  generateWithClaude,
+  registerGeneration,
+  cancelGeneration,
+  cleanupGeneration,
+} from '../services/claude.js'
 
 const execAsync = promisify(exec)
 const router = Router()
+
+// Configuration: set to true to use real Claude API, false for simulated responses
+const USE_REAL_CLAUDE = process.env.USE_REAL_CLAUDE !== 'false'
 
 // Track active generation requests for cancellation
 const activeGenerations = new Map<string, { cancelled: boolean }>()
@@ -2047,10 +2056,13 @@ router.post('/generate', async (req: Request, res: Response) => {
   // Route to appropriate specialized agent via orchestrator
   const routedAgent = routeToAgent(agentTarget, action)
   console.log(`[Orchestrator] Routing request to ${routedAgent.agent} for action: ${action}`)
-  console.log(`[${routedAgent.agent}] Starting generation ${generationId}`)
+  console.log(`[${routedAgent.agent}] Starting generation ${generationId} (Claude: ${USE_REAL_CLAUDE})`)
 
-  // Register this generation
+  // Register this generation (both local and in Claude service)
   activeGenerations.set(generationId, { cancelled: false })
+  if (USE_REAL_CLAUDE) {
+    registerGeneration(generationId)
+  }
 
   // Handle client disconnect (abort) - use socket close detection
   const socket = req.socket
@@ -2059,17 +2071,45 @@ router.post('/generate', async (req: Request, res: Response) => {
     if (generation && !res.writableEnded) {
       console.log(`[AI Generate] Client disconnected, cancelling ${generationId}`)
       generation.cancelled = true
+      if (USE_REAL_CLAUDE) {
+        cancelGeneration(generationId)
+      }
     }
   }
   socket.on('close', onSocketClose)
 
   try {
-    // Simulate AI generation with cancellation support
-    const { result, cancelled } = await simulateAIGeneration(action, context || {}, generationId)
+    let result: string
+    let cancelled: boolean
 
-    // Clean up socket listener
+    if (USE_REAL_CLAUDE) {
+      // Use real Claude API
+      const agentType = agentTarget?.toLowerCase() || 'writer'
+      const response = await generateWithClaude({
+        agentType,
+        action,
+        context: context || {},
+        generationId,
+      })
+      result = response.result
+      cancelled = response.cancelled
+
+      if (response.usage) {
+        console.log(`[${routedAgent.agent}] Tokens used - Input: ${response.usage.inputTokens}, Output: ${response.usage.outputTokens}`)
+      }
+    } else {
+      // Use simulated generation for testing
+      const response = await simulateAIGeneration(action, context || {}, generationId)
+      result = response.result
+      cancelled = response.cancelled
+    }
+
+    // Clean up socket listener and registrations
     socket.off('close', onSocketClose)
     activeGenerations.delete(generationId)
+    if (USE_REAL_CLAUDE) {
+      cleanupGeneration(generationId)
+    }
 
     if (cancelled) {
       console.log(`[AI Generate] Generation ${generationId} was cancelled`)
@@ -2090,10 +2130,14 @@ router.post('/generate', async (req: Request, res: Response) => {
       generationId,
       agent: routedAgent.agent,
       agentDescription: routedAgent.description,
+      usingClaude: USE_REAL_CLAUDE,
     })
   } catch (error) {
     socket.off('close', onSocketClose)
     activeGenerations.delete(generationId)
+    if (USE_REAL_CLAUDE) {
+      cleanupGeneration(generationId)
+    }
     console.error('AI generation error:', error)
     res.status(500).json({
       status: 'error',
