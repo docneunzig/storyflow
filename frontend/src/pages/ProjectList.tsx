@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, BookOpen, Trash2, Calendar, Search } from 'lucide-react'
+import { Plus, BookOpen, Trash2, Calendar, Search, Library, ChevronDown, ChevronUp } from 'lucide-react'
 import { useProjectStore } from '@/stores/projectStore'
-import { formatDate } from '@/lib/utils'
+import { formatDate, generateId } from '@/lib/utils'
 import { toast } from '@/components/ui/Toaster'
 import { ProjectCardSkeleton, ListSkeleton } from '@/components/ui/Skeleton'
 import {
@@ -11,11 +11,74 @@ import {
   deleteProject as dbDeleteProject,
   createEmptyProject,
 } from '@/lib/db'
+import { SeriesManager } from '@/components/ui/SeriesManager'
+import type { Series, CrossBookPromise } from '@/types/project'
 
 export function ProjectList() {
   const navigate = useNavigate()
   const { projects, setProjects, isLoading, setIsLoading } = useProjectStore()
   const [searchQuery, setSearchQuery] = useState('')
+  const [showSeriesManager, setShowSeriesManager] = useState(false)
+  const [series, setSeries] = useState<Series[]>([])
+
+  // Series handlers
+  const handleCreateSeries = useCallback((newSeries: Omit<Series, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date().toISOString()
+    const createdSeries: Series = {
+      ...newSeries,
+      id: generateId(),
+      createdAt: now,
+      updatedAt: now,
+    }
+    setSeries(prev => [...prev, createdSeries])
+    toast({ title: `Series "${newSeries.name}" created`, variant: 'success' })
+  }, [])
+
+  const handleUpdateSeries = useCallback((seriesId: string, updates: Partial<Series>) => {
+    setSeries(prev => prev.map(s =>
+      s.id === seriesId ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
+    ))
+    toast({ title: 'Series updated', variant: 'success' })
+  }, [])
+
+  const handleDeleteSeries = useCallback((seriesId: string) => {
+    const seriesName = series.find(s => s.id === seriesId)?.name
+    setSeries(prev => prev.filter(s => s.id !== seriesId))
+    toast({ title: `Series "${seriesName}" deleted`, variant: 'success' })
+  }, [series])
+
+  const handleAddBookToSeries = useCallback((seriesId: string, projectId: string) => {
+    setSeries(prev => prev.map(s =>
+      s.id === seriesId
+        ? { ...s, projectIds: [...s.projectIds, projectId], updatedAt: new Date().toISOString() }
+        : s
+    ))
+    toast({ title: 'Book added to series', variant: 'success' })
+  }, [])
+
+  const handleRemoveBookFromSeries = useCallback((seriesId: string, projectId: string) => {
+    setSeries(prev => prev.map(s =>
+      s.id === seriesId
+        ? { ...s, projectIds: s.projectIds.filter(id => id !== projectId), updatedAt: new Date().toISOString() }
+        : s
+    ))
+    toast({ title: 'Book removed from series', variant: 'success' })
+  }, [])
+
+  const handleUpdatePromise = useCallback((seriesId: string, promiseId: string, updates: Partial<CrossBookPromise>) => {
+    setSeries(prev => prev.map(s =>
+      s.id === seriesId
+        ? {
+            ...s,
+            crossBookPromises: s.crossBookPromises.map(p =>
+              p.id === promiseId ? { ...p, ...updates } : p
+            ),
+            updatedAt: new Date().toISOString()
+          }
+        : s
+    ))
+    toast({ title: 'Promise updated', variant: 'success' })
+  }, [])
 
   // Filter projects by search query
   const filteredProjects = projects.filter(project => {
@@ -96,6 +159,43 @@ export function ProjectList() {
             New Project
           </button>
         </div>
+
+        {/* Series Manager Toggle */}
+        <div className="mb-6">
+          <button
+            onClick={() => setShowSeriesManager(!showSeriesManager)}
+            className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-lg hover:bg-surface-elevated transition-colors text-text-primary"
+          >
+            <Library className="h-4 w-4 text-purple-400" aria-hidden="true" />
+            <span className="font-medium">Series Manager</span>
+            {series.length > 0 && (
+              <span className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-400 rounded-full">
+                {series.length}
+              </span>
+            )}
+            {showSeriesManager ? (
+              <ChevronUp className="h-4 w-4 text-text-secondary ml-auto" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-text-secondary ml-auto" />
+            )}
+          </button>
+        </div>
+
+        {/* Series Manager Panel */}
+        {showSeriesManager && (
+          <div className="mb-8 border border-border rounded-xl bg-surface overflow-hidden">
+            <SeriesManager
+              series={series}
+              projects={projects}
+              onCreateSeries={handleCreateSeries}
+              onUpdateSeries={handleUpdateSeries}
+              onDeleteSeries={handleDeleteSeries}
+              onAddBookToSeries={handleAddBookToSeries}
+              onRemoveBookFromSeries={handleRemoveBookFromSeries}
+              onUpdatePromise={handleUpdatePromise}
+            />
+          </div>
+        )}
 
         {/* Search Bar - shown when there are projects */}
         {projects.length > 0 && (

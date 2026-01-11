@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import type { Project, ChapterQualityScore, ProjectPhase, ProjectDeadline } from '@/types/project'
 import { useProjectStore, calculateProjectPhase } from '@/stores/projectStore'
+import { useLanguageStore } from '@/stores/languageStore'
 import { getSessionTrackingEnabled } from '@/components/ui/SettingsModal'
 import { DeadlineDashboard } from '@/components/ui/DeadlineDashboard'
 
@@ -124,6 +125,9 @@ function ProgressBar({ label, current, total, color = 'bg-accent' }: ProgressBar
 }
 
 export function StatsSection({ project }: SectionProps) {
+  // Get translations
+  const t = useLanguageStore((state) => state.t)
+
   // Get session start word count from store
   const sessionStartWordCount = useProjectStore((state) => state.sessionStartWordCount)
   const sessionStartTime = useProjectStore((state) => state.sessionStartTime)
@@ -436,7 +440,7 @@ export function StatsSection({ project }: SectionProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold text-text-primary">Statistics</h1>
+        <h1 className="text-2xl font-bold text-text-primary">{t.stats.title}</h1>
         {/* View Mode Tabs */}
         <div className="flex gap-1 p-1 bg-surface-elevated rounded-lg">
           <button
@@ -448,7 +452,7 @@ export function StatsSection({ project }: SectionProps) {
             }`}
           >
             <BarChart3 className="w-4 h-4 inline mr-1.5" />
-            Overview
+            {t.stats.overview}
           </button>
           <button
             onClick={() => setViewMode('deadline')}
@@ -510,14 +514,14 @@ export function StatsSection({ project }: SectionProps) {
           />
           <StatCard
             icon={<Calendar className="h-5 w-5" />}
-            label="Daily Average"
+            label={t.stats.averageWordsPerDay}
             value={dailyAverageStats.dailyAverage.toLocaleString()}
             subtext={`Rolling 7-day avg (${dailyAverageStats.daysWithData} days tracked)`}
             color="text-cyan-400"
           />
           <StatCard
             icon={<FileText className="h-5 w-5" />}
-            label="Total Words"
+            label={t.stats.totalWords}
             value={stats.totalWords.toLocaleString()}
             subtext={`${stats.wordProgress}% of ${stats.targetWords.toLocaleString()} target`}
             color="text-accent"
@@ -600,7 +604,7 @@ export function StatsSection({ project }: SectionProps) {
         <div className="card">
           <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
             <Target className="h-5 w-5 text-accent" />
-            Word Count Progress
+            {t.stats.wordCountHistory}
           </h2>
           <ProgressBar
             label="Words Written"
@@ -624,7 +628,7 @@ export function StatsSection({ project }: SectionProps) {
         <div className="card">
           <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-success" />
-            Content Progress
+            {t.stats.progress}
           </h2>
           <ProgressBar
             label="Chapters Created"

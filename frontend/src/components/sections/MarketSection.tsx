@@ -21,6 +21,8 @@ import { updateProject } from '@/lib/db'
 import { toast } from '@/components/ui/Toaster'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
+import { useLanguageStore } from '@/stores/languageStore'
+import type { Translations } from '@/lib/i18n'
 
 interface SectionProps {
   project: Project
@@ -164,6 +166,7 @@ export function MarketSection({ project }: SectionProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
   const { generate, isGenerating, cancel } = useAIGeneration()
+  const t = useLanguageStore((state) => state.t)
 
   // AI-specific state
   const [showAIProgress, setShowAIProgress] = useState(false)
@@ -175,7 +178,7 @@ export function MarketSection({ project }: SectionProps) {
 
   const handleAnalyzeMarket = async () => {
     setIsAnalyzing(true)
-    setAIProgressTitle('Analyzing Market...')
+    setAIProgressTitle(t.market.analyzing)
     setShowAIProgress(true)
     setSaveStatus('saving')
 
@@ -200,19 +203,19 @@ export function MarketSection({ project }: SectionProps) {
           updateProjectStore(project.id, { marketAnalysis: analysis })
 
           setSaveStatus('saved')
-          toast({ title: 'Market analysis complete', variant: 'success' })
+          toast({ title: t.market.marketAnalysisComplete, variant: 'success' })
         } catch {
           // Fallback to mock if parsing fails
           const analysis = generateMockMarketAnalysis(project)
           await updateProject(project.id, { marketAnalysis: analysis })
           updateProjectStore(project.id, { marketAnalysis: analysis })
           setSaveStatus('saved')
-          toast({ title: 'Market analysis complete', variant: 'success' })
+          toast({ title: t.market.marketAnalysisComplete, variant: 'success' })
         }
       }
     } catch (error) {
       console.error('Market analysis failed:', error)
-      toast({ title: 'Failed to analyze market', variant: 'error' })
+      toast({ title: t.market.failedToAnalyzeMarket, variant: 'error' })
       setSaveStatus('unsaved')
     } finally {
       setIsAnalyzing(false)
@@ -221,7 +224,7 @@ export function MarketSection({ project }: SectionProps) {
   }
 
   const handleSuggestKeywords = async () => {
-    setAIProgressTitle('Generating Keywords...')
+    setAIProgressTitle(t.market.suggestKeywords)
     setShowAIProgress(true)
 
     try {
@@ -239,7 +242,7 @@ export function MarketSection({ project }: SectionProps) {
         try {
           const keywords = JSON.parse(result) as string[]
           setSuggestedKeywords(keywords)
-          toast({ title: 'Keywords generated!', variant: 'success' })
+          toast({ title: t.market.keywordsGenerated, variant: 'success' })
         } catch {
           // Fallback keywords if parsing fails
           const genre = project.specification?.genre?.[0] || 'fiction'
@@ -253,12 +256,12 @@ export function MarketSection({ project }: SectionProps) {
             'page-turner',
             'compelling'
           ])
-          toast({ title: 'Keywords generated!', variant: 'success' })
+          toast({ title: t.market.keywordsGenerated, variant: 'success' })
         }
       }
     } catch (error) {
       console.error('Keyword generation failed:', error)
-      toast({ title: 'Failed to generate keywords', variant: 'error' })
+      toast({ title: t.toasts.generateError, variant: 'error' })
     } finally {
       setShowAIProgress(false)
     }
@@ -268,10 +271,10 @@ export function MarketSection({ project }: SectionProps) {
     try {
       await navigator.clipboard.writeText(suggestedKeywords.join(', '))
       setCopiedKeywords(true)
-      toast({ title: 'Keywords copied!', variant: 'success' })
+      toast({ title: t.market.keywordsCopied, variant: 'success' })
       setTimeout(() => setCopiedKeywords(false), 2000)
     } catch {
-      toast({ title: 'Failed to copy', variant: 'error' })
+      toast({ title: t.market.failedToCopy, variant: 'error' })
     }
   }
 
@@ -279,9 +282,9 @@ export function MarketSection({ project }: SectionProps) {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-text-primary mb-2">Market Analysis</h1>
+      <h1 className="text-2xl font-bold text-text-primary mb-2">{t.market.title}</h1>
       <p className="text-text-secondary mb-6">
-        Position your novel competitively within its genre.
+        {t.market.subtitle}
       </p>
 
       {/* Action Button */}
@@ -290,12 +293,12 @@ export function MarketSection({ project }: SectionProps) {
           <div>
             <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
               <Search className="h-5 w-5 text-accent" />
-              Competitive Analysis
+              {t.market.competitiveAnalysis}
             </h2>
             <p className="text-sm text-text-secondary mt-1">
               {hasGenre
-                ? `Analyze the ${project.specification?.genre?.join(', ')} market and find comparable titles`
-                : 'Set your genre in Specification first for targeted analysis'}
+                ? t.market.analyzeGenreMarket.replace('{genre}', project.specification?.genre?.join(', ') || '')
+                : t.market.setGenreFirst}
             </p>
           </div>
           <button
@@ -306,17 +309,17 @@ export function MarketSection({ project }: SectionProps) {
             {isAnalyzing ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Analyzing...
+                {t.market.analyzing}
               </>
             ) : marketAnalysis ? (
               <>
                 <RefreshCw className="h-4 w-4" />
-                Re-Analyze
+                {t.market.reAnalyze}
               </>
             ) : (
               <>
                 <TrendingUp className="h-4 w-4" />
-                Analyze Market
+                {t.market.analyzeMarket}
               </>
             )}
           </button>
@@ -327,7 +330,7 @@ export function MarketSection({ project }: SectionProps) {
           <div className="mt-4 p-4 bg-surface-elevated rounded-lg">
             <div className="flex items-center gap-3 text-sm text-text-secondary">
               <Loader2 className="h-4 w-4 animate-spin text-accent" />
-              <span>Searching for comparable titles and market trends...</span>
+              <span>{t.market.searchingComparables}</span>
             </div>
           </div>
         )}
@@ -340,15 +343,15 @@ export function MarketSection({ project }: SectionProps) {
           <div className="card mb-8">
             <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-accent" />
-              Comparable Titles
+              {t.market.comparables}
               <span className="text-xs font-normal text-text-secondary ml-2">
-                (Current bestsellers in your genre)
+                ({t.market.currentBestsellers})
               </span>
             </h2>
 
             <div className="space-y-4">
               {marketAnalysis.comparableTitles.map((title, idx) => (
-                <ComparableTitleCard key={idx} title={title} />
+                <ComparableTitleCard key={idx} title={title} t={t} />
               ))}
             </div>
           </div>
@@ -358,7 +361,7 @@ export function MarketSection({ project }: SectionProps) {
             <div className="card">
               <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
                 <Target className="h-5 w-5 text-success" />
-                Genre Positioning
+                {t.market.genrePositioning}
               </h2>
               <p className="text-text-secondary text-sm leading-relaxed">
                 {marketAnalysis.genrePositioning}
@@ -368,7 +371,7 @@ export function MarketSection({ project }: SectionProps) {
             <div className="card">
               <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-purple-400" />
-                Your Unique Angle
+                {t.market.yourUniqueAngle}
               </h2>
               <p className="text-text-secondary text-sm leading-relaxed">
                 {marketAnalysis.uniqueness}
@@ -380,7 +383,7 @@ export function MarketSection({ project }: SectionProps) {
           <div className="card mb-8">
             <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
               <Users className="h-5 w-5 text-warning" />
-              Reader Expectations
+              {t.market.readerExpectations}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {marketAnalysis.readerExpectations.map((expectation, idx) => (
@@ -396,13 +399,13 @@ export function MarketSection({ project }: SectionProps) {
           <div className="card">
             <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-cyan-400" />
-              Length Recommendation
+              {t.market.lengthRecommendation}
             </h2>
             <p className="text-text-secondary text-sm leading-relaxed">
               {marketAnalysis.lengthRecommendation}
             </p>
             <p className="text-xs text-text-secondary mt-4">
-              Analysis performed: {new Date(marketAnalysis.analyzedAt).toLocaleDateString()} at{' '}
+              {t.market.analysisPerformed}: {new Date(marketAnalysis.analyzedAt).toLocaleDateString()} at{' '}
               {new Date(marketAnalysis.analyzedAt).toLocaleTimeString()}
             </p>
           </div>
@@ -414,10 +417,10 @@ export function MarketSection({ project }: SectionProps) {
         <div className="card text-center py-12">
           <TrendingUp className="h-12 w-12 text-text-secondary mx-auto mb-4 opacity-50" />
           <h3 className="text-lg font-medium text-text-primary mb-2">
-            No market analysis yet
+            {t.market.noAnalysisYet}
           </h3>
           <p className="text-text-secondary text-sm max-w-md mx-auto">
-            Click "Analyze Market" to search for comparable titles and understand your novel's positioning in the current market.
+            {t.market.noAnalysisDescription}
           </p>
         </div>
       )}
@@ -427,7 +430,7 @@ export function MarketSection({ project }: SectionProps) {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
             <Tag className="h-5 w-5 text-accent" />
-            Discovery Keywords
+            {t.market.discoveryKeywords}
             <Sparkles className="h-4 w-4 text-accent" />
           </h2>
           <button
@@ -436,11 +439,11 @@ export function MarketSection({ project }: SectionProps) {
             className="btn-secondary flex items-center gap-2 text-sm"
           >
             <Sparkles className="h-4 w-4" />
-            {suggestedKeywords.length > 0 ? 'Regenerate' : 'Suggest Keywords'}
+            {suggestedKeywords.length > 0 ? t.market.regenerate : t.market.suggestKeywords}
           </button>
         </div>
         <p className="text-text-secondary text-sm mb-4">
-          Generate SEO-friendly keywords to improve discoverability on Amazon, Goodreads, and other platforms.
+          {t.market.keywordDescription}
         </p>
 
         {suggestedKeywords.length > 0 && (
@@ -462,12 +465,12 @@ export function MarketSection({ project }: SectionProps) {
               {copiedKeywords ? (
                 <>
                   <Check className="h-4 w-4 text-success" />
-                  Copied!
+                  {t.market.copied}
                 </>
               ) : (
                 <>
                   <Copy className="h-4 w-4" />
-                  Copy all keywords
+                  {t.market.copyAllKeywords}
                 </>
               )}
             </button>
@@ -477,7 +480,7 @@ export function MarketSection({ project }: SectionProps) {
         {suggestedKeywords.length === 0 && (
           <div className="text-center py-8 text-text-secondary">
             <Tag className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Click "Suggest Keywords" to generate discovery keywords for your novel.</p>
+            <p className="text-sm">{t.market.clickSuggestKeywords}</p>
           </div>
         )}
       </div>
@@ -497,7 +500,7 @@ export function MarketSection({ project }: SectionProps) {
 }
 
 // Comparable Title Card Component
-function ComparableTitleCard({ title }: { title: ComparableTitle }) {
+function ComparableTitleCard({ title, t }: { title: ComparableTitle; t: Translations }) {
   return (
     <div className="p-4 bg-surface-elevated rounded-lg border border-border hover:border-accent/30 transition-colors">
       <div className="flex items-start justify-between gap-4">
@@ -506,9 +509,9 @@ function ComparableTitleCard({ title }: { title: ComparableTitle }) {
             <h3 className="font-semibold text-text-primary">{title.title}</h3>
             <ExternalLink className="h-3.5 w-3.5 text-text-secondary opacity-50" />
           </div>
-          <p className="text-sm text-accent mb-2">by {title.author}</p>
+          <p className="text-sm text-accent mb-2">{t.market.by} {title.author}</p>
           <p className="text-sm text-text-secondary mb-2">
-            <span className="font-medium text-text-primary">Similarity:</span> {title.similarity}
+            <span className="font-medium text-text-primary">{t.market.similarity}:</span> {title.similarity}
           </p>
           <p className="text-xs text-success bg-success/10 px-2 py-1 rounded inline-block">
             {title.marketPerformance}

@@ -77,6 +77,8 @@ router.post('/', (req, res) => {
     relationships: [],
     revisions: [],
     qualityScores: [],
+    subplots: [],
+    subplotTouches: [],
     statistics: null,
     marketAnalysis: null,
     createdAt: now,

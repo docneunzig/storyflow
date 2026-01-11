@@ -13,6 +13,8 @@ export interface Project {
   relationships: CharacterRelationship[]
   revisions: RevisionHistory[]
   qualityScores: ChapterQualityScore[]
+  subplots: Subplot[]
+  subplotTouches: SubplotTouch[]
   statistics: WritingStatistics | null
   marketAnalysis: MarketAnalysis | null
   createdAt: string
@@ -280,4 +282,55 @@ export interface ComparableTitle {
   author: string
   similarity: string
   marketPerformance: string
+}
+
+// Subplot types
+export interface Subplot {
+  id: string
+  name: string
+  type: SubplotType
+  description: string
+  status: SubplotStatus
+  primaryCharacterId: string
+  secondaryCharacterIds: string[]
+  connectedToMainPlot: boolean
+  mainPlotConnection?: string
+  tensionCurve: SubplotTensionPoint[]
+  targetResolutionChapter?: number
+  notes: string
+  createdAt: string
+}
+
+export type SubplotType =
+  | 'romance'
+  | 'mystery'
+  | 'revenge'
+  | 'redemption'
+  | 'discovery'
+  | 'survival'
+  | 'rivalry'
+  | 'coming-of-age'
+  | 'custom'
+
+export type SubplotStatus =
+  | 'setup'
+  | 'developing'
+  | 'escalating'
+  | 'climax'
+  | 'resolved'
+  | 'abandoned'
+
+export interface SubplotTouch {
+  id: string
+  subplotId: string
+  chapterId: string
+  sceneId?: string
+  tensionLevel: number
+  notes: string
+  type: 'setup' | 'development' | 'escalation' | 'callback' | 'resolution'
+}
+
+export interface SubplotTensionPoint {
+  chapterNumber: number
+  tensionLevel: number
 }

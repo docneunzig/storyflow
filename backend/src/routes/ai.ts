@@ -6,6 +6,8 @@ import {
   registerGeneration,
   cancelGeneration,
   cleanupGeneration,
+  isApiKeyConfigured,
+  isClaudeCliAuthenticated,
 } from '../services/claude.js'
 
 const execAsync = promisify(exec)
@@ -24,26 +26,38 @@ router.get('/status', async (req, res) => {
     if (req.query.force === 'unauthenticated') {
       res.json({
         authenticated: false,
+        cliAuthenticated: false,
+        useRealClaude: USE_REAL_CLAUDE,
+        canUseAI: false,
         message: 'Claude CLI not authenticated (forced for testing)',
       })
       return
     }
 
-    // Check if Claude CLI is installed and has configuration
-    // The CLI stores config in ~/.claude/ directory - if history.jsonl exists, user has used Claude
-    const { stdout } = await execAsync('ls ~/.claude/history.jsonl 2>/dev/null && echo "authenticated" || echo "not authenticated"', { timeout: 5000 })
+    // Check if Claude CLI is authenticated (uses Claude Max subscription)
+    const cliAuthenticated = isClaudeCliAuthenticated()
 
-    const authenticated = stdout.includes('history.jsonl')
+    // Determine overall status - we now use Claude CLI, not API key
+    const canUseAI = USE_REAL_CLAUDE ? cliAuthenticated : true
 
     res.json({
-      authenticated,
-      message: authenticated ? 'Claude CLI is authenticated' : 'Claude CLI not authenticated',
+      authenticated: cliAuthenticated,
+      cliAuthenticated,
+      apiKeyConfigured: cliAuthenticated, // For backwards compatibility with frontend
+      useRealClaude: USE_REAL_CLAUDE,
+      canUseAI,
+      message: canUseAI
+        ? (USE_REAL_CLAUDE ? 'Claude CLI ready (using your Claude Max subscription)' : 'Using simulated responses')
+        : 'Claude CLI not authenticated. Run "claude login" in your terminal.',
     })
   } catch (error) {
-    // If check fails, return unauthenticated
     res.json({
       authenticated: false,
-      message: 'Claude CLI not available or not authenticated',
+      cliAuthenticated: false,
+      apiKeyConfigured: false,
+      useRealClaude: USE_REAL_CLAUDE,
+      canUseAI: !USE_REAL_CLAUDE,
+      message: 'Status check failed',
     })
   }
 })

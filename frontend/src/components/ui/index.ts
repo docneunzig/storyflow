@@ -7,6 +7,10 @@ export { GuidedGenerationPanel } from './GuidedGenerationPanel'
 export { DeadlineDashboard } from './DeadlineDashboard'
 export { SeriesManager } from './SeriesManager'
 
+// UI Components
+export { UnifiedActionButton } from './UnifiedActionButton'
+export type { ActionOption } from './UnifiedActionButton'
+
 // Existing components
 export { AIProgressModal } from './AIProgressModal'
 export { CircularProgress } from './CircularProgress'

@@ -268,20 +268,44 @@ export function DeadlineDashboard({
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {!deadline ? (
-          /* No Deadline Set */
+          /* No Deadline Set - Value Proposition */
           <div className="text-center py-8">
             {!showSetDeadline ? (
-              <>
-                <Calendar className="w-12 h-12 text-text-secondary mx-auto mb-3 opacity-50" />
-                <p className="text-text-secondary mb-4">No deadline set</p>
+              <div className="max-w-md mx-auto">
+                <Calendar className="w-16 h-16 text-accent mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-text-primary mb-2">
+                  No deadline set
+                </h3>
+                <p className="text-text-secondary mb-6">
+                  Professional authors hit deadlines. Set yours and we'll calculate
+                  your daily word target, track velocity trends, and predict your
+                  completion date.
+                </p>
+
+                {/* Feature Preview */}
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  <div className="bg-surface-elevated rounded-lg p-3 text-center">
+                    <TrendingUp className="w-5 h-5 text-green-400 mx-auto mb-1" />
+                    <span className="text-xs text-text-secondary">Velocity Tracking</span>
+                  </div>
+                  <div className="bg-surface-elevated rounded-lg p-3 text-center">
+                    <Flame className="w-5 h-5 text-orange-400 mx-auto mb-1" />
+                    <span className="text-xs text-text-secondary">Writing Streaks</span>
+                  </div>
+                  <div className="bg-surface-elevated rounded-lg p-3 text-center">
+                    <Zap className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
+                    <span className="text-xs text-text-secondary">Smart Insights</span>
+                  </div>
+                </div>
+
                 <button
                   onClick={() => setShowSetDeadline(true)}
                   className="btn-primary"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Set Deadline
+                  Set My Deadline
                 </button>
-              </>
+              </div>
             ) : (
               <div className="card p-4 text-left max-w-md mx-auto">
                 <h4 className="font-semibold text-text-primary mb-4">Set Your Deadline</h4>

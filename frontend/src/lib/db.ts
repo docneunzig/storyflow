@@ -164,6 +164,8 @@ export function createEmptyProject(title: string, authorName: string = ''): Proj
     relationships: [],
     revisions: [],
     qualityScores: [],
+    subplots: [],
+    subplotTouches: [],
     statistics: null,
     marketAnalysis: null,
     createdAt: now,

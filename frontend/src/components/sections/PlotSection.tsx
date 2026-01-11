@@ -1,14 +1,17 @@
 import { useState, useCallback } from 'react'
-import { Plus, Target, Edit2, Trash2, Users, MapPin, BookOpen, Layers, Sparkles, List, GitBranch, Wand2, Zap, X } from 'lucide-react'
-import type { Project, PlotBeat, PlotStructure, PlotFramework } from '@/types/project'
+import { Plus, Target, Edit2, Trash2, Users, MapPin, BookOpen, Layers, Sparkles, List, GitBranch, Wand2, Zap, X, TrendingUp } from 'lucide-react'
+import type { Project, PlotBeat, PlotStructure, PlotFramework, Subplot, SubplotTouch } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject, generateId } from '@/lib/db'
 import { PlotBeatModal } from '@/components/ui/PlotBeatModal'
 import { PlotCanvas } from '@/components/ui/PlotCanvas'
 import { PlotConsistencyWarning } from '@/components/ui/PlotConsistencyWarning'
+import { SubplotCanvas } from '@/components/ui/SubplotCanvas'
 import { toast } from '@/components/ui/Toaster'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
+import { UnifiedActionButton } from '@/components/ui/UnifiedActionButton'
+import { useLanguageStore } from '@/stores/languageStore'
 
 // Plot option interface for AI generation
 interface PlotOption {
@@ -37,7 +40,7 @@ const STATUS_COLORS: Record<string, string> = {
   locked: 'bg-warning/20 text-warning border-warning/30',
 }
 
-type ViewMode = 'list' | 'canvas'
+type ViewMode = 'list' | 'canvas' | 'subplots'
 
 export function PlotSection({ project }: SectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -45,6 +48,11 @@ export function PlotSection({ project }: SectionProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
+  const t = useLanguageStore((state) => state.t)
+
+  // Subplot state (using local state for now, can be moved to project later)
+  const [subplots, setSubplots] = useState<Subplot[]>(project.subplots || [])
+  const [subplotTouches, setSubplotTouches] = useState<SubplotTouch[]>(project.subplotTouches || [])
 
   // AI generation state
   const [showAIProgress, setShowAIProgress] = useState(false)
@@ -88,10 +96,10 @@ export function PlotSection({ project }: SectionProps) {
       await updateProject(project.id, { plot: updatedPlot })
       updateProjectStore(project.id, { plot: updatedPlot })
       setSaveStatus('saved')
-      toast({ title: `Framework changed to ${framework}`, variant: 'success' })
+      toast({ title: t.toasts.saveSuccess, variant: 'success' })
     } catch (error) {
       console.error('Failed to change framework:', error)
-      toast({ title: 'Failed to change framework', variant: 'error' })
+      toast({ title: t.toasts.saveError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -105,10 +113,10 @@ export function PlotSection({ project }: SectionProps) {
 
       if (isEditing) {
         updatedBeats = plot.beats.map(b => b.id === beat.id ? beat : b)
-        toast({ title: `Beat "${beat.title}" updated`, variant: 'success' })
+        toast({ title: t.toasts.saveSuccess, variant: 'success' })
       } else {
         updatedBeats = [...plot.beats, beat]
-        toast({ title: `Beat "${beat.title}" created`, variant: 'success' })
+        toast({ title: t.toasts.saveSuccess, variant: 'success' })
       }
 
       const updatedPlot: PlotStructure = {
@@ -122,7 +130,7 @@ export function PlotSection({ project }: SectionProps) {
       setEditingBeat(null)
     } catch (error) {
       console.error('Failed to save beat:', error)
-      toast({ title: 'Failed to save beat', variant: 'error' })
+      toast({ title: t.toasts.saveError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -130,7 +138,6 @@ export function PlotSection({ project }: SectionProps) {
   const handleDeleteBeat = async (beatId: string) => {
     try {
       setSaveStatus('saving')
-      const beat = plot.beats.find(b => b.id === beatId)
       const updatedBeats = plot.beats.filter(b => b.id !== beatId)
       const updatedPlot: PlotStructure = {
         ...plot,
@@ -140,10 +147,10 @@ export function PlotSection({ project }: SectionProps) {
       updateProjectStore(project.id, { plot: updatedPlot })
       setSaveStatus('saved')
       setDeleteConfirmId(null)
-      toast({ title: `Beat "${beat?.title}" deleted`, variant: 'success' })
+      toast({ title: t.toasts.deleteSuccess, variant: 'success' })
     } catch (error) {
       console.error('Failed to delete beat:', error)
-      toast({ title: 'Failed to delete beat', variant: 'error' })
+      toast({ title: t.toasts.deleteError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -284,10 +291,10 @@ export function PlotSection({ project }: SectionProps) {
       setSaveStatus('saved')
       setShowOptionsModal(false)
       setPlotOptions([])
-      toast({ title: `Applied "${option.title}" plot structure`, variant: 'success' })
+      toast({ title: t.toasts.saveSuccess, variant: 'success' })
     } catch (error) {
       console.error('Failed to apply plot option:', error)
-      toast({ title: 'Failed to apply plot option', variant: 'error' })
+      toast({ title: t.toasts.saveError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -349,7 +356,7 @@ export function PlotSection({ project }: SectionProps) {
       }
     } catch (error) {
       console.error('Failed to expand beat:', error)
-      toast({ title: 'Failed to expand beat', variant: 'error' })
+      toast({ title: t.toasts.generateError, variant: 'error' })
     } finally {
       setShowAIProgress(false)
     }
@@ -404,10 +411,10 @@ export function PlotSection({ project }: SectionProps) {
       setShowExpandModal(false)
       setExpandedScenes([])
       setExpandedBeatId(null)
-      toast({ title: `Created ${newScenes.length} scenes from "${beat?.title}"`, variant: 'success' })
+      toast({ title: t.toasts.saveSuccess, variant: 'success' })
     } catch (error) {
       console.error('Failed to create scenes:', error)
-      toast({ title: 'Failed to create scenes', variant: 'error' })
+      toast({ title: t.toasts.saveError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -458,7 +465,7 @@ export function PlotSection({ project }: SectionProps) {
       }
     } catch (error) {
       console.error('Failed to suggest twists:', error)
-      toast({ title: 'Failed to suggest twists', variant: 'error' })
+      toast({ title: t.toasts.generateError, variant: 'error' })
     } finally {
       setShowAIProgress(false)
     }
@@ -488,16 +495,91 @@ export function PlotSection({ project }: SectionProps) {
       setSuggestedTwists([])
       setTwistBeatId(null)
 
-      const beat = plot.beats.find(b => b.id === twistBeatId)
-      toast({ title: `Twist added to "${beat?.title}"`, variant: 'success' })
+      toast({ title: t.toasts.saveSuccess, variant: 'success' })
     } catch (error) {
       console.error('Failed to apply twist:', error)
-      toast({ title: 'Failed to apply twist', variant: 'error' })
+      toast({ title: t.toasts.saveError, variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+  }
+
+  // Subplot handlers
+  const handleCreateSubplot = async (subplot: Omit<Subplot, 'id' | 'createdAt' | 'tensionCurve'>) => {
+    try {
+      setSaveStatus('saving')
+      const newSubplot: Subplot = {
+        ...subplot,
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+        tensionCurve: []
+      }
+      const updatedSubplots = [...subplots, newSubplot]
+      setSubplots(updatedSubplots)
+      await updateProject(project.id, { subplots: updatedSubplots })
+      updateProjectStore(project.id, { subplots: updatedSubplots })
+      setSaveStatus('saved')
+      toast({ title: t.toasts.saveSuccess, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to create subplot:', error)
+      toast({ title: t.toasts.saveError, variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+  }
+
+  const handleUpdateSubplot = async (id: string, updates: Partial<Subplot>) => {
+    try {
+      setSaveStatus('saving')
+      const updatedSubplots = subplots.map(s => s.id === id ? { ...s, ...updates } : s)
+      setSubplots(updatedSubplots)
+      await updateProject(project.id, { subplots: updatedSubplots })
+      updateProjectStore(project.id, { subplots: updatedSubplots })
+      setSaveStatus('saved')
+      toast({ title: t.toasts.saveSuccess, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to update subplot:', error)
+      toast({ title: t.toasts.saveError, variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+  }
+
+  const handleDeleteSubplot = async (id: string) => {
+    try {
+      setSaveStatus('saving')
+      const updatedSubplots = subplots.filter(s => s.id !== id)
+      const updatedTouches = subplotTouches.filter(t => t.subplotId !== id)
+      setSubplots(updatedSubplots)
+      setSubplotTouches(updatedTouches)
+      await updateProject(project.id, { subplots: updatedSubplots, subplotTouches: updatedTouches })
+      updateProjectStore(project.id, { subplots: updatedSubplots, subplotTouches: updatedTouches })
+      setSaveStatus('saved')
+      toast({ title: t.toasts.deleteSuccess, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to delete subplot:', error)
+      toast({ title: t.toasts.deleteError, variant: 'error' })
+      setSaveStatus('unsaved')
+    }
+  }
+
+  const handleAddSubplotTouch = async (touch: Omit<SubplotTouch, 'id'>) => {
+    try {
+      setSaveStatus('saving')
+      const newTouch: SubplotTouch = { ...touch, id: generateId() }
+      const updatedTouches = [...subplotTouches, newTouch]
+      setSubplotTouches(updatedTouches)
+      await updateProject(project.id, { subplotTouches: updatedTouches })
+      updateProjectStore(project.id, { subplotTouches: updatedTouches })
+      setSaveStatus('saved')
+      toast({ title: t.toasts.saveSuccess, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to add subplot touch:', error)
+      toast({ title: t.toasts.saveError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
 
   const characters = project.characters || []
+  const scenes = project.scenes || []
+  const chapters = project.chapters || []
 
   // Get character name by ID
   const getCharacterName = (id: string) => {
@@ -512,9 +594,9 @@ export function PlotSection({ project }: SectionProps) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Plot Development</h1>
+          <h1 className="text-2xl font-bold text-text-primary">{t.plot.title}</h1>
           <p className="text-text-secondary mt-1">
-            Transform your story seed into a fully structured plot.
+            {t.plot.storyBeats}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -527,10 +609,10 @@ export function PlotSection({ project }: SectionProps) {
                   ? 'bg-accent text-white'
                   : 'text-text-secondary hover:text-text-primary'
               }`}
-              title="List view"
+              title={t.plot.timeline}
             >
               <List className="h-4 w-4" aria-hidden="true" />
-              List
+              {t.plot.timeline}
             </button>
             <button
               onClick={() => setViewMode('canvas')}
@@ -539,27 +621,45 @@ export function PlotSection({ project }: SectionProps) {
                   ? 'bg-accent text-white'
                   : 'text-text-secondary hover:text-text-primary'
               }`}
-              title="Canvas view"
+              title={t.plot.canvas}
             >
               <GitBranch className="h-4 w-4" aria-hidden="true" />
-              Canvas
+              {t.plot.canvas}
+            </button>
+            <button
+              onClick={() => setViewMode('subplots')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                viewMode === 'subplots'
+                  ? 'bg-accent text-white'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+              title={t.plot.subplots}
+            >
+              <TrendingUp className="h-4 w-4" aria-hidden="true" />
+              {t.plot.subplots}
             </button>
           </div>
-          <button
-            onClick={handleGeneratePlotOptions}
+          <UnifiedActionButton
+            primaryAction={{
+              id: 'add-beat',
+              label: t.plot.addBeat,
+              icon: Plus,
+              onClick: () => handleOpenModal(),
+            }}
+            secondaryActions={[
+              {
+                id: 'generate-plot',
+                label: t.actions.generate,
+                description: t.plot.storyBeats,
+                icon: Sparkles,
+                onClick: handleGeneratePlotOptions,
+                disabled: isGenerating,
+                variant: 'accent',
+              },
+            ]}
+            size="sm"
             disabled={isGenerating}
-            className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
-          >
-            <Sparkles className="h-4 w-4" aria-hidden="true" />
-            Generate 3 Options
-          </button>
-          <button
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Add Beat
-          </button>
+          />
         </div>
       </div>
 
@@ -567,7 +667,7 @@ export function PlotSection({ project }: SectionProps) {
       <div className="card mb-6">
         <h3 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-2">
           <Layers className="h-4 w-4 text-accent" aria-hidden="true" />
-          Plot Framework
+          {t.plot.title}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {FRAMEWORKS.map(fw => (
@@ -594,7 +694,22 @@ export function PlotSection({ project }: SectionProps) {
       />
 
       {/* Plot Beats */}
-      {viewMode === 'canvas' ? (
+      {viewMode === 'subplots' ? (
+        /* Subplot Canvas View */
+        <div className="h-[calc(100vh-300px)]">
+          <SubplotCanvas
+            subplots={subplots}
+            subplotTouches={subplotTouches}
+            characters={characters}
+            scenes={scenes}
+            chapters={chapters}
+            onCreateSubplot={handleCreateSubplot}
+            onUpdateSubplot={handleUpdateSubplot}
+            onDeleteSubplot={handleDeleteSubplot}
+            onAddTouch={handleAddSubplotTouch}
+          />
+        </div>
+      ) : viewMode === 'canvas' ? (
         /* Canvas View */
         <PlotCanvas
           beats={sortedBeats}
@@ -605,16 +720,16 @@ export function PlotSection({ project }: SectionProps) {
       ) : sortedBeats.length === 0 ? (
         <div className="card text-center py-12">
           <Target className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
-          <h3 className="text-lg font-medium text-text-primary mb-2">No plot beats yet</h3>
+          <h3 className="text-lg font-medium text-text-primary mb-2">{t.plot.noBeatYet}</h3>
           <p className="text-text-secondary mb-4">
-            Start building your plot structure by adding story beats.
+            {t.plot.createFirstBeat}
           </p>
           <button
             onClick={() => handleOpenModal()}
             className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Create First Beat
+            {t.plot.addBeat}
           </button>
         </div>
       ) : (
@@ -725,8 +840,8 @@ export function PlotSection({ project }: SectionProps) {
                       <Zap className="h-4 w-4 text-purple-400" aria-hidden="true" />
                     </button>
                     {beat.status === 'locked' ? (
-                      <span className="text-xs text-warning px-2 py-1 bg-warning/10 rounded" title="This beat is locked and cannot be edited">
-                        🔒 Locked
+                      <span className="text-xs text-warning px-2 py-1 bg-warning/10 rounded" title={t.status.locked}>
+                        {t.status.locked}
                       </span>
                     ) : (
                       <button
@@ -744,13 +859,13 @@ export function PlotSection({ project }: SectionProps) {
                           onClick={() => handleDeleteBeat(beat.id)}
                           className="px-2 py-1 text-xs bg-error text-white rounded hover:bg-error/90"
                         >
-                          Confirm
+                          {t.common.confirm}
                         </button>
                         <button
                           onClick={() => setDeleteConfirmId(null)}
                           className="px-2 py-1 text-xs border border-border rounded hover:bg-surface-elevated"
                         >
-                          Cancel
+                          {t.actions.cancel}
                         </button>
                       </div>
                     ) : (
@@ -852,7 +967,7 @@ export function PlotSection({ project }: SectionProps) {
                 onClick={() => setShowOptionsModal(false)}
                 className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
               >
-                Cancel
+                {t.actions.cancel}
               </button>
             </div>
           </div>
@@ -874,7 +989,7 @@ export function PlotSection({ project }: SectionProps) {
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div className="flex items-center gap-2">
                 <Wand2 className="h-5 w-5 text-accent" aria-hidden="true" />
-                <h2 className="text-lg font-semibold text-text-primary">Expanded Scenes</h2>
+                <h2 className="text-lg font-semibold text-text-primary">{t.scenes.title}</h2>
               </div>
               <button
                 onClick={() => {
@@ -909,13 +1024,13 @@ export function PlotSection({ project }: SectionProps) {
                 }}
                 className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
               >
-                Cancel
+                {t.actions.cancel}
               </button>
               <button
                 onClick={handleCreateScenesFromExpansion}
                 className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
               >
-                Create {expandedScenes.length} Scenes
+                {t.actions.create} {expandedScenes.length} {t.scenes.title}
               </button>
             </div>
           </div>
@@ -964,7 +1079,7 @@ export function PlotSection({ project }: SectionProps) {
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-sm text-text-primary">{twist}</p>
                       <span className="text-xs text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        Click to add
+                        {t.common.add}
                       </span>
                     </div>
                   </button>
@@ -980,7 +1095,7 @@ export function PlotSection({ project }: SectionProps) {
                 }}
                 className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
               >
-                Close
+                {t.actions.close}
               </button>
             </div>
           </div>

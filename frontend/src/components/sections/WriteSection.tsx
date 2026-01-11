@@ -1,6 +1,19 @@
 import { useState, useRef, useCallback } from 'react'
-import { Plus, BookOpen, Edit2, Trash2, FileText, Lock, Film, ChevronDown, ChevronUp, History, X, Star, ArrowRight, Sparkles, Play, Wand2 } from 'lucide-react'
-import type { Project, Chapter, WikiEntry, DailyWordCount, WritingStatistics, RevisionHistory } from '@/types/project'
+import { Plus, BookOpen, Edit2, Trash2, FileText, Lock, Film, ChevronDown, ChevronUp, History, X, Star, ArrowRight, Play, Wand2, Sparkles, Circle, CheckCircle, Clock, PenLine } from 'lucide-react'
+import { useLanguageStore } from '@/stores/languageStore'
+import type {
+  Project,
+  Chapter,
+  WikiEntry,
+  DailyWordCount,
+  WritingStatistics,
+  RevisionHistory,
+  CharacterVoiceDNA,
+  SceneGenerationResult,
+  GenerationCheckpoint
+} from '@/types/project'
+import { GuidedGenerationPanel } from '@/components/ui/GuidedGenerationPanel'
+import { UnifiedActionButton } from '@/components/ui/UnifiedActionButton'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject } from '@/lib/db'
 import { ChapterModal } from '@/components/ui/ChapterModal'
@@ -18,10 +31,119 @@ interface SectionProps {
 
 const STATUS_COLORS: Record<string, string> = {
   outline: 'bg-text-secondary/20 text-text-secondary border-text-secondary/30',
-  draft: 'bg-accent/20 text-accent border-accent/30',
-  revision: 'bg-warning/20 text-warning border-warning/30',
+  draft: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  revision: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
   final: 'bg-success/20 text-success border-success/30',
   locked: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+}
+
+// Status icons for visual distinction
+const STATUS_ICONS: Record<string, React.ReactNode> = {
+  outline: <Circle className="h-3 w-3" />,
+  draft: <PenLine className="h-3 w-3" />,
+  revision: <Clock className="h-3 w-3" />,
+  final: <CheckCircle className="h-3 w-3" />,
+  locked: <Lock className="h-3 w-3" />,
+}
+
+// Status badge component
+function StatusBadge({ status }: { status: string }) {
+  const t = useLanguageStore((state) => state.t)
+  const statusKey = status as keyof typeof t.status
+  const translatedStatus = t.status[statusKey] || status
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${STATUS_COLORS[status] || STATUS_COLORS.outline}`}>
+      {STATUS_ICONS[status]}
+      <span>{translatedStatus}</span>
+    </span>
+  )
+}
+
+// Metadata chip colors for content rendering
+const METADATA_CHIP_STYLES: Record<string, string> = {
+  Setting: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  POV: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  Tense: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  'Target Audience': 'bg-pink-500/20 text-pink-400 border-pink-500/30',
+  Chapter: 'bg-accent/20 text-accent border-accent/30',
+}
+
+// Component to render chapter content with styled metadata
+function StyledChapterContent({ content }: { content: string }) {
+  // Parse metadata patterns like [Setting: Value] and render as chips
+  const parseContent = (text: string) => {
+    const parts: React.ReactNode[] = []
+    let lastIndex = 0
+
+    // Match metadata patterns: [Key: Value] at start of lines or content
+    const metadataRegex = /\[(Setting|POV|Tense|Target Audience|Chapter):\s*([^\]]+)\]/g
+    let match
+
+    while ((match = metadataRegex.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        const beforeText = text.substring(lastIndex, match.index)
+        // Filter out empty lines around metadata
+        if (beforeText.trim()) {
+          parts.push(<span key={`text-${lastIndex}`}>{beforeText}</span>)
+        }
+      }
+
+      const [, key, value] = match
+      const chipStyle = METADATA_CHIP_STYLES[key] || 'bg-surface-elevated text-text-secondary border-border'
+
+      parts.push(
+        <span
+          key={`chip-${match.index}`}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${chipStyle} mr-2 mb-2`}
+        >
+          <span className="opacity-70">{key}:</span>
+          <span>{value.trim()}</span>
+        </span>
+      )
+
+      lastIndex = match.index + match[0].length
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(<span key={`text-end`}>{text.substring(lastIndex)}</span>)
+    }
+
+    return parts.length > 0 ? parts : text
+  }
+
+  // Split content into metadata section and main content
+  const lines = content.split('\n')
+  const metadataLines: string[] = []
+  const contentLines: string[] = []
+  let inMetadata = true
+
+  for (const line of lines) {
+    if (inMetadata && (line.match(/^\[(Setting|POV|Tense|Target Audience|Chapter):/) || line.trim() === '')) {
+      metadataLines.push(line)
+    } else {
+      inMetadata = false
+      contentLines.push(line)
+    }
+  }
+
+  const hasMetadata = metadataLines.some(l => l.includes('['))
+
+  return (
+    <div>
+      {/* Metadata chips */}
+      {hasMetadata && (
+        <div className="flex flex-wrap gap-1 mb-6 pb-4 border-b border-border/50">
+          {parseContent(metadataLines.join('\n'))}
+        </div>
+      )}
+      {/* Main content */}
+      <div className="prose prose-invert prose-lg font-serif whitespace-pre-wrap selection:bg-accent/30">
+        {contentLines.join('\n')}
+      </div>
+    </div>
+  )
 }
 
 // Helper to get today's date string in YYYY-MM-DD format
@@ -144,6 +266,7 @@ function updateDailyWordCount(
 
 export function WriteSection({ project }: SectionProps) {
   const navigate = useNavigate()
+  const t = useLanguageStore((state) => state.t)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -174,6 +297,13 @@ export function WriteSection({ project }: SectionProps) {
   const [showAlternatives, setShowAlternatives] = useState(false)
   const [alternatives, setAlternatives] = useState<string[]>([])
   const contentRef = useRef<HTMLDivElement>(null)
+
+  // Guided Generation state
+  const [guidedMode, setGuidedMode] = useState(false)
+  const [voiceDNA, _setVoiceDNA] = useState<Record<string, CharacterVoiceDNA>>({})
+  const [generationResults, setGenerationResults] = useState<Record<string, SceneGenerationResult>>({})
+  const [currentCheckpoint, _setCurrentCheckpoint] = useState<GenerationCheckpoint | null>(null)
+  const [generatingSceneId, setGeneratingSceneId] = useState<string | undefined>(undefined)
 
   // Handle text selection in chapter content
   const handleTextSelection = useCallback(() => {
@@ -223,11 +353,11 @@ export function WriteSection({ project }: SectionProps) {
         if (chapter && chapter.content) {
           const newContent = chapter.content.replace(selectedText, result)
           await handleUpdateChapterContent(chapter, newContent)
-          toast({ title: 'Selection expanded', variant: 'success' })
+          toast({ title: t.toasts.generateSuccess, variant: 'success' })
         }
       }
     } catch (error) {
-      toast({ title: 'Failed to expand selection', variant: 'error' })
+      toast({ title: t.toasts.generateError, variant: 'error' })
     } finally {
       setShowAIProgress(false)
       resetAI()
@@ -257,11 +387,11 @@ export function WriteSection({ project }: SectionProps) {
         if (chapter && chapter.content) {
           const newContent = chapter.content.replace(selectedText, result)
           await handleUpdateChapterContent(chapter, newContent)
-          toast({ title: 'Selection condensed', variant: 'success' })
+          toast({ title: t.toasts.generateSuccess, variant: 'success' })
         }
       }
     } catch (error) {
-      toast({ title: 'Failed to condense selection', variant: 'error' })
+      toast({ title: t.toasts.generateError, variant: 'error' })
     } finally {
       setShowAIProgress(false)
       resetAI()
@@ -292,11 +422,11 @@ export function WriteSection({ project }: SectionProps) {
         if (chapter && chapter.content) {
           const newContent = chapter.content.replace(selectedText, result)
           await handleUpdateChapterContent(chapter, newContent)
-          toast({ title: 'Selection rewritten', variant: 'success' })
+          toast({ title: t.toasts.generateSuccess, variant: 'success' })
         }
       }
     } catch (error) {
-      toast({ title: 'Failed to rewrite selection', variant: 'error' })
+      toast({ title: t.toasts.generateError, variant: 'error' })
     } finally {
       setShowAIProgress(false)
       resetAI()
@@ -333,7 +463,7 @@ export function WriteSection({ project }: SectionProps) {
         }
       }
     } catch (error) {
-      toast({ title: 'Failed to generate alternatives', variant: 'error' })
+      toast({ title: t.toasts.generateError, variant: 'error' })
       setShowAlternatives(false)
     }
   }
@@ -345,7 +475,7 @@ export function WriteSection({ project }: SectionProps) {
     if (chapter && chapter.content && selectedText) {
       const newContent = chapter.content.replace(selectedText, alternative)
       await handleUpdateChapterContent(chapter, newContent)
-      toast({ title: 'Alternative applied', variant: 'success' })
+      toast({ title: t.toasts.saveSuccess, variant: 'success' })
     }
     setShowAlternatives(false)
     setAlternatives([])
@@ -384,10 +514,10 @@ export function WriteSection({ project }: SectionProps) {
       if (result) {
         const newContent = (chapter.content || '') + '\n\n' + result
         await handleUpdateChapterContent(chapter, newContent)
-        toast({ title: 'Content added', variant: 'success' })
+        toast({ title: t.toasts.generateSuccess, variant: 'success' })
       }
     } catch (error) {
-      toast({ title: 'Failed to continue writing', variant: 'error' })
+      toast({ title: t.toasts.generateError, variant: 'error' })
     } finally {
       setShowAIProgress(false)
       resetAI()
@@ -448,10 +578,10 @@ export function WriteSection({ project }: SectionProps) {
 
       if (result) {
         await handleUpdateChapterContent(chapter, result)
-        toast({ title: 'Chapter draft generated', variant: 'success' })
+        toast({ title: t.toasts.generateSuccess, variant: 'success' })
       }
     } catch (error) {
-      toast({ title: 'Failed to generate draft', variant: 'error' })
+      toast({ title: t.toasts.generateError, variant: 'error' })
     } finally {
       setShowAIProgress(false)
       resetAI()
@@ -481,6 +611,114 @@ export function WriteSection({ project }: SectionProps) {
     // Use the existing save handler
     await handleSaveChapter(updatedChapter)
   }
+
+  // Guided Generation handlers
+  const handleGenerateScene = useCallback(async (sceneId: string) => {
+    setGeneratingSceneId(sceneId)
+    try {
+      // Simulate AI scene generation
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      const projectScenes = project.scenes || []
+      const scene = projectScenes.find(s => s.id === sceneId)
+      if (!scene) return
+
+      const result: SceneGenerationResult = {
+        sceneId,
+        generatedProse: `[Generated content for "${scene.title}"]\n\nThe scene unfolds with careful attention to pacing and character voice. This is placeholder text that would be replaced by actual AI-generated content based on the scene outline, character voices, and story context.`,
+        outlineAdherenceScore: 0.85,
+        voiceMatchScores: {},
+        continuityIssues: [],
+        generatedAt: new Date().toISOString(),
+        status: 'pending_review',
+      }
+
+      setGenerationResults(prev => ({ ...prev, [sceneId]: result }))
+    } finally {
+      setGeneratingSceneId(undefined)
+    }
+  }, [project.scenes])
+
+  const handleApproveGeneration = useCallback((sceneId: string) => {
+    setGenerationResults(prev => {
+      const result = prev[sceneId]
+      if (!result) return prev
+      return { ...prev, [sceneId]: { ...result, status: 'approved' as const } }
+    })
+    toast({ title: t.toasts.saveSuccess, variant: 'success' })
+  }, [t])
+
+  const handleRejectGeneration = useCallback((sceneId: string, _feedback?: string) => {
+    setGenerationResults(prev => {
+      const result = prev[sceneId]
+      if (!result) return prev
+      return { ...prev, [sceneId]: { ...result, status: 'rejected' as const } }
+    })
+    toast({ title: t.toasts.saveSuccess, variant: 'default' })
+  }, [t])
+
+  const handleRegenerateScene = useCallback(async (sceneId: string) => {
+    // Clear the existing result and regenerate
+    setGenerationResults(prev => {
+      const newResults = { ...prev }
+      delete newResults[sceneId]
+      return newResults
+    })
+    await handleGenerateScene(sceneId)
+  }, [handleGenerateScene])
+
+  const handleSkipScene = useCallback((sceneId: string) => {
+    // Mark as needs_revision with empty content to indicate skipped
+    setGenerationResults(prev => {
+      const result = prev[sceneId]
+      if (!result) {
+        return {
+          ...prev,
+          [sceneId]: {
+            sceneId,
+            generatedProse: '',
+            outlineAdherenceScore: 0,
+            voiceMatchScores: {},
+            continuityIssues: [],
+            generatedAt: new Date().toISOString(),
+            status: 'needs_revision' as const,
+          }
+        }
+      }
+      return { ...prev, [sceneId]: { ...result, status: 'needs_revision' as const } }
+    })
+    toast({ title: t.toasts.saveSuccess, variant: 'default' })
+  }, [t])
+
+  const handleFinalizeGeneration = useCallback(() => {
+    // Combine all approved scenes into chapter content
+    const projectScenes = project.scenes || []
+    const projectChapters = project.chapters || []
+    const currentChapter = projectChapters.find(c => c.id === selectedChapterId)
+
+    const approvedContent = Object.values(generationResults)
+      .filter(r => r.status === 'approved')
+      .sort((a, b) => {
+        const sceneA = projectScenes.findIndex(s => s.id === a.sceneId)
+        const sceneB = projectScenes.findIndex(s => s.id === b.sceneId)
+        return sceneA - sceneB
+      })
+      .map(r => r.generatedProse)
+      .join('\n\n---\n\n')
+
+    if (currentChapter && approvedContent) {
+      const updatedChapter: Chapter = {
+        ...currentChapter,
+        content: (currentChapter.content || '') + '\n\n' + approvedContent,
+        wordCount: (currentChapter.wordCount || 0) + approvedContent.split(/\s+/).filter(Boolean).length,
+        status: 'draft',
+      }
+      handleSaveChapter(updatedChapter)
+      setGuidedMode(false)
+      setGenerationResults({})
+      toast({ title: t.toasts.saveSuccess, variant: 'success' })
+    }
+  }, [generationResults, project.scenes, project.chapters, selectedChapterId, t])
 
   const handleSaveChapter = async (chapter: Chapter) => {
     try {
@@ -515,10 +753,10 @@ export function WriteSection({ project }: SectionProps) {
         updatedChapters = project.chapters.map(c =>
           c.id === chapter.id ? chapter : c
         )
-        toast({ title: `Chapter "${chapter.title}" updated`, variant: 'success' })
+        toast({ title: t.toasts.saveSuccess, variant: 'success' })
       } else {
         updatedChapters = [...project.chapters, chapter]
-        toast({ title: `Chapter "${chapter.title}" created`, variant: 'success' })
+        toast({ title: t.toasts.saveSuccess, variant: 'success' })
       }
 
       // Sort chapters by number
@@ -549,7 +787,7 @@ export function WriteSection({ project }: SectionProps) {
             return char
           })
           toast({
-            title: `Detected first appearance for ${firstAppearanceUpdates.length} character(s)`,
+            title: t.toasts.saveSuccess,
             variant: 'success'
           })
         }
@@ -567,7 +805,7 @@ export function WriteSection({ project }: SectionProps) {
       }
     } catch (error) {
       console.error('Failed to save chapter:', error)
-      toast({ title: 'Failed to save chapter', variant: 'error' })
+      toast({ title: t.toasts.saveError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -584,12 +822,12 @@ export function WriteSection({ project }: SectionProps) {
       updateProjectStore(project.id, { worldbuildingEntries: updatedEntries })
       setSaveStatus('saved')
       toast({
-        title: `Added ${entries.length} wiki ${entries.length === 1 ? 'entry' : 'entries'}`,
+        title: t.toasts.saveSuccess,
         variant: 'success',
       })
     } catch (error) {
       console.error('Failed to add wiki entries:', error)
-      toast({ title: 'Failed to add wiki entries', variant: 'error' })
+      toast({ title: t.toasts.saveError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -599,10 +837,8 @@ export function WriteSection({ project }: SectionProps) {
       // Check for dependent scenes
       const dependentScenes = (project.scenes || []).filter(s => s.chapterId === chapterId)
       if (dependentScenes.length > 0) {
-        const sceneNames = dependentScenes.map(s => s.title).join(', ')
         toast({
-          title: 'Cannot delete chapter',
-          description: `${dependentScenes.length} scene(s) are assigned to this chapter: ${sceneNames}. Remove them first.`,
+          title: t.toasts.deleteError,
           variant: 'error'
         })
         setDeleteConfirmId(null)
@@ -610,7 +846,6 @@ export function WriteSection({ project }: SectionProps) {
       }
 
       setSaveStatus('saving')
-      const chapter = project.chapters.find(c => c.id === chapterId)
       const updatedChapters = project.chapters.filter(c => c.id !== chapterId)
       await updateProject(project.id, { chapters: updatedChapters })
       updateProjectStore(project.id, { chapters: updatedChapters })
@@ -619,10 +854,10 @@ export function WriteSection({ project }: SectionProps) {
       if (selectedChapterId === chapterId) {
         setSelectedChapterId(null)
       }
-      toast({ title: `Chapter "${chapter?.title}" deleted`, variant: 'success' })
+      toast({ title: t.toasts.deleteSuccess, variant: 'success' })
     } catch (error) {
       console.error('Failed to delete chapter:', error)
-      toast({ title: 'Failed to delete chapter', variant: 'error' })
+      toast({ title: t.toasts.deleteError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -680,17 +915,17 @@ export function WriteSection({ project }: SectionProps) {
       <div className="w-72 border-r border-border flex flex-col">
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-lg font-bold text-text-primary">Chapters</h1>
+            <h1 className="text-lg font-bold text-text-primary">{t.write.title}</h1>
             <button
               onClick={() => handleOpenModal()}
               className="p-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-              title="New Chapter"
+              title={t.actions.create}
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
           <p className="text-xs text-text-secondary">
-            {chapters.length} chapter{chapters.length !== 1 ? 's' : ''} | {totalWords.toLocaleString()} words
+            {chapters.length} | {totalWords.toLocaleString()} {t.write.wordCount}
           </p>
         </div>
 
@@ -698,12 +933,12 @@ export function WriteSection({ project }: SectionProps) {
           {chapters.length === 0 ? (
             <div className="p-4 text-center">
               <BookOpen className="h-8 w-8 text-text-secondary mx-auto mb-2" aria-hidden="true" />
-              <p className="text-sm text-text-secondary mb-3">No chapters yet</p>
+              <p className="text-sm text-text-secondary mb-3">{t.write.noChaptersYet}</p>
               <button
                 onClick={() => handleOpenModal()}
                 className="text-sm text-accent hover:underline"
               >
-                Create your first chapter
+                {t.write.createFirstChapter}
               </button>
             </div>
           ) : (
@@ -732,11 +967,9 @@ export function WriteSection({ project }: SectionProps) {
                         {chapter.title}
                       </h3>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-xs px-1.5 py-0.5 rounded border ${STATUS_COLORS[chapter.status]}`}>
-                          {chapter.status}
-                        </span>
+                        <StatusBadge status={chapter.status} />
                         <span className="text-xs text-text-secondary">
-                          {chapter.wordCount.toLocaleString()} words
+                          {chapter.wordCount.toLocaleString()} {t.write.wordCount}
                         </span>
                       </div>
                     </div>
@@ -747,8 +980,8 @@ export function WriteSection({ project }: SectionProps) {
                           handleOpenModal(chapter)
                         }}
                         className="p-1 rounded hover:bg-surface transition-colors"
-                        aria-label="Edit chapter"
-                        title="Edit chapter"
+                        aria-label={t.actions.edit}
+                        title={t.actions.edit}
                       >
                         <Edit2 className="h-3.5 w-3.5 text-text-secondary" aria-hidden="true" />
                       </button>
@@ -774,8 +1007,8 @@ export function WriteSection({ project }: SectionProps) {
                             setDeleteConfirmId(chapter.id)
                           }}
                           className="p-1 rounded hover:bg-error/10 transition-colors"
-                          aria-label="Delete chapter"
-                          title="Delete chapter"
+                          aria-label={t.actions.delete}
+                          title={t.actions.delete}
                         >
                           <Trash2 className="h-3.5 w-3.5 text-error" aria-hidden="true" />
                         </button>
@@ -800,7 +1033,7 @@ export function WriteSection({ project }: SectionProps) {
                   <div className="flex items-center gap-2 text-sm text-text-secondary mb-1">
                     <span>Chapter {selectedChapter.number}</span>
                     <span className={`px-2 py-0.5 rounded border ${STATUS_COLORS[selectedChapter.status]}`}>
-                      {selectedChapter.status}
+                      {t.status[selectedChapter.status as keyof typeof t.status] || selectedChapter.status}
                     </span>
                   </div>
                   <h2 className="text-xl font-semibold text-text-primary">
@@ -809,7 +1042,7 @@ export function WriteSection({ project }: SectionProps) {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-sm text-text-secondary">
-                    <span>{selectedChapter.wordCount.toLocaleString()} words</span>
+                    <span>{selectedChapter.wordCount.toLocaleString()} {t.write.wordCount}</span>
                     {chapterScenes.length > 0 && (
                       <span className="ml-2 text-accent">
                         ({chapterScenes.length} scene{chapterScenes.length !== 1 ? 's' : ''}, ~{scenesWordCount.toLocaleString()} est.)
@@ -831,28 +1064,50 @@ export function WriteSection({ project }: SectionProps) {
                     onClick={() => handleOpenModal(selectedChapter)}
                     className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-surface-elevated transition-colors"
                   >
-                    Edit Details
+                    {t.actions.edit}
                   </button>
-                  {/* AI Action Buttons */}
+                  {/* AI Action Buttons - Unified */}
                   <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border">
-                    <button
-                      onClick={handleContinueWriting}
-                      disabled={isGenerating}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
-                      title="AI continues writing from where the chapter left off"
-                    >
-                      <Play className="h-4 w-4" />
-                      Continue Writing
-                    </button>
-                    <button
-                      onClick={handleGenerateChapterDraft}
-                      disabled={isGenerating || chapterScenes.length === 0}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
-                      title={chapterScenes.length === 0 ? "Assign scenes to this chapter first" : "Generate a complete draft from scene outlines"}
-                    >
-                      <Wand2 className="h-4 w-4" />
-                      Generate Draft
-                    </button>
+                    {guidedMode ? (
+                      <button
+                        onClick={() => setGuidedMode(false)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                      >
+                        <X className="h-4 w-4" />
+                        Exit Guided Mode
+                      </button>
+                    ) : (
+                      <UnifiedActionButton
+                        primaryAction={{
+                          id: 'continue-writing',
+                          label: 'Continue Writing',
+                          icon: Play,
+                          onClick: handleContinueWriting,
+                          disabled: isGenerating,
+                        }}
+                        secondaryActions={[
+                          {
+                            id: 'generate-draft',
+                            label: 'Generate Full Draft',
+                            description: 'Create a complete draft from scene outlines',
+                            icon: Wand2,
+                            onClick: handleGenerateChapterDraft,
+                            disabled: isGenerating || chapterScenes.length === 0,
+                          },
+                          {
+                            id: 'guided-generation',
+                            label: 'Guided Generation',
+                            description: 'Scene-by-scene AI writing with approval workflow',
+                            icon: Sparkles,
+                            onClick: () => setGuidedMode(true),
+                            disabled: chapterScenes.length === 0,
+                            variant: 'accent',
+                          },
+                        ]}
+                        size="sm"
+                        disabled={isGenerating}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
@@ -889,7 +1144,7 @@ export function WriteSection({ project }: SectionProps) {
                         >
                           <span className="text-text-primary">{scene.title}</span>
                           <span className="text-text-secondary ml-2">
-                            ~{scene.estimatedWordCount.toLocaleString()} words
+                            ~{scene.estimatedWordCount.toLocaleString()} {t.write.wordCount}
                           </span>
                         </button>
                       ))}
@@ -899,6 +1154,28 @@ export function WriteSection({ project }: SectionProps) {
               </div>
             )}
 
+            {/* Guided Generation Panel */}
+            {guidedMode ? (
+              <div className="flex-1 overflow-y-auto">
+                <GuidedGenerationPanel
+                  chapter={selectedChapter}
+                  scenes={chapterScenes}
+                  characters={project.characters || []}
+                  voiceDNA={voiceDNA}
+                  generationResults={generationResults}
+                  currentCheckpoint={currentCheckpoint}
+                  onGenerateScene={handleGenerateScene}
+                  onApproveGeneration={handleApproveGeneration}
+                  onRejectGeneration={handleRejectGeneration}
+                  onRegenerateScene={handleRegenerateScene}
+                  onSkipScene={handleSkipScene}
+                  onFinalize={handleFinalizeGeneration}
+                  isGenerating={isGenerating}
+                  generatingSceneId={generatingSceneId}
+                />
+              </div>
+            ) : (
+            <>
             {/* Chapter Content - Collapsible */}
             <div className="flex-1 overflow-y-auto flex flex-col">
               <button
@@ -935,51 +1212,71 @@ export function WriteSection({ project }: SectionProps) {
                       className="max-w-3xl mx-auto"
                       onMouseUp={handleTextSelection}
                     >
-                      <div className="prose prose-invert prose-lg font-serif whitespace-pre-wrap selection:bg-accent/30">
-                        {selectedChapter.content}
-                      </div>
+                      <StyledChapterContent content={selectedChapter.content} />
                     </div>
                   ) : (
                     <div className="max-w-3xl mx-auto text-center py-12">
                       <FileText className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
                       <h3 className="text-lg font-medium text-text-primary mb-2">
-                        No content yet
+                        {t.write.noChaptersYet}
                       </h3>
                       <p className="text-text-secondary mb-4">
-                        Start writing or use AI to generate content for this chapter.
+                        {t.write.createFirstChapter}
                       </p>
                       <button
                         onClick={() => handleOpenModal(selectedChapter)}
                         className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
                       >
-                        Start Writing
+                        {t.write.generate}
                       </button>
                     </div>
                   )}
                 </div>
               )}
             </div>
+            </>
+            )}
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <BookOpen className="h-16 w-16 text-text-secondary mx-auto mb-4" aria-hidden="true" />
-              <h2 className="text-xl font-semibold text-text-primary mb-2">
-                {chapters.length === 0 ? 'Start Writing Your Novel' : 'Select a Chapter'}
+            <div className="text-center max-w-lg">
+              {/* Illustration */}
+              <div className="relative mx-auto w-32 h-32 mb-6">
+                <div className="absolute inset-0 bg-gradient-to-br from-accent/20 to-purple-500/20 rounded-full blur-xl" />
+                <div className="relative bg-surface-elevated rounded-full p-8 border border-border">
+                  <BookOpen className="h-16 w-16 text-accent" aria-hidden="true" />
+                </div>
+              </div>
+
+              <h2 className="text-2xl font-semibold text-text-primary mb-3">
+                {chapters.length === 0 ? t.emptyStates.startWriting : t.write.selectChapter}
               </h2>
-              <p className="text-text-secondary mb-4 max-w-md">
+              <p className="text-text-secondary mb-6">
                 {chapters.length === 0
-                  ? 'Create your first chapter to begin writing your manuscript.'
-                  : 'Choose a chapter from the sidebar to view or edit its content.'}
+                  ? t.write.createFirstChapter
+                  : t.write.selectChapter}
               </p>
-              {chapters.length === 0 && (
+
+              {chapters.length === 0 ? (
                 <button
                   onClick={() => handleOpenModal()}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white rounded-lg hover:bg-accent/90 transition-all hover:scale-105 shadow-lg shadow-accent/20"
                 >
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                  Create First Chapter
+                  <Plus className="h-5 w-5" aria-hidden="true" />
+                  {t.write.createFirstChapter}
                 </button>
+              ) : (
+                <div className="space-y-4">
+                  {/* Quick Actions */}
+                  <div className="flex justify-center gap-3">
+                    <div className="px-4 py-2 bg-surface-elevated rounded-lg border border-border text-sm text-text-secondary">
+                      <span className="text-text-primary font-medium">↑↓</span> Navigate chapters
+                    </div>
+                    <div className="px-4 py-2 bg-surface-elevated rounded-lg border border-border text-sm text-text-secondary">
+                      <span className="text-text-primary font-medium">Enter</span> Open chapter
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -1030,7 +1327,7 @@ export function WriteSection({ project }: SectionProps) {
               <button
                 onClick={() => setShowRevisionHistory(false)}
                 className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
-                aria-label="Close"
+                aria-label={t.actions.close}
               >
                 <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
               </button>
@@ -1055,7 +1352,7 @@ export function WriteSection({ project }: SectionProps) {
                         Current Version (Rev {selectedChapter.currentRevision || 0})
                       </span>
                       <span className="text-xs text-text-secondary">
-                        {selectedChapter.wordCount.toLocaleString()} words
+                        {selectedChapter.wordCount.toLocaleString()} {t.write.wordCount}
                       </span>
                     </div>
                     {latestQualityScore !== null && (
@@ -1117,7 +1414,7 @@ export function WriteSection({ project }: SectionProps) {
                           {revision.previousContent?.substring(0, 200) || 'No content'}...
                         </p>
                         <div className="mt-2 text-xs text-text-secondary">
-                          {revision.previousContent?.split(/\s+/).length.toLocaleString() || 0} words
+                          {revision.previousContent?.split(/\s+/).length.toLocaleString() || 0} {t.write.wordCount}
                         </div>
                       </div>
                     )
@@ -1132,7 +1429,7 @@ export function WriteSection({ project }: SectionProps) {
                 onClick={() => setShowRevisionHistory(false)}
                 className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
               >
-                Close
+                {t.actions.close}
               </button>
             </div>
           </div>

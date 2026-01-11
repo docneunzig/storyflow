@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft, GripVertical, LayoutGrid, LayoutList, Layers, Grid3X3, Sparkles, X, FileText, Wand2 } from 'lucide-react'
 import type { Project, Scene, Chapter } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
+import { useLanguageStore } from '@/stores/languageStore'
 import { updateProject } from '@/lib/db'
 import { SceneModal } from '@/components/ui/SceneModal'
 import { SceneTimeline } from '@/components/ui/SceneTimeline'
@@ -9,6 +10,7 @@ import { SceneCharacterMatrix } from '@/components/ui/SceneCharacterMatrix'
 import { toast } from '@/components/ui/Toaster'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
+import { UnifiedActionButton } from '@/components/ui/UnifiedActionButton'
 
 interface SceneOption {
   title: string
@@ -43,6 +45,7 @@ const PACING_COLORS: Record<string, string> = {
 }
 
 export function ScenesSection({ project }: SectionProps) {
+  const t = useLanguageStore((state) => state.t)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingScene, setEditingScene] = useState<Scene | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -50,7 +53,7 @@ export function ScenesSection({ project }: SectionProps) {
   const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
   const [showAIProgress, setShowAIProgress] = useState(false)
-  const [aiProgressTitle, setAIProgressTitle] = useState('Generating Scene Options')
+  const [aiProgressTitle, setAIProgressTitle] = useState(t.scenes.generatingSceneOptions)
   const [sceneOptions, setSceneOptions] = useState<SceneOption[]>([])
   const [showOptionsModal, setShowOptionsModal] = useState(false)
   const [showProseModal, setShowProseModal] = useState(false)
@@ -116,10 +119,10 @@ export function ScenesSection({ project }: SectionProps) {
       await updateProject(project.id, { scenes: newScenes })
       updateProjectStore(project.id, { scenes: newScenes })
       setSaveStatus('saved')
-      toast({ title: 'Scene order updated', variant: 'success' })
+      toast({ title: t.scenes.sceneOrderUpdated, variant: 'success' })
     } catch (error) {
       console.error('Failed to reorder scenes:', error)
-      toast({ title: 'Failed to reorder scenes', variant: 'error' })
+      toast({ title: t.scenes.failedToReorderScenes, variant: 'error' })
       setSaveStatus('unsaved')
     }
 
@@ -138,10 +141,10 @@ export function ScenesSection({ project }: SectionProps) {
         updatedScenes = project.scenes.map(s =>
           s.id === scene.id ? scene : s
         )
-        toast({ title: `Scene "${scene.title}" updated`, variant: 'success' })
+        toast({ title: `${t.scenes.sceneUpdated}: "${scene.title}"`, variant: 'success' })
       } else {
         updatedScenes = [...project.scenes, scene]
-        toast({ title: `Scene "${scene.title}" created`, variant: 'success' })
+        toast({ title: `${t.scenes.sceneCreated}: "${scene.title}"`, variant: 'success' })
       }
 
       // Update character scenesPresent based on charactersPresent in scenes
@@ -153,7 +156,7 @@ export function ScenesSection({ project }: SectionProps) {
       setEditingScene(null)
     } catch (error) {
       console.error('Failed to save scene:', error)
-      toast({ title: 'Failed to save scene', variant: 'error' })
+      toast({ title: t.scenes.failedToSaveScene, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -195,10 +198,10 @@ export function ScenesSection({ project }: SectionProps) {
       updateProjectStore(project.id, { scenes: updatedScenes, characters: updatedCharacters })
       setSaveStatus('saved')
       setDeleteConfirmId(null)
-      toast({ title: `Scene "${scene?.title}" deleted`, variant: 'success' })
+      toast({ title: `${t.scenes.sceneDeleted}: "${scene?.title}"`, variant: 'success' })
     } catch (error) {
       console.error('Failed to delete scene:', error)
-      toast({ title: 'Failed to delete scene', variant: 'error' })
+      toast({ title: t.scenes.failedToDeleteScene, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -334,10 +337,10 @@ export function ScenesSection({ project }: SectionProps) {
       setSaveStatus('saved')
       setShowOptionsModal(false)
       setSceneOptions([])
-      toast({ title: `Scene "${newScene.title}" created`, variant: 'success' })
+      toast({ title: `${t.scenes.sceneCreated}: "${newScene.title}"`, variant: 'success' })
     } catch (error) {
       console.error('Failed to create scene:', error)
-      toast({ title: 'Failed to create scene', variant: 'error' })
+      toast({ title: t.scenes.failedToSaveScene, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -347,7 +350,7 @@ export function ScenesSection({ project }: SectionProps) {
     if (e) e.stopPropagation()
 
     setProseSceneId(scene.id)
-    setAIProgressTitle(`Generating Prose: ${scene.title}`)
+    setAIProgressTitle(`${t.scenes.generatingProse}: ${scene.title}`)
     setShowAIProgress(true)
 
     try {
@@ -382,7 +385,7 @@ export function ScenesSection({ project }: SectionProps) {
       }
     } catch (error) {
       console.error('Failed to generate prose:', error)
-      toast({ title: 'Failed to generate prose', variant: 'error' })
+      toast({ title: t.scenes.failedToGenerateProse, variant: 'error' })
     } finally {
       setShowAIProgress(false)
     }
@@ -412,10 +415,10 @@ export function ScenesSection({ project }: SectionProps) {
       setProseSceneId(null)
 
       const scene = scenes.find(s => s.id === proseSceneId)
-      toast({ title: `Prose saved to "${scene?.title}"`, variant: 'success' })
+      toast({ title: `${t.scenes.proseSavedTo} "${scene?.title}"`, variant: 'success' })
     } catch (error) {
       console.error('Failed to save prose:', error)
-      toast({ title: 'Failed to save prose', variant: 'error' })
+      toast({ title: t.scenes.failedToSaveProse, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -514,43 +517,47 @@ export function ScenesSection({ project }: SectionProps) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Scenes</h1>
+          <h1 className="text-2xl font-bold text-text-primary">{t.scenes.title}</h1>
           <p className="text-text-secondary mt-1">
-            Build detailed scene blueprints with timeline and chapter views.
+            {t.scenes.subtitle}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleGenerateSceneOptions}
-            disabled={isGenerating}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded-lg hover:bg-purple-500/20 transition-colors disabled:opacity-50"
-          >
-            <Sparkles className="h-4 w-4" aria-hidden="true" />
-            Generate 3 Options
-          </button>
-          <button
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            New Scene
-          </button>
-        </div>
+        <UnifiedActionButton
+          primaryAction={{
+            id: 'new-scene',
+            label: t.scenes.newScene,
+            icon: Plus,
+            onClick: () => handleOpenModal(),
+          }}
+          secondaryActions={[
+            {
+              id: 'generate-scenes',
+              label: t.scenes.generate3Options,
+              description: t.scenes.aiGeneratedSuggestions,
+              icon: Sparkles,
+              onClick: handleGenerateSceneOptions,
+              disabled: isGenerating,
+              variant: 'accent',
+            },
+          ]}
+          size="sm"
+          disabled={isGenerating}
+        />
       </div>
 
       {scenes.length === 0 ? (
         <div className="card text-center py-12">
           <Film className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
-          <h3 className="text-lg font-medium text-text-primary mb-2">No scenes yet</h3>
+          <h3 className="text-lg font-medium text-text-primary mb-2">{t.scenes.noScenesYet}</h3>
           <p className="text-text-secondary mb-4">
-            Start building your story by creating scene blueprints.
+            {t.scenes.createScenesAssignChapters}
           </p>
           <button
             onClick={() => handleOpenModal()}
             className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Create First Scene
+            {t.scenes.createFirstScene}
           </button>
         </div>
       ) : (
@@ -558,8 +565,8 @@ export function ScenesSection({ project }: SectionProps) {
           {/* Scene stats and view toggle */}
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm text-text-secondary">
-              {scenes.length} scene{scenes.length !== 1 ? 's' : ''} |
-              {' '}{scenes.reduce((acc, s) => acc + s.estimatedWordCount, 0).toLocaleString()} estimated words
+              {scenes.length} {scenes.length !== 1 ? t.scenes.title.toLowerCase() : t.scenes.title.toLowerCase().slice(0, -1)} |
+              {' '}{scenes.reduce((acc, s) => acc + s.estimatedWordCount, 0).toLocaleString()} {t.scenes.estimatedWords}
             </span>
 
             {/* View mode toggle */}
@@ -574,7 +581,7 @@ export function ScenesSection({ project }: SectionProps) {
                 aria-label="Card view"
               >
                 <LayoutGrid className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Cards</span>
+                <span className="hidden sm:inline">{t.scenes.cards}</span>
               </button>
               <button
                 onClick={() => setViewMode('timeline')}
@@ -586,7 +593,7 @@ export function ScenesSection({ project }: SectionProps) {
                 aria-label="Timeline view"
               >
                 <LayoutList className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Timeline</span>
+                <span className="hidden sm:inline">{t.scenes.timeline}</span>
               </button>
               <button
                 onClick={() => setViewMode('chapters')}
@@ -598,7 +605,7 @@ export function ScenesSection({ project }: SectionProps) {
                 aria-label="Chapter grouping view"
               >
                 <Layers className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Chapters</span>
+                <span className="hidden sm:inline">{t.scenes.chapters}</span>
               </button>
               <button
                 onClick={() => setViewMode('matrix')}
@@ -610,7 +617,7 @@ export function ScenesSection({ project }: SectionProps) {
                 aria-label="Character matrix view"
               >
                 <Grid3X3 className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Matrix</span>
+                <span className="hidden sm:inline">{t.scenes.matrix}</span>
               </button>
             </div>
           </div>
@@ -639,7 +646,7 @@ export function ScenesSection({ project }: SectionProps) {
             <div className="space-y-6">
               {chapterGroups.length === 0 ? (
                 <div className="text-center py-8 text-text-secondary">
-                  <p>No scenes to display. Create scenes and assign them to chapters.</p>
+                  <p>{t.scenes.noScenesToDisplay}</p>
                 </div>
               ) : (
                 chapterGroups.map((group) => (
@@ -655,12 +662,12 @@ export function ScenesSection({ project }: SectionProps) {
                         <div>
                           <h3 className="font-semibold text-text-primary">
                             {group.chapter
-                              ? `Chapter ${group.chapter.number}: ${group.chapter.title}`
-                              : 'Unassigned Scenes'
+                              ? `${t.scenes.chapters} ${group.chapter.number}: ${group.chapter.title}`
+                              : t.scenes.unassignedScenes
                             }
                           </h3>
                           <p className="text-sm text-text-secondary">
-                            {group.scenes.length} scene{group.scenes.length !== 1 ? 's' : ''}
+                            {group.scenes.length} {group.scenes.length !== 1 ? t.scenes.title.toLowerCase() : t.scenes.title.toLowerCase().slice(0, -1)}
                           </p>
                         </div>
                       </div>
@@ -668,7 +675,7 @@ export function ScenesSection({ project }: SectionProps) {
                         <p className="text-lg font-semibold text-text-primary">
                           {group.wordCount.toLocaleString()}
                         </p>
-                        <p className="text-xs text-text-secondary">estimated words</p>
+                        <p className="text-xs text-text-secondary">{t.scenes.estimatedWords}</p>
                       </div>
                     </div>
 
@@ -712,7 +719,7 @@ export function ScenesSection({ project }: SectionProps) {
                               )}
                               {getCharacterName(scene.povCharacterId) && (
                                 <span className="text-accent">
-                                  POV: {getCharacterName(scene.povCharacterId)}
+                                  {t.scenes.pov}: {getCharacterName(scene.povCharacterId)}
                                 </span>
                               )}
                               {scene.pacing && (
@@ -725,7 +732,7 @@ export function ScenesSection({ project }: SectionProps) {
                           </div>
                           <div className="flex-shrink-0 text-right">
                             <span className="text-sm text-text-secondary">
-                              ~{scene.estimatedWordCount.toLocaleString()} words
+                              ~{scene.estimatedWordCount.toLocaleString()} {t.scenes.words}
                             </span>
                           </div>
                           <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -741,7 +748,7 @@ export function ScenesSection({ project }: SectionProps) {
               {/* Total word count summary */}
               <div className="card bg-surface-elevated">
                 <div className="flex items-center justify-between">
-                  <span className="text-text-secondary">Total Estimated Words</span>
+                  <span className="text-text-secondary">{t.scenes.totalEstimatedWords}</span>
                   <span className="text-xl font-bold text-text-primary">
                     {scenes.reduce((sum, s) => sum + s.estimatedWordCount, 0).toLocaleString()}
                   </span>
@@ -796,8 +803,8 @@ export function ScenesSection({ project }: SectionProps) {
                       onClick={(e) => handleGenerateProse(scene, e)}
                       disabled={isGenerating}
                       className="p-1.5 rounded-md hover:bg-accent/10 transition-colors disabled:opacity-50"
-                      aria-label="Generate prose"
-                      title="Generate prose from outline"
+                      aria-label={t.scenes.generateProse}
+                      title={t.scenes.generateProse}
                     >
                       <Wand2 className="h-4 w-4 text-accent" aria-hidden="true" />
                     </button>
@@ -815,13 +822,13 @@ export function ScenesSection({ project }: SectionProps) {
                           onClick={() => handleDeleteScene(scene.id)}
                           className="px-2 py-1 text-xs bg-error text-white rounded hover:bg-error/90"
                         >
-                          Confirm
+                          {t.common.confirm}
                         </button>
                         <button
                           onClick={() => setDeleteConfirmId(null)}
                           className="px-2 py-1 text-xs border border-border rounded hover:bg-surface-elevated"
                         >
-                          Cancel
+                          {t.actions.cancel}
                         </button>
                       </div>
                     ) : (
@@ -858,7 +865,7 @@ export function ScenesSection({ project }: SectionProps) {
                   )}
                   {getCharacterName(scene.povCharacterId) && (
                     <span className="text-accent bg-accent/10 px-2 py-0.5 rounded">
-                      POV: {getCharacterName(scene.povCharacterId)}
+                      {t.scenes.pov}: {getCharacterName(scene.povCharacterId)}
                     </span>
                   )}
                   {getChapterInfo(scene.chapterId) && (
@@ -874,7 +881,7 @@ export function ScenesSection({ project }: SectionProps) {
                     </span>
                   )}
                   <span className="text-text-secondary bg-surface-elevated px-2 py-0.5 rounded">
-                    ~{scene.estimatedWordCount.toLocaleString()} words
+                    ~{scene.estimatedWordCount.toLocaleString()} {t.scenes.words}
                   </span>
                 </div>
 
@@ -882,7 +889,7 @@ export function ScenesSection({ project }: SectionProps) {
                   <div className="mt-3 pt-3 border-t border-border flex items-center gap-2 text-xs text-text-secondary">
                     {scene.openingEmotion && (
                       <span className="bg-surface-elevated px-2 py-0.5 rounded">
-                        Start: {scene.openingEmotion}
+                        {t.scenes.start}: {scene.openingEmotion}
                       </span>
                     )}
                     {scene.openingEmotion && scene.closingEmotion && (
@@ -890,7 +897,7 @@ export function ScenesSection({ project }: SectionProps) {
                     )}
                     {scene.closingEmotion && (
                       <span className="bg-surface-elevated px-2 py-0.5 rounded">
-                        End: {scene.closingEmotion}
+                        {t.scenes.end}: {scene.closingEmotion}
                       </span>
                     )}
                   </div>
@@ -903,7 +910,7 @@ export function ScenesSection({ project }: SectionProps) {
                       <div className="flex items-center gap-1 flex-wrap mb-1">
                         <span className="flex items-center gap-1 text-success">
                           <ArrowRight className="h-3 w-3" aria-hidden="true" />
-                          Sets up:
+                          {t.scenes.setsUp}
                         </span>
                         {scene.setupFor.map(id => {
                           const title = getSceneTitle(id)
@@ -919,7 +926,7 @@ export function ScenesSection({ project }: SectionProps) {
                       <div className="flex items-center gap-1 flex-wrap">
                         <span className="flex items-center gap-1 text-warning">
                           <ArrowLeft className="h-3 w-3" aria-hidden="true" />
-                          Pays off:
+                          {t.scenes.paysOff}
                         </span>
                         {scene.payoffFor.map(id => {
                           const title = getSceneTitle(id)
@@ -977,13 +984,13 @@ export function ScenesSection({ project }: SectionProps) {
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-400" aria-hidden="true" />
                 <h2 className="text-lg font-semibold text-text-primary">
-                  Choose a Scene Approach
+                  {t.scenes.chooseSceneApproach}
                 </h2>
               </div>
               <button
                 onClick={() => setShowOptionsModal(false)}
                 className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
-                aria-label="Close modal"
+                aria-label={t.actions.close}
               >
                 <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
               </button>
@@ -992,7 +999,7 @@ export function ScenesSection({ project }: SectionProps) {
             {/* Options Grid */}
             <div className="flex-1 overflow-y-auto p-4">
               <p className="text-text-secondary mb-4">
-                Select one of the following scene approaches to create your new scene:
+                {t.scenes.selectSceneApproach}
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {sceneOptions.map((option, index) => (
@@ -1018,15 +1025,15 @@ export function ScenesSection({ project }: SectionProps) {
                     </p>
                     <div className="space-y-2 text-xs">
                       <div className="flex items-center gap-2">
-                        <span className="text-error">Conflict:</span>
+                        <span className="text-error">{t.scenes.conflict}:</span>
                         <span className="text-text-secondary">{option.conflictType}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-accent">Tone:</span>
+                        <span className="text-accent">{t.scenes.tone}:</span>
                         <span className="text-text-secondary">{option.tone}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-success">Emotion Arc:</span>
+                        <span className="text-success">{t.scenes.emotionArc}:</span>
                         <span className="text-text-secondary">{option.openingEmotion} → {option.closingEmotion}</span>
                       </div>
                     </div>
@@ -1041,7 +1048,7 @@ export function ScenesSection({ project }: SectionProps) {
                 onClick={() => setShowOptionsModal(false)}
                 className="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors"
               >
-                Cancel
+                {t.actions.cancel}
               </button>
             </div>
           </div>
@@ -1065,7 +1072,7 @@ export function ScenesSection({ project }: SectionProps) {
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-accent" aria-hidden="true" />
                 <h2 className="text-lg font-semibold text-text-primary">
-                  Generated Prose
+                  {t.scenes.generatedProse}
                 </h2>
               </div>
               <button
@@ -1075,7 +1082,7 @@ export function ScenesSection({ project }: SectionProps) {
                   setProseSceneId(null)
                 }}
                 className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
-                aria-label="Close modal"
+                aria-label={t.actions.close}
               >
                 <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
               </button>
@@ -1091,7 +1098,7 @@ export function ScenesSection({ project }: SectionProps) {
             {/* Footer */}
             <div className="p-4 border-t border-border flex justify-between items-center">
               <p className="text-sm text-text-secondary">
-                {generatedProse.split(/\s+/).length.toLocaleString()} words
+                {generatedProse.split(/\s+/).length.toLocaleString()} {t.scenes.words}
               </p>
               <div className="flex gap-2">
                 <button
@@ -1102,13 +1109,13 @@ export function ScenesSection({ project }: SectionProps) {
                   }}
                   className="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors"
                 >
-                  Cancel
+                  {t.actions.cancel}
                 </button>
                 <button
                   onClick={handleAcceptProse}
                   className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
                 >
-                  Save to Scene
+                  {t.scenes.saveToScene}
                 </button>
               </div>
             </div>

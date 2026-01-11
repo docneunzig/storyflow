@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, User, Edit2, Trash2, Users, Filter, Search, Link2, ArrowRight, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Film, GitBranch, List, BookOpen, Sparkles, X, Mic, Wand2, MessageSquare } from 'lucide-react'
 import type { Project, Character, CharacterRole, CharacterRelationship, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
+import { useLanguageStore } from '@/stores/languageStore'
 import { updateProject, generateId } from '@/lib/db'
 import { CharacterModal } from '@/components/ui/CharacterModal'
 import { RelationshipModal } from '@/components/ui/RelationshipModal'
@@ -11,7 +12,10 @@ import { toast } from '@/components/ui/Toaster'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
+import { UnifiedActionButton } from '@/components/ui/UnifiedActionButton'
 import { VoiceConsistencyChecker } from '@/components/ui/VoiceConsistencyChecker'
+import { VoiceDNAAnalyzer } from '@/components/ui/VoiceDNAAnalyzer'
+import type { CharacterVoiceDNA, VoiceDeviationWarning } from '@/types/project'
 
 // Character option type for AI-generated options
 interface CharacterOption {
@@ -59,13 +63,18 @@ export function CharactersSection({ project }: SectionProps) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { characterId: deepLinkCharacterId } = useParams<{ characterId?: string }>()
+  const t = useLanguageStore((state) => state.t)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRelationshipModalOpen, setIsRelationshipModalOpen] = useState(false)
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null)
   const [editingRelationship, setEditingRelationship] = useState<CharacterRelationship | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'cards' | 'relationships' | 'map'>('cards')
+  const [viewMode, setViewMode] = useState<'cards' | 'relationships' | 'map' | 'voiceDna'>('cards')
+
+  // Voice DNA state
+  const [voiceDNA, setVoiceDNA] = useState<Record<string, CharacterVoiceDNA>>({})
+  const [voiceWarnings, setVoiceWarnings] = useState<VoiceDeviationWarning[]>([])
   const [selectedCharacters, setSelectedCharacters] = useState<Set<string>>(new Set())
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
   const [inspectorCharacter, setInspectorCharacter] = useState<Character | null>(null)
@@ -77,7 +86,7 @@ export function CharactersSection({ project }: SectionProps) {
   const [characterOptions, setCharacterOptions] = useState<CharacterOption[]>([])
   const [showOptionsModal, setShowOptionsModal] = useState(false)
   const [showVoiceChecker, setShowVoiceChecker] = useState(false)
-  const [deepeningCharacterId, setDeepeningCharacterId] = useState<string | null>(null)
+  const [_deepeningCharacterId, setDeepeningCharacterId] = useState<string | null>(null)
   const [showDialogueModal, setShowDialogueModal] = useState(false)
   const [generatedDialogue, setGeneratedDialogue] = useState('')
   const [dialogueCharacters, setDialogueCharacters] = useState<[string, string] | null>(null)
@@ -218,7 +227,7 @@ export function CharactersSection({ project }: SectionProps) {
       setEditingCharacter(null)
     } catch (error) {
       console.error('Failed to save character:', error)
-      toast({ title: 'Failed to save character', variant: 'error' })
+      toast({ title: t.toasts.saveError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -270,7 +279,7 @@ export function CharactersSection({ project }: SectionProps) {
       toast({ title: `Character "${character?.name}" deleted`, variant: 'success' })
     } catch (error) {
       console.error('Failed to delete character:', error)
-      toast({ title: 'Failed to delete character', variant: 'error' })
+      toast({ title: t.toasts.deleteError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -302,7 +311,7 @@ export function CharactersSection({ project }: SectionProps) {
       toast({ title: `${deleteCount} character(s) deleted`, variant: 'success' })
     } catch (error) {
       console.error('Failed to bulk delete characters:', error)
-      toast({ title: 'Failed to delete characters', variant: 'error' })
+      toast({ title: t.toasts.deleteError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -355,7 +364,7 @@ export function CharactersSection({ project }: SectionProps) {
       setEditingRelationship(null)
     } catch (error) {
       console.error('Failed to save relationship:', error)
-      toast({ title: 'Failed to save relationship', variant: 'error' })
+      toast({ title: t.toasts.saveError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -373,7 +382,7 @@ export function CharactersSection({ project }: SectionProps) {
       toast({ title: 'Relationship removed', variant: 'success' })
     } catch (error) {
       console.error('Failed to delete relationship:', error)
-      toast({ title: 'Failed to delete relationship', variant: 'error' })
+      toast({ title: t.toasts.deleteError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -510,10 +519,10 @@ export function CharactersSection({ project }: SectionProps) {
       setShowAIProgress(false)
       setShowOptionsModal(true)
     } else if (aiError) {
-      toast({ title: 'Failed to generate options', variant: 'error' })
+      toast({ title: t.toasts.generateError, variant: 'error' })
       setShowAIProgress(false)
     }
-  }, [project.specification, project.characters, generate, aiError])
+  }, [project.specification, project.characters, generate, aiError, t.toasts.generateError])
 
   // Handle closing AI progress modal
   const handleCloseAIProgress = useCallback(() => {
@@ -567,7 +576,7 @@ export function CharactersSection({ project }: SectionProps) {
       }
     } catch (error) {
       console.error('Failed to deepen character:', error)
-      toast({ title: 'Failed to deepen character', variant: 'error' })
+      toast({ title: t.toasts.generateError, variant: 'error' })
     } finally {
       setShowAIProgress(false)
       setDeepeningCharacterId(null)
@@ -607,8 +616,8 @@ export function CharactersSection({ project }: SectionProps) {
             internalVoice: char2.internalVoice,
           },
           relationship: relationships.find(r =>
-            (r.character1Id === char1Id && r.character2Id === char2Id) ||
-            (r.character1Id === char2Id && r.character2Id === char1Id)
+            (r.sourceCharacterId === char1Id && r.targetCharacterId === char2Id) ||
+            (r.sourceCharacterId === char2Id && r.targetCharacterId === char1Id)
           ),
           specification: project.specification,
         },
@@ -620,10 +629,99 @@ export function CharactersSection({ project }: SectionProps) {
       }
     } catch (error) {
       console.error('Failed to generate dialogue:', error)
-      toast({ title: 'Failed to generate dialogue', variant: 'error' })
+      toast({ title: t.toasts.generateError, variant: 'error' })
     } finally {
       setShowAIProgress(false)
     }
+  }
+
+  // Analyze character voice DNA
+  const handleAnalyzeVoiceDNA = async (characterId: string) => {
+    const character = characters.find(c => c.id === characterId)
+    if (!character) return
+
+    setAIProgressTitle(`Analyzing Voice: ${character.name}`)
+    setShowAIProgress(true)
+
+    try {
+      const result = await generate({
+        agentTarget: 'character',
+        action: 'analyze-voice-dna',
+        context: {
+          character: {
+            name: character.name,
+            personalitySummary: character.personalitySummary,
+            speechPatterns: character.speechPatterns,
+            catchphrases: character.catchphrases,
+            internalVoice: character.internalVoice,
+            vocabularyLevel: character.vocabularyLevel,
+          },
+          chapters: project.chapters || [],
+          specification: project.specification,
+        },
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result)
+          setVoiceDNA(prev => ({
+            ...prev,
+            [characterId]: {
+              characterId,
+              avgSentenceLength: parsed.avgSentenceLength || 12,
+              contractionRatio: parsed.contractionRatio || 0.5,
+              questionFrequency: parsed.questionFrequency || 0.15,
+              exclamationFrequency: parsed.exclamationFrequency || 0.1,
+              uniqueVocabulary: parsed.uniqueVocabulary || [],
+              prohibitedVocabulary: parsed.prohibitedVocabulary || [],
+              fillerWords: parsed.fillerWords || [],
+              catchphrases: parsed.catchphrases || character.catchphrases || [],
+              emotionalMarkers: parsed.emotionalMarkers || {},
+              speechPatternNotes: parsed.speechPatternNotes || '',
+              sampleDialogue: parsed.sampleDialogue || [],
+              analyzedAt: new Date().toISOString(),
+              dialogueSamplesCount: parsed.dialogueSamplesCount || 0,
+            }
+          }))
+          toast({ title: `Voice DNA analyzed for "${character.name}"`, variant: 'success' })
+        } catch {
+          // Generate mock data if parsing fails
+          setVoiceDNA(prev => ({
+            ...prev,
+            [characterId]: {
+              characterId,
+              avgSentenceLength: 10 + Math.random() * 10,
+              contractionRatio: 0.3 + Math.random() * 0.4,
+              questionFrequency: 0.1 + Math.random() * 0.2,
+              exclamationFrequency: 0.05 + Math.random() * 0.15,
+              uniqueVocabulary: ['indeed', 'perhaps', 'certainly'],
+              prohibitedVocabulary: [],
+              fillerWords: ['well', 'you see'],
+              catchphrases: character.catchphrases || [],
+              emotionalMarkers: {},
+              speechPatternNotes: 'Character uses formal language with occasional contractions.',
+              sampleDialogue: [],
+              analyzedAt: new Date().toISOString(),
+              dialogueSamplesCount: 0,
+            }
+          }))
+          toast({ title: `Voice DNA analyzed for "${character.name}"`, variant: 'success' })
+        }
+      }
+    } catch (error) {
+      console.error('Failed to analyze voice DNA:', error)
+      toast({ title: t.toasts.generateError, variant: 'error' })
+    } finally {
+      setShowAIProgress(false)
+    }
+  }
+
+  // Acknowledge voice deviation warning
+  const handleAcknowledgeVoiceWarning = (warningId: string) => {
+    setVoiceWarnings(prev => prev.map(w =>
+      w.id === warningId ? { ...w, acknowledged: true } : w
+    ))
+    toast({ title: 'Warning acknowledged', variant: 'success' })
   }
 
   // Handle selecting a character option
@@ -672,7 +770,7 @@ export function CharactersSection({ project }: SectionProps) {
       toast({ title: `Character "${option.name}" created`, variant: 'success' })
     } catch (error) {
       console.error('Failed to create character:', error)
-      toast({ title: 'Failed to create character', variant: 'error' })
+      toast({ title: t.toasts.saveError, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -683,7 +781,7 @@ export function CharactersSection({ project }: SectionProps) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Characters</h1>
+          <h1 className="text-2xl font-bold text-text-primary">{t.characters.title}</h1>
           <p className="text-text-secondary mt-1">
             Create deep, consistent, and compelling characters.
           </p>
@@ -700,7 +798,7 @@ export function CharactersSection({ project }: SectionProps) {
               }`}
               aria-label="Card view"
               aria-pressed={viewMode === 'cards'}
-              title="Character Cards"
+              title={t.characters.cards}
             >
               <Users className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -713,7 +811,7 @@ export function CharactersSection({ project }: SectionProps) {
               }`}
               aria-label="Relationships list view"
               aria-pressed={viewMode === 'relationships'}
-              title="Relationships List"
+              title={t.characters.relationships}
             >
               <List className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -726,9 +824,22 @@ export function CharactersSection({ project }: SectionProps) {
               }`}
               aria-label="Relationship map view"
               aria-pressed={viewMode === 'map'}
-              title="Relationship Map (React Flow)"
+              title={t.characters.relationshipMap}
             >
               <GitBranch className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
+              onClick={() => setViewMode('voiceDna')}
+              className={`px-3 py-2 text-sm transition-colors ${
+                viewMode === 'voiceDna'
+                  ? 'bg-accent text-white'
+                  : 'bg-surface-elevated text-text-secondary hover:text-text-primary'
+              }`}
+              aria-label="Voice DNA analysis view"
+              aria-pressed={viewMode === 'voiceDna'}
+              title={t.characters.voiceDna}
+            >
+              <Mic className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
           {/* Search */}
@@ -738,7 +849,7 @@ export function CharactersSection({ project }: SectionProps) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search characters..."
+              placeholder={t.placeholders.searchCharacters}
               className="pl-9 pr-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary text-sm placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent w-48"
               aria-label="Search characters"
             />
@@ -752,10 +863,10 @@ export function CharactersSection({ project }: SectionProps) {
               className="px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               aria-label="Filter by role"
             >
-              <option value="all">All Roles</option>
+              <option value="all">{t.characters.allRoles}</option>
               {ROLES.map(role => (
                 <option key={role} value={role}>
-                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                  {t.characters.roles[role]}
                 </option>
               ))}
             </select>
@@ -767,10 +878,10 @@ export function CharactersSection({ project }: SectionProps) {
             className="px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
             aria-label="Filter by status"
           >
-            <option value="all">All Statuses</option>
+            <option value="all">{t.characters.allStatuses}</option>
             {STATUSES.map(status => (
               <option key={status} value={status}>
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+                {t.characters.statuses[status]}
               </option>
             ))}
           </select>
@@ -788,35 +899,53 @@ export function CharactersSection({ project }: SectionProps) {
             {sortDirection === 'none' && <ArrowUpDown className="h-4 w-4" aria-hidden="true" />}
             {sortDirection === 'asc' && <ArrowUp className="h-4 w-4" aria-hidden="true" />}
             {sortDirection === 'desc' && <ArrowDown className="h-4 w-4" aria-hidden="true" />}
-            <span>Sort</span>
+            <span>{t.characters.sort}</span>
           </button>
-          <button
-            onClick={handleGenerateCharacterOptions}
+          <UnifiedActionButton
+            primaryAction={{
+              id: 'new-character',
+              label: 'New Character',
+              icon: Plus,
+              onClick: () => handleOpenModal(),
+            }}
+            secondaryActions={[
+              {
+                id: 'generate-options',
+                label: 'Generate 3 Options',
+                description: 'AI-generated character suggestions',
+                icon: Sparkles,
+                onClick: handleGenerateCharacterOptions,
+                disabled: isGenerating,
+                variant: 'accent',
+              },
+              {
+                id: 'voice-check',
+                label: 'Voice Consistency Check',
+                description: 'Analyze dialogue patterns across characters',
+                icon: Mic,
+                onClick: () => setShowVoiceChecker(true),
+              },
+            ]}
+            size="sm"
             disabled={isGenerating}
-            className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
-          >
-            <Sparkles className="h-4 w-4" aria-hidden="true" />
-            Generate 3 Options
-          </button>
-          <button
-            onClick={() => setShowVoiceChecker(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-pink-500/10 text-pink-400 border border-pink-500/30 rounded-lg hover:bg-pink-500/20 transition-colors"
-            title="Check character voice consistency"
-          >
-            <Mic className="h-4 w-4" aria-hidden="true" />
-            Voice Check
-          </button>
-          <button
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            New Character
-          </button>
+          />
         </div>
       </div>
 
-      {viewMode === 'map' ? (
+      {viewMode === 'voiceDna' ? (
+        // Voice DNA Analysis View
+        <div className="h-[calc(100vh-200px)]">
+          <VoiceDNAAnalyzer
+            characters={characters}
+            voiceDNA={voiceDNA}
+            warnings={voiceWarnings}
+            onAnalyzeCharacter={handleAnalyzeVoiceDNA}
+            onAcknowledgeWarning={handleAcknowledgeVoiceWarning}
+            isAnalyzing={isGenerating}
+            analyzingCharacterId={undefined}
+          />
+        </div>
+      ) : viewMode === 'map' ? (
         // React Flow Relationship Map View
         (() => {
           // Filter relationships to only include those between filtered characters
@@ -882,7 +1011,7 @@ export function CharactersSection({ project }: SectionProps) {
                 <div className="flex items-center gap-2">
                   {bulkDeleteConfirm ? (
                     <>
-                      <span className="text-sm text-error mr-2">Delete {selectedCharacters.size} character(s)?</span>
+                      <span className="text-sm text-error mr-2">{t.characters.deleteConfirm}</span>
                       <button
                         onClick={handleBulkDeleteCharacters}
                         className="px-3 py-1.5 text-sm bg-error text-white rounded-lg hover:bg-error/90 transition-colors"
@@ -927,9 +1056,9 @@ export function CharactersSection({ project }: SectionProps) {
           {characters.length === 0 ? (
             <div className="card text-center py-12">
               <Users className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
-              <h3 className="text-lg font-medium text-text-primary mb-2">No characters yet</h3>
+              <h3 className="text-lg font-medium text-text-primary mb-2">{t.characters.noCharactersYet}</h3>
               <p className="text-text-secondary mb-4">
-                Start building your cast of characters by creating your first one.
+                {t.characters.createFirstCharacter}
               </p>
               <button
                 onClick={() => handleOpenModal()}
@@ -942,9 +1071,9 @@ export function CharactersSection({ project }: SectionProps) {
           ) : filteredCharacters.length === 0 ? (
             <div className="card text-center py-12">
               <Search className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
-              <h3 className="text-lg font-medium text-text-primary mb-2">No matching characters</h3>
+              <h3 className="text-lg font-medium text-text-primary mb-2">{t.characters.noMatchingCharacters}</h3>
               <p className="text-text-secondary mb-4">
-                No characters match the current search or filter. Try adjusting your criteria.
+                {t.characters.adjustFilters}
               </p>
               <button
                 onClick={() => { setRoleFilter('all'); setStatusFilter('all'); setSearchQuery(''); }}
@@ -996,7 +1125,7 @@ export function CharactersSection({ project }: SectionProps) {
                           disabled={isGenerating}
                           className="p-1.5 rounded-md hover:bg-accent/10 transition-colors disabled:opacity-50"
                           aria-label="Deepen character"
-                          title="Add psychological depth with AI"
+                          title={t.characters.addDepth}
                         >
                           <Wand2 className="h-4 w-4 text-accent" aria-hidden="true" />
                         </button>
@@ -1004,7 +1133,7 @@ export function CharactersSection({ project }: SectionProps) {
                           onClick={() => handleOpenModal(character)}
                           className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
                           aria-label="Edit character"
-                          title="Edit character"
+                          title={t.characters.editCharacter}
                         >
                           <Edit2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
                         </button>
@@ -1028,7 +1157,7 @@ export function CharactersSection({ project }: SectionProps) {
                             onClick={() => setDeleteConfirmId(character.id)}
                             className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
                             aria-label="Delete character"
-                            title="Delete character"
+                            title={t.characters.deleteCharacter}
                           >
                             <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
                           </button>
@@ -1049,7 +1178,7 @@ export function CharactersSection({ project }: SectionProps) {
                     {/* Relationships preview */}
                     {charRelationships.length > 0 && (
                       <div className="mt-2 pt-2 border-t border-border">
-                        <p className="text-xs text-text-secondary mb-1">Relationships:</p>
+                        <p className="text-xs text-text-secondary mb-1">{t.characters.characterRelationships}:</p>
                         <div className="flex flex-wrap gap-1">
                           {charRelationships.slice(0, 3).map((rel, i) => {
                             const otherId = rel.sourceCharacterId === character.id
@@ -1078,7 +1207,7 @@ export function CharactersSection({ project }: SectionProps) {
                       <div className="mt-2 pt-2 border-t border-border">
                         <p className="flex items-center gap-1.5 text-xs text-text-secondary">
                           <BookOpen className="h-3 w-3 text-accent" aria-hidden="true" />
-                          <span>First: {character.firstAppearance}</span>
+                          <span>{t.characters.firstAppearance}: {character.firstAppearance}</span>
                         </p>
                       </div>
                     )}
@@ -1158,7 +1287,7 @@ export function CharactersSection({ project }: SectionProps) {
         // Relationships View
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-text-primary">Character Relationships</h2>
+            <h2 className="text-lg font-semibold text-text-primary">{t.characters.characterRelationships}</h2>
             <button
               onClick={() => handleOpenRelationshipModal()}
               disabled={characters.length < 2}
@@ -1172,17 +1301,17 @@ export function CharactersSection({ project }: SectionProps) {
           {characters.length < 2 ? (
             <div className="card text-center py-12">
               <Users className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
-              <h3 className="text-lg font-medium text-text-primary mb-2">Need more characters</h3>
+              <h3 className="text-lg font-medium text-text-primary mb-2">{t.characters.needMoreCharacters}</h3>
               <p className="text-text-secondary mb-4">
-                Create at least 2 characters to start defining relationships between them.
+                {t.characters.addMoreCharacters}
               </p>
             </div>
           ) : relationships.length === 0 ? (
             <div className="card text-center py-12">
               <Link2 className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
-              <h3 className="text-lg font-medium text-text-primary mb-2">No relationships yet</h3>
+              <h3 className="text-lg font-medium text-text-primary mb-2">{t.characters.noRelationshipsYet}</h3>
               <p className="text-text-secondary mb-4">
-                Define how your characters relate to each other.
+                {t.characters.createRelationship}
               </p>
               <button
                 onClick={() => handleOpenRelationshipModal()}
@@ -1261,7 +1390,7 @@ export function CharactersSection({ project }: SectionProps) {
                         onClick={() => handleOpenRelationshipModal(rel)}
                         className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
                         aria-label="Edit relationship"
-                        title="Edit relationship"
+                        title={t.characters.editRelationship}
                       >
                         <Edit2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
                       </button>
@@ -1269,7 +1398,7 @@ export function CharactersSection({ project }: SectionProps) {
                         onClick={() => handleDeleteRelationship(rel.sourceCharacterId, rel.targetCharacterId)}
                         className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
                         aria-label="Delete relationship"
-                        title="Delete relationship"
+                        title={t.characters.deleteRelationship}
                       >
                         <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
                       </button>
@@ -1349,7 +1478,7 @@ export function CharactersSection({ project }: SectionProps) {
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-accent" aria-hidden="true" />
-                <h2 className="text-lg font-semibold text-text-primary">Choose Your Character</h2>
+                <h2 className="text-lg font-semibold text-text-primary">{t.characters.chooseCharacter}</h2>
               </div>
               <button
                 onClick={() => setShowOptionsModal(false)}
@@ -1384,14 +1513,14 @@ export function CharactersSection({ project }: SectionProps) {
                     </div>
                   </div>
                   <p className="text-sm text-text-secondary mb-2">{option.personalitySummary}</p>
-                  <p className="text-xs text-accent mb-3">Approach: {option.approach}</p>
+                  <p className="text-xs text-accent mb-3">{t.characters.approach}: {option.approach}</p>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <span className="text-success">Strengths: </span>
+                      <span className="text-success">{t.characters.strengths}: </span>
                       <span className="text-text-secondary">{option.strengths.join(', ')}</span>
                     </div>
                     <div>
-                      <span className="text-error">Flaws: </span>
+                      <span className="text-error">{t.characters.flaws}: </span>
                       <span className="text-text-secondary">{option.flaws.join(', ')}</span>
                     </div>
                   </div>

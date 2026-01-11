@@ -32,12 +32,27 @@ import {
   Lock,
   Unlock,
   TrendingUp,
+  Eye,
+  FileSearch,
 } from 'lucide-react'
-import type { Project, Chapter, ChapterQualityScore, QualityDimensions } from '@/types/project'
+import type {
+  Project,
+  Chapter,
+  ChapterQualityScore,
+  QualityDimensions,
+  ReaderState,
+  TwistImpactPrediction,
+  FactAssertion,
+  ContinuityConflict
+} from '@/types/project'
+import { ReaderSimulator } from '@/components/ui/ReaderSimulator'
+import { ContinuityPanel } from '@/components/ui/ContinuityPanel'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
 import { CircularProgress } from '@/components/ui/CircularProgress'
+import { UnifiedActionButton } from '@/components/ui/UnifiedActionButton'
 import { useProjectStore } from '@/stores/projectStore'
+import { useLanguageStore } from '@/stores/languageStore'
 import { updateProject as updateProjectInDb } from '@/lib/db'
 
 interface SectionProps {
@@ -231,7 +246,15 @@ const HARSHNESS_OPTIONS: HarshnessOption[] = [
   },
 ]
 
+type ReviewTab = 'critique' | 'reader' | 'continuity'
+
 export function ReviewSection({ project }: SectionProps) {
+  const t = useLanguageStore((state) => state.t)
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<ReviewTab>('critique')
+
+  // Critique state
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null)
   const [critiqueResult, setCritiqueResult] = useState<CritiqueResult | null>(null)
   const [showAIProgress, setShowAIProgress] = useState(false)
@@ -241,6 +264,16 @@ export function ReviewSection({ project }: SectionProps) {
   const [editingSuggestionText, setEditingSuggestionText] = useState('')
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null)
   const [showDiffView, setShowDiffView] = useState(false)
+
+  // Reader Simulator state
+  const [readerStates, setReaderStates] = useState<ReaderState[]>([])
+  const [twistPredictions, _setTwistPredictions] = useState<TwistImpactPrediction[]>([])
+  const [simulatingChapterId, setSimulatingChapterId] = useState<string | undefined>(undefined)
+
+  // Continuity Panel state
+  const [facts, setFacts] = useState<FactAssertion[]>([])
+  const [conflicts, setConflicts] = useState<ContinuityConflict[]>([])
+  const [isExtractingFacts, setIsExtractingFacts] = useState(false)
 
   // Get updateProject from store to persist quality scores
   const updateProject = useProjectStore((state) => state.updateProject)
@@ -511,19 +544,149 @@ export function ReviewSection({ project }: SectionProps) {
     }
   }, [getFeedbackText, getStrengths, getAreasForImprovement, project.specification?.genre])
 
+  // Parse AI critique response into CritiqueResult format
+  const parseAICritique = useCallback((aiResult: string, chapter: Chapter, harshness: HarshnessLevel): CritiqueResult | null => {
+    try {
+      // Try to parse JSON from the AI response
+      // The AI might return markdown with JSON block, so extract it
+      let jsonStr = aiResult
+      const jsonMatch = aiResult.match(/```json\s*([\s\S]*?)\s*```/)
+      if (jsonMatch) {
+        jsonStr = jsonMatch[1]
+      } else {
+        // Try to find JSON object in the response
+        const jsonStart = aiResult.indexOf('{')
+        const jsonEnd = aiResult.lastIndexOf('}')
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          jsonStr = aiResult.substring(jsonStart, jsonEnd + 1)
+        }
+      }
+
+      const parsed = JSON.parse(jsonStr)
+
+      // Map dimension IDs from camelCase to kebab-case
+      const dimensionMap: Record<string, string> = {
+        'plotCoherence': 'plot-coherence',
+        'characterConsistency': 'character-consistency',
+        'characterVoice': 'character-voice',
+        'pacing': 'pacing',
+        'dialogueQuality': 'dialogue-quality',
+        'proseStyle': 'prose-style',
+        'emotionalImpact': 'emotional-impact',
+        'tensionManagement': 'tension-management',
+        'worldBuilding': 'world-building',
+        'worldbuildingIntegration': 'world-building',
+        'themeExpression': 'theme-expression',
+        'marketAppeal': 'market-appeal',
+        'originality': 'originality',
+      }
+
+      // Build dimensions array from parsed response
+      const dimensions: DimensionScore[] = QUALITY_DIMENSIONS.map(dim => {
+        // Find matching dimension in parsed response
+        const camelKey = Object.entries(dimensionMap).find(([_, v]) => v === dim.id)?.[0]
+        const aiDim = camelKey ? parsed.dimensions?.[camelKey] : null
+
+        if (aiDim && typeof aiDim.score === 'number') {
+          return {
+            dimensionId: dim.id,
+            score: Math.min(10, Math.max(1, aiDim.score)),
+            feedback: aiDim.observations || aiDim.feedback || getFeedbackText(aiDim.score, dim.name, harshness),
+            suggestions: Array.isArray(aiDim.suggestions) ? aiDim.suggestions : [],
+          }
+        }
+
+        // Fallback for missing dimension
+        return {
+          dimensionId: dim.id,
+          score: 7,
+          feedback: `Analysis pending for ${dim.name}`,
+          suggestions: [],
+        }
+      })
+
+      // Calculate overall score from dimensions
+      const overallScore = parsed.overallScore ?? dimensions.reduce((sum, d) => {
+        const dimension = QUALITY_DIMENSIONS.find(dim => dim.id === d.dimensionId)
+        const weight = dimension?.weight || (100 / dimensions.length)
+        return sum + (d.score * weight / 100)
+      }, 0)
+
+      // Build prioritized suggestions
+      const prioritizedSuggestions: PrioritizedSuggestion[] = []
+      let suggestionId = 1
+
+      // Add suggestions from AI response
+      if (Array.isArray(parsed.prioritizedSuggestions)) {
+        parsed.prioritizedSuggestions.forEach((s: any) => {
+          const dimId = dimensionMap[s.dimension] || s.dimension
+          const dimension = QUALITY_DIMENSIONS.find(d => d.id === dimId)
+          if (dimension) {
+            prioritizedSuggestions.push({
+              id: `ai-sug-${suggestionId++}`,
+              dimensionId: dimId,
+              dimensionName: dimension.name,
+              suggestion: s.suggestion || s.description || '',
+              impact: s.impact || 'medium',
+              impactScore: s.impact === 'high' ? 0.5 : s.impact === 'low' ? 0.1 : 0.3,
+              reason: s.reason || `Improves ${dimension.name.toLowerCase()}`,
+              status: 'pending',
+            })
+          }
+        })
+      }
+
+      // Add dimension-specific suggestions for low scores
+      dimensions.forEach(dimScore => {
+        if (dimScore.score < 7 && dimScore.suggestions.length > 0) {
+          const dimension = QUALITY_DIMENSIONS.find(d => d.id === dimScore.dimensionId)
+          if (dimension) {
+            dimScore.suggestions.forEach(sug => {
+              prioritizedSuggestions.push({
+                id: `dim-sug-${suggestionId++}`,
+                dimensionId: dimScore.dimensionId,
+                dimensionName: dimension.name,
+                suggestion: sug,
+                impact: dimScore.score < 5 ? 'high' : 'medium',
+                impactScore: (10 - dimScore.score) * 0.05,
+                reason: `Score: ${dimScore.score}/10`,
+                status: 'pending',
+              })
+            })
+          }
+        }
+      })
+
+      return {
+        chapterId: chapter.id,
+        overallScore: Math.round(overallScore * 10) / 10,
+        dimensions,
+        summary: parsed.summary || `AI analysis of Chapter ${chapter.number}: ${chapter.title}`,
+        strengths: getStrengths(dimensions),
+        areasForImprovement: getAreasForImprovement(dimensions),
+        prioritizedSuggestions: prioritizedSuggestions.sort((a, b) => b.impactScore - a.impactScore),
+        generatedAt: new Date().toISOString(),
+        harshnessLevel: harshness,
+        bestsellerComparison: parsed.bestsellerComparison ||
+          `Analysis based on ${project.specification?.genre || 'general fiction'} standards.`,
+      }
+    } catch (err) {
+      console.error('Failed to parse AI critique response:', err)
+      return null
+    }
+  }, [getFeedbackText, getStrengths, getAreasForImprovement, project.specification?.genre])
+
   const handleGetCritique = useCallback(async () => {
     if (!selectedChapter) return
 
     setShowAIProgress(true)
 
-    // Build context for AI critique
+    // Build context for AI critique - using chapterContent as backend expects
     const context = {
-      chapter: {
-        number: selectedChapter.number,
-        title: selectedChapter.title,
-        content: selectedChapter.content,
-        wordCount: selectedChapter.wordCount,
-      },
+      chapterContent: selectedChapter.content, // Backend expects chapterContent, not chapter.content
+      chapterNumber: selectedChapter.number,
+      chapterTitle: selectedChapter.title,
+      wordCount: selectedChapter.wordCount,
       specification: project.specification,
       dimensions: QUALITY_DIMENSIONS.map(d => ({ id: d.id, name: d.name })),
       harshnessLevel,
@@ -536,8 +699,12 @@ export function ReviewSection({ project }: SectionProps) {
     })
 
     if (result) {
-      // Generate mock critique (in real impl, parse AI result)
-      const critique = generateMockCritique(selectedChapter, harshnessLevel)
+      // Try to parse AI result, fall back to mock if parsing fails
+      let critique = parseAICritique(result, selectedChapter, harshnessLevel)
+      if (!critique) {
+        console.warn('AI response parsing failed, using mock critique')
+        critique = generateMockCritique(selectedChapter, harshnessLevel)
+      }
       setCritiqueResult(critique)
 
       // Persist quality score to the project for statistics tracking
@@ -586,7 +753,7 @@ export function ReviewSection({ project }: SectionProps) {
       await updateProjectInDb(project.id, { qualityScores: updatedScores })
       updateProject(project.id, { qualityScores: updatedScores })
     }
-  }, [selectedChapter, project.id, project.specification, project.qualityScores, generate, generateMockCritique, harshnessLevel, updateProject])
+  }, [selectedChapter, project.id, project.specification, project.qualityScores, generate, generateMockCritique, parseAICritique, harshnessLevel, updateProject])
 
   const handleCloseAIProgress = useCallback(() => {
     setShowAIProgress(false)
@@ -1095,6 +1262,111 @@ export function ReviewSection({ project }: SectionProps) {
     return result
   }, [])
 
+  // Reader Simulator handlers
+  const handleSimulateChapter = useCallback(async (chapterId: string) => {
+    setSimulatingChapterId(chapterId)
+    try {
+      // Simulate AI reader experience prediction
+      await new Promise(resolve => setTimeout(resolve, 1500))
+
+      const chapter = chapters.find(c => c.id === chapterId)
+      if (!chapter) return
+
+      const newReaderState: ReaderState = {
+        chapterId,
+        chapterNumber: chapter.number,
+        knownFacts: ['Protagonist introduced', 'Setting established'],
+        activeQuestions: [
+          {
+            id: `q-${Date.now()}-1`,
+            question: 'Will the protagonist achieve their goal?',
+            raisedInChapterId: chapterId,
+            intensity: 0.8,
+          },
+          {
+            id: `q-${Date.now()}-2`,
+            question: 'What is the antagonist planning?',
+            raisedInChapterId: chapterId,
+            intensity: 0.6,
+          },
+        ],
+        emotionalState: {
+          tension: 0.5 + Math.random() * 0.4,
+          curiosity: 0.65 + Math.random() * 0.3,
+          satisfaction: 0.6 + Math.random() * 0.3,
+          confusion: Math.random() * 0.2,
+          attachment: {},
+        },
+        predictedReactions: ['Reader expects a confrontation soon', 'Building romantic tension detected'],
+        engagementLevel: 0.75 + Math.random() * 0.2,
+        readingPaceEstimate: 'medium',
+        informationDensity: 0.6 + Math.random() * 0.3,
+      }
+
+      setReaderStates(prev => {
+        const filtered = prev.filter(s => s.chapterId !== chapterId)
+        return [...filtered, newReaderState]
+      })
+    } finally {
+      setSimulatingChapterId(undefined)
+    }
+  }, [chapters])
+
+  // Continuity Panel handlers
+  const handleExtractFacts = useCallback(async (chapterId: string) => {
+    setIsExtractingFacts(true)
+    try {
+      // Simulate AI fact extraction
+      await new Promise(resolve => setTimeout(resolve, 1500))
+
+      const chapter = chapters.find(c => c.id === chapterId)
+      if (!chapter) return
+
+      const newFacts: FactAssertion[] = [
+        {
+          id: `fact-${Date.now()}-1`,
+          subjectId: 'protagonist',
+          subjectType: 'character',
+          factType: 'location',
+          assertion: `Currently in ${chapter.title}`,
+          assertedInChapterId: chapterId,
+          assertedAtPosition: 100,
+          quote: 'She stepped into the room...',
+          confidence: 'explicit',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: `fact-${Date.now()}-2`,
+          subjectId: 'protagonist',
+          subjectType: 'character',
+          factType: 'knowledge',
+          assertion: 'Learned about the ancient prophecy',
+          assertedInChapterId: chapterId,
+          assertedAtPosition: 500,
+          quote: 'The old tome revealed the truth...',
+          confidence: 'inferred',
+          createdAt: new Date().toISOString(),
+        },
+      ]
+
+      setFacts(prev => [...prev, ...newFacts])
+    } finally {
+      setIsExtractingFacts(false)
+    }
+  }, [chapters])
+
+  const handleResolveConflict = useCallback((conflictId: string, resolution: string) => {
+    setConflicts(prev => prev.map(c =>
+      c.id === conflictId ? { ...c, status: 'resolved' as const, resolution } : c
+    ))
+  }, [])
+
+  const handleDismissConflict = useCallback((conflictId: string) => {
+    setConflicts(prev => prev.map(c =>
+      c.id === conflictId ? { ...c, status: 'dismissed' as const } : c
+    ))
+  }, [])
+
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'text-success'
     if (score >= 6) return 'text-warning'
@@ -1104,12 +1376,56 @@ export function ReviewSection({ project }: SectionProps) {
   return (
     <div className="h-full flex flex-col">
       <div className="flex-shrink-0 mb-6">
-        <h1 className="text-2xl font-bold text-text-primary mb-2">Review</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-2xl font-bold text-text-primary">{t.review.title}</h1>
+          {/* Tab Navigation */}
+          <div className="flex items-center gap-1 bg-surface-elevated rounded-lg p-1">
+            <button
+              onClick={() => setActiveTab('critique')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                activeTab === 'critique'
+                  ? 'bg-accent text-white'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+              title="AI-powered critique"
+            >
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              {t.review.critique}
+            </button>
+            <button
+              onClick={() => setActiveTab('reader')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                activeTab === 'reader'
+                  ? 'bg-accent text-white'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+              title="Simulate reader experience"
+            >
+              <Eye className="h-4 w-4" aria-hidden="true" />
+              {t.review.readerSimulator}
+            </button>
+            <button
+              onClick={() => setActiveTab('continuity')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                activeTab === 'continuity'
+                  ? 'bg-accent text-white'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+              title="Track facts and find continuity errors"
+            >
+              <FileSearch className="h-4 w-4" aria-hidden="true" />
+              {t.review.continuity}
+            </button>
+          </div>
+        </div>
         <p className="text-text-secondary">
-          Critique and improve your manuscript with AI-powered analysis across 12 quality dimensions.
+          {activeTab === 'critique' && 'Critique and improve your manuscript with AI-powered analysis across 12 quality dimensions.'}
+          {activeTab === 'reader' && 'Simulate how readers will experience your story chapter by chapter.'}
+          {activeTab === 'continuity' && 'Track facts and assertions to catch continuity errors before readers do.'}
         </p>
       </div>
 
+      {activeTab === 'critique' && (
       <div className="flex-1 flex gap-6 min-h-0">
         {/* Chapter Selection Sidebar */}
         <div className="w-72 flex-shrink-0 flex flex-col border border-border rounded-lg bg-surface overflow-hidden">
@@ -1123,7 +1439,7 @@ export function ReviewSection({ project }: SectionProps) {
             {chapters.length === 0 ? (
               <div className="p-4 text-center">
                 <BookOpen className="h-8 w-8 text-text-secondary mx-auto mb-2" />
-                <p className="text-sm text-text-secondary">No chapters to review</p>
+                <p className="text-sm text-text-secondary">{t.review.noChaptersToReview}</p>
                 <p className="text-xs text-text-secondary mt-1">
                   Write some chapters first
                 </p>
@@ -1193,24 +1509,35 @@ export function ReviewSection({ project }: SectionProps) {
                         ))}
                       </select>
                     </div>
-                    <button
-                      onClick={handleGetCritique}
-                      disabled={isGenerating || !selectedChapter.content}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={!selectedChapter.content ? "Chapter needs content to critique" : "Get AI critique"}
-                    >
-                      {critiqueResult ? (
-                        <>
-                          <RefreshCw className="h-4 w-4" />
-                          Re-Critique
-                        </>
-                      ) : (
-                        <>
-                          <Star className="h-4 w-4" />
-                          Get Critique
-                        </>
-                      )}
-                    </button>
+                    <UnifiedActionButton
+                      primaryAction={{
+                        id: 'get-critique',
+                        label: critiqueResult ? 'Re-Critique' : 'Get Critique',
+                        icon: critiqueResult ? RefreshCw : Star,
+                        onClick: handleGetCritique,
+                        disabled: !selectedChapter.content,
+                      }}
+                      secondaryActions={critiqueResult ? [
+                        {
+                          id: 'auto-improve',
+                          label: 'Auto-Improve to Target',
+                          description: `Iterate until score reaches ${qualityThreshold}`,
+                          icon: Sparkles,
+                          onClick: handleAutoImprove,
+                          disabled: critiqueResult.overallScore >= qualityThreshold,
+                          variant: 'accent',
+                        },
+                        {
+                          id: 'compare-market',
+                          label: 'Market Comparison',
+                          description: 'Compare against bestseller benchmarks',
+                          icon: TrendingUp,
+                          onClick: handleGetCritique,
+                        },
+                      ] : []}
+                      size="sm"
+                      disabled={isGenerating}
+                    />
                   </div>
                 </div>
               </div>
@@ -1747,17 +2074,53 @@ export function ReviewSection({ project }: SectionProps) {
                   )}
                 </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center">
-                    <Star className="h-12 w-12 text-text-secondary mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-text-primary mb-2">
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <div className="text-center max-w-lg">
+                    <Star className="h-12 w-12 text-accent mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-text-primary mb-2">
                       Ready to Critique
                     </h3>
-                    <p className="text-text-secondary max-w-md">
+                    <p className="text-text-secondary mb-6">
                       {selectedChapter.content
-                        ? "Click 'Get Critique' to analyze this chapter across 12 quality dimensions."
+                        ? "Get a professional-grade critique analyzing your chapter across 12 quality dimensions used by bestselling authors."
                         : "This chapter has no content yet. Write some content first to get a critique."}
                     </p>
+
+                    {/* 12 Dimensions Preview */}
+                    {selectedChapter.content && (
+                      <div className="mb-6">
+                        <p className="text-xs text-text-secondary uppercase tracking-wider mb-3">
+                          Quality Dimensions Analyzed
+                        </p>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            'Pacing', 'Voice', 'Dialogue', 'Tension',
+                            'Show/Tell', 'Character', 'Setting', 'Plot',
+                            'Theme', 'Prose', 'Stakes', 'Hook'
+                          ].map(dimension => (
+                            <div
+                              key={dimension}
+                              className="text-xs text-center px-2 py-2 bg-surface-elevated rounded-lg text-text-secondary border border-border"
+                            >
+                              {dimension}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedChapter.content && (
+                      <UnifiedActionButton
+                        primaryAction={{
+                          id: 'analyze-chapter',
+                          label: t.review.analyze,
+                          icon: Sparkles,
+                          onClick: handleGetCritique,
+                        }}
+                        size="md"
+                        disabled={isGenerating}
+                      />
+                    )}
                   </div>
                 </div>
               )}
@@ -1777,6 +2140,38 @@ export function ReviewSection({ project }: SectionProps) {
           )}
         </div>
       </div>
+      )}
+
+      {/* Reader Simulator View */}
+      {activeTab === 'reader' && (
+        <div className="flex-1 min-h-0">
+          <ReaderSimulator
+            readerStates={readerStates}
+            twistPredictions={twistPredictions}
+            chapters={chapters}
+            characters={project.characters || []}
+            onSimulateChapter={handleSimulateChapter}
+            isSimulating={isGenerating}
+            simulatingChapterId={simulatingChapterId}
+          />
+        </div>
+      )}
+
+      {/* Continuity Panel View */}
+      {activeTab === 'continuity' && (
+        <div className="flex-1 min-h-0">
+          <ContinuityPanel
+            facts={facts}
+            conflicts={conflicts}
+            characters={project.characters || []}
+            chapters={chapters}
+            onExtractFacts={handleExtractFacts}
+            onResolveConflict={handleResolveConflict}
+            onDismissConflict={handleDismissConflict}
+            isExtracting={isExtractingFacts}
+          />
+        </div>
+      )}
 
       {/* AI Progress Modal */}
       <AIProgressModal

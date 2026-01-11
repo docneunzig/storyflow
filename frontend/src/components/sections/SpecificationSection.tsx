@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ChevronDown, ChevronUp, RotateCcw, Sparkles, X } from 'lucide-react'
-import type { Project, NovelSpecification, TargetAudience, POV, Tense } from '@/types/project'
+import { ChevronDown, ChevronUp, RotateCcw, Sparkles, X, Sword, Search, Rocket, Heart, Brain, Users, type LucideIcon } from 'lucide-react'
+import type { Project, NovelSpecification, TargetAudience, POV, Tense, NovelLanguage, ChildrensAgeCategory } from '@/types/project'
+import { useLanguageStore } from '@/stores/languageStore'
 import { updateProject as updateProjectInDb } from '@/lib/db'
 import { useProjectStore } from '@/stores/projectStore'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
@@ -30,6 +31,13 @@ const SUBGENRES: Record<string, string[]> = {
 }
 
 const TARGET_AUDIENCES: TargetAudience[] = ['Children', 'Middle Grade', 'YA', 'New Adult', 'Adult']
+
+// Audiences that show age category selector
+const YOUTH_AUDIENCES: TargetAudience[] = ['Children', 'Middle Grade', 'YA']
+
+const NOVEL_LANGUAGES: NovelLanguage[] = ['en', 'de', 'fr', 'es', 'it']
+
+const AGE_CATEGORIES: ChildrensAgeCategory[] = ['4-6', '7-10', '11-14', '15-18']
 
 const POVS: POV[] = ['First Person', 'Third Limited', 'Third Omniscient', 'Second Person', 'Multiple POV']
 
@@ -64,16 +72,22 @@ const STYLE_AUTHORS = [
 ]
 
 // Genre templates with pre-filled defaults
+type TemplateId = 'epicFantasy' | 'cozyMystery' | 'spaceOpera' | 'contemporaryRomance' | 'psychologicalThriller' | 'yaComingOfAge'
+
 interface GenreTemplate {
-  name: string
-  description: string
+  id: TemplateId
+  icon: LucideIcon
+  color: string
+  popular?: boolean
   defaults: Partial<NovelSpecification>
 }
 
 const GENRE_TEMPLATES: GenreTemplate[] = [
   {
-    name: 'Epic Fantasy',
-    description: 'Grand worldbuilding, multiple POVs, complex plots',
+    id: 'epicFantasy',
+    icon: Sword,
+    color: 'from-purple-500 to-indigo-600',
+    popular: true,
     defaults: {
       genre: ['Fantasy'],
       subgenre: ['Epic Fantasy'],
@@ -91,8 +105,9 @@ const GENRE_TEMPLATES: GenreTemplate[] = [
     }
   },
   {
-    name: 'Cozy Mystery',
-    description: 'Light-hearted, amateur sleuth, small community',
+    id: 'cozyMystery',
+    icon: Search,
+    color: 'from-amber-500 to-orange-600',
     defaults: {
       genre: ['Mystery'],
       subgenre: ['Cozy Mystery'],
@@ -110,8 +125,9 @@ const GENRE_TEMPLATES: GenreTemplate[] = [
     }
   },
   {
-    name: 'Space Opera',
-    description: 'Grand space adventures, alien civilizations',
+    id: 'spaceOpera',
+    icon: Rocket,
+    color: 'from-blue-500 to-cyan-600',
     defaults: {
       genre: ['Science Fiction'],
       subgenre: ['Space Opera'],
@@ -129,8 +145,10 @@ const GENRE_TEMPLATES: GenreTemplate[] = [
     }
   },
   {
-    name: 'Contemporary Romance',
-    description: 'Modern love stories, emotional depth',
+    id: 'contemporaryRomance',
+    icon: Heart,
+    color: 'from-pink-500 to-rose-600',
+    popular: true,
     defaults: {
       genre: ['Romance'],
       subgenre: ['Contemporary Romance'],
@@ -148,8 +166,9 @@ const GENRE_TEMPLATES: GenreTemplate[] = [
     }
   },
   {
-    name: 'Psychological Thriller',
-    description: 'Mind games, unreliable narrators, suspense',
+    id: 'psychologicalThriller',
+    icon: Brain,
+    color: 'from-gray-500 to-slate-600',
     defaults: {
       genre: ['Thriller'],
       subgenre: ['Psychological Thriller'],
@@ -167,8 +186,10 @@ const GENRE_TEMPLATES: GenreTemplate[] = [
     }
   },
   {
-    name: 'YA Coming of Age',
-    description: 'Teen protagonists, first experiences, growth',
+    id: 'yaComingOfAge',
+    icon: Users,
+    color: 'from-green-500 to-teal-600',
+    popular: true,
     defaults: {
       genre: ['Young Adult'],
       subgenre: [],
@@ -191,6 +212,7 @@ const defaultSpecification: NovelSpecification = {
   genre: [],
   subgenre: [],
   targetAudience: 'Adult',
+  novelLanguage: 'en',
   writingStyle: { reference: '', custom: '' },
   tone: '',
   pov: 'Third Limited',
@@ -241,6 +263,7 @@ function AccordionSection({ title, id, isExpanded, onToggle, children }: Accordi
 
 export function SpecificationSection({ project }: SectionProps) {
   const { updateProject, setSaveStatus } = useProjectStore()
+  const t = useLanguageStore((state) => state.t)
 
   const [workingTitle, setWorkingTitle] = useState(project.metadata?.workingTitle || 'Untitled Novel')
   const [authorName, setAuthorName] = useState(project.metadata?.authorName || '')
@@ -253,6 +276,7 @@ export function SpecificationSection({ project }: SectionProps) {
   // Accordion state - all sections expanded by default
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     basic: true,
+    language: true,
     templates: true,
     genre: true,
     audience: true,
@@ -263,6 +287,9 @@ export function SpecificationSection({ project }: SectionProps) {
     themes: true,
     pacing: true,
   })
+
+  // Check if audience requires age category selection
+  const showAgeCategory = YOUTH_AUDIENCES.includes(spec.targetAudience)
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => ({
@@ -575,24 +602,24 @@ export function SpecificationSection({ project }: SectionProps) {
   return (
     <div className="max-w-4xl pb-12">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold text-text-primary">Novel Specification</h1>
+        <h1 className="text-2xl font-bold text-text-primary">{t.specification.title}</h1>
         <button
           onClick={handleReset}
           className="flex items-center gap-2 px-3 py-1.5 text-sm border border-border rounded-lg text-text-secondary hover:text-text-primary hover:border-accent transition-colors"
-          title="Reset to default values"
+          title={t.specification.resetToDefaults}
         >
           <RotateCcw className="h-4 w-4" aria-hidden="true" />
-          Reset to Defaults
+          {t.specification.resetToDefaults}
         </button>
       </div>
       <p className="text-text-secondary mb-8">
-        Define all parameters that shape your novel before writing begins.
+        {t.specification.subtitle}
       </p>
 
       <div className="space-y-4">
         {/* Basic Information */}
         <AccordionSection
-          title="Basic Information"
+          title={t.specification.basicInfo}
           id="basic"
           isExpanded={expandedSections.basic}
           onToggle={() => toggleSection('basic')}
@@ -600,7 +627,7 @@ export function SpecificationSection({ project }: SectionProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Working Title <span className="text-red-500">*</span>
+                {t.specification.workingTitle} <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-2">
                 <input
@@ -612,13 +639,13 @@ export function SpecificationSection({ project }: SectionProps) {
                   className={`flex-1 px-3 py-2 bg-surface border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none ${
                     errors.workingTitle ? 'border-error' : 'border-border'
                   }`}
-                  placeholder="Enter your novel's title"
+                  placeholder={t.placeholders.enterTitle}
                 />
                 <button
                   onClick={handleSuggestTitles}
                   disabled={isGenerating}
                   className="px-3 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
-                  title="Get AI title suggestions"
+                  title={t.placeholders.suggestTitles}
                 >
                   <Sparkles className="h-4 w-4" />
                 </button>
@@ -630,14 +657,14 @@ export function SpecificationSection({ project }: SectionProps) {
 
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Author Name
+                {t.specification.authorName}
               </label>
               <input
                 type="text"
                 value={authorName}
                 onChange={(e) => handleAuthorChange(e.target.value)}
                 className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none"
-                placeholder="Your name or pen name"
+                placeholder={t.placeholders.penName}
               />
             </div>
           </div>
@@ -645,43 +672,67 @@ export function SpecificationSection({ project }: SectionProps) {
 
         {/* Quick Start Templates */}
         <AccordionSection
-          title="Quick Start Templates"
+          title={t.specification.quickStartTemplates}
           id="templates"
           isExpanded={expandedSections.templates}
           onToggle={() => toggleSection('templates')}
         >
           <p className="text-sm text-text-secondary mb-4">
-            Choose a template to pre-fill settings for your genre. You can customize everything afterward.
+            {t.specification.templatesDescription}
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {GENRE_TEMPLATES.map(template => (
-              <button
-                key={template.name}
-                onClick={() => applyTemplate(template)}
-                className="p-4 text-left bg-surface-elevated border border-border rounded-lg hover:border-accent hover:bg-surface transition-colors group"
-              >
-                <h3 className="font-medium text-text-primary group-hover:text-accent transition-colors">
-                  {template.name}
-                </h3>
-                <p className="text-xs text-text-secondary mt-1">
-                  {template.description}
-                </p>
-              </button>
-            ))}
+            {GENRE_TEMPLATES.map(template => {
+              const IconComponent = template.icon
+              const templateName = t.templates[template.id]
+              const templateDesc = t.templates[`${template.id}Desc` as keyof typeof t.templates]
+              return (
+                <button
+                  key={template.id}
+                  onClick={() => applyTemplate(template)}
+                  className="relative p-4 text-left bg-surface-elevated border border-border rounded-lg hover:border-accent hover:shadow-md transition-all group overflow-hidden"
+                >
+                  {/* Gradient accent bar */}
+                  <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${template.color}`} />
+
+                  {/* Popular badge */}
+                  {template.popular && (
+                    <span className="absolute top-2 right-2 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-accent/20 text-accent">
+                      {t.templates.popular}
+                    </span>
+                  )}
+
+                  <div className="flex items-start gap-3 mt-1">
+                    {/* Icon with gradient background */}
+                    <div className={`flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br ${template.color} flex items-center justify-center shadow-sm`}>
+                      <IconComponent className="w-5 h-5 text-white" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-text-primary group-hover:text-accent transition-colors">
+                        {templateName}
+                      </h3>
+                      <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">
+                        {templateDesc}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </AccordionSection>
 
         {/* Genre Selection */}
         <AccordionSection
-          title="Genre"
+          title={t.specification.genre}
           id="genre"
           isExpanded={expandedSections.genre}
           onToggle={() => toggleSection('genre')}
         >
           <div className="mb-4">
             <label className="block text-sm font-medium text-text-secondary mb-2">
-              Primary Genre(s)
+              {t.specification.primaryGenres}
             </label>
             <div className="flex flex-wrap gap-2">
               {GENRES.map(genre => (
@@ -703,7 +754,7 @@ export function SpecificationSection({ project }: SectionProps) {
           {availableSubgenres.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">
-                Subgenre(s)
+                {t.specification.subgenres}
               </label>
               <div className="flex flex-wrap gap-2">
                 {availableSubgenres.map(subgenre => (
@@ -726,7 +777,7 @@ export function SpecificationSection({ project }: SectionProps) {
 
         {/* Target Audience */}
         <AccordionSection
-          title="Target Audience"
+          title={t.specification.targetAudience}
           id="audience"
           isExpanded={expandedSections.audience}
           onToggle={() => toggleSection('audience')}
@@ -746,11 +797,70 @@ export function SpecificationSection({ project }: SectionProps) {
               </button>
             ))}
           </div>
+
+          {/* Age Category - shown only for youth audiences */}
+          {showAgeCategory && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                {t.ageCategories.label}
+              </label>
+              <p className="text-xs text-text-secondary mb-3">
+                {t.ageCategories.description}
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {AGE_CATEGORIES.map(category => (
+                  <button
+                    key={category}
+                    onClick={() => updateSpec('childrensAgeCategory', spec.childrensAgeCategory === category ? undefined : category)}
+                    className={`p-3 rounded-lg text-sm transition-colors text-left ${
+                      spec.childrensAgeCategory === category
+                        ? 'bg-accent text-white'
+                        : 'bg-surface-elevated border border-border text-text-secondary hover:border-accent'
+                    }`}
+                  >
+                    <span className="block font-medium">{t.ageCategories.options[category]}</span>
+                    <span className={`block text-xs mt-0.5 ${
+                      spec.childrensAgeCategory === category ? 'text-white/80' : 'text-text-secondary'
+                    }`}>
+                      {t.ageCategories.options[`${category}-desc` as keyof typeof t.ageCategories.options]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </AccordionSection>
+
+        {/* Novel Language */}
+        <AccordionSection
+          title={t.novelLanguage.label}
+          id="language"
+          isExpanded={expandedSections.language}
+          onToggle={() => toggleSection('language')}
+        >
+          <p className="text-sm text-text-secondary mb-3">
+            {t.novelLanguage.description}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {NOVEL_LANGUAGES.map(lang => (
+              <button
+                key={lang}
+                onClick={() => updateSpec('novelLanguage', lang)}
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                  spec.novelLanguage === lang
+                    ? 'bg-accent text-white'
+                    : 'bg-surface-elevated border border-border text-text-secondary hover:border-accent'
+                }`}
+              >
+                {t.novelLanguage.options[lang]}
+              </button>
+            ))}
+          </div>
         </AccordionSection>
 
         {/* Writing Style */}
         <AccordionSection
-          title="Writing Style"
+          title={t.specification.writingStyle}
           id="style"
           isExpanded={expandedSections.style}
           onToggle={() => toggleSection('style')}
@@ -758,34 +868,34 @@ export function SpecificationSection({ project }: SectionProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Style Reference (Famous Author)
+                {t.specification.styleReference}
               </label>
               <SearchableSelect
                 options={STYLE_AUTHORS}
                 value={spec.writingStyle.reference}
                 onChange={(value) => updateSpec('writingStyle', { ...spec.writingStyle, reference: value })}
-                placeholder="Select an author..."
-                searchPlaceholder="Search authors..."
+                placeholder={t.placeholders.selectAuthor}
+                searchPlaceholder={t.placeholders.searchAuthors}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Custom Style Notes
+                {t.specification.customStyleNotes}
               </label>
               <input
                 type="text"
                 value={spec.writingStyle.custom}
                 onChange={(e) => updateSpec('writingStyle', { ...spec.writingStyle, custom: e.target.value })}
                 className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none"
-                placeholder="e.g., sparse but evocative"
+                placeholder={t.placeholders.styleNotes}
               />
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1">
-              Tone
+              {t.specification.tone}
             </label>
             <div className="flex gap-2">
               <input
@@ -793,13 +903,13 @@ export function SpecificationSection({ project }: SectionProps) {
                 value={spec.tone}
                 onChange={(e) => updateSpec('tone', e.target.value)}
                 className="flex-1 px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none"
-                placeholder="e.g., Dark and gritty with moments of dark humor"
+                placeholder={t.placeholders.tone}
               />
               <button
                 onClick={handleSuggestTones}
                 disabled={isGenerating}
                 className="px-3 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
-                title="Get AI tone suggestions"
+                title={t.placeholders.suggestTone}
               >
                 <Sparkles className="h-4 w-4" />
               </button>
@@ -809,7 +919,7 @@ export function SpecificationSection({ project }: SectionProps) {
 
         {/* Narrative Structure */}
         <AccordionSection
-          title="Narrative Structure"
+          title={t.specification.narrativeStructure}
           id="narrative"
           isExpanded={expandedSections.narrative}
           onToggle={() => toggleSection('narrative')}
@@ -817,7 +927,7 @@ export function SpecificationSection({ project }: SectionProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">
-                Point of View
+                {t.specification.pointOfView}
               </label>
               <div className="flex flex-wrap gap-2">
                 {POVS.map(pov => (
@@ -838,7 +948,7 @@ export function SpecificationSection({ project }: SectionProps) {
 
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">
-                Tense
+                {t.specification.tense}
               </label>
               <div className="flex gap-2">
                 {TENSES.map(tense => (
@@ -851,7 +961,7 @@ export function SpecificationSection({ project }: SectionProps) {
                         : 'bg-surface-elevated border border-border text-text-secondary hover:border-accent'
                     }`}
                   >
-                    {tense}
+                    {t.tenseOptions[tense === 'Past' ? 'past' : 'present']}
                   </button>
                 ))}
               </div>
@@ -861,7 +971,7 @@ export function SpecificationSection({ project }: SectionProps) {
 
         {/* Length Targets */}
         <AccordionSection
-          title="Length Targets"
+          title={t.specification.lengthTargets}
           id="length"
           isExpanded={expandedSections.length}
           onToggle={() => toggleSection('length')}
@@ -869,7 +979,7 @@ export function SpecificationSection({ project }: SectionProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Target Word Count
+                {t.specification.targetWordCount}
               </label>
               <input
                 type="number"
@@ -885,13 +995,13 @@ export function SpecificationSection({ project }: SectionProps) {
               {errors.targetWordCount ? (
                 <p className="text-xs text-error mt-1">{errors.targetWordCount}</p>
               ) : (
-                <p className="text-xs text-text-secondary mt-1">Typical: 50,000 - 120,000 words</p>
+                <p className="text-xs text-text-secondary mt-1">{t.placeholders.typicalWordCount}</p>
               )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Target Chapter Count
+                {t.specification.targetChapterCount}
               </label>
               <input
                 type="number"
@@ -912,7 +1022,7 @@ export function SpecificationSection({ project }: SectionProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Min Chapter Length (words)
+                {t.specification.minChapterLength}
               </label>
               <input
                 type="number"
@@ -927,7 +1037,7 @@ export function SpecificationSection({ project }: SectionProps) {
 
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Max Chapter Length (words)
+                {t.specification.maxChapterLength}
               </label>
               <input
                 type="number"
@@ -944,14 +1054,14 @@ export function SpecificationSection({ project }: SectionProps) {
 
         {/* Setting */}
         <AccordionSection
-          title="Setting"
+          title={t.specification.setting}
           id="setting"
           isExpanded={expandedSections.setting}
           onToggle={() => toggleSection('setting')}
         >
           <div className="mb-4">
             <label className="block text-sm font-medium text-text-secondary mb-2">
-              Setting Type(s)
+              {t.specification.settingTypes}
             </label>
             <div className="flex flex-wrap gap-2">
               {SETTING_TYPES.map(setting => (
@@ -972,35 +1082,35 @@ export function SpecificationSection({ project }: SectionProps) {
 
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1">
-              Time Period
+              {t.specification.timePeriod}
             </label>
             <input
               type="text"
               value={spec.timePeriod}
               onChange={(e) => updateSpec('timePeriod', e.target.value)}
               className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none"
-              placeholder="e.g., Present day, Victorian era, 2150 AD"
+              placeholder={t.placeholders.timePeriod}
             />
           </div>
         </AccordionSection>
 
         {/* Themes */}
         <AccordionSection
-          title="Themes"
+          title={t.specification.themes}
           id="themes"
           isExpanded={expandedSections.themes}
           onToggle={() => toggleSection('themes')}
         >
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-text-secondary">Select themes that resonate with your story</p>
+            <p className="text-sm text-text-secondary">{t.specification.themesDescription}</p>
             <button
               onClick={handleSuggestThemes}
               disabled={isGenerating}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
-              title="Get AI theme suggestions"
+              title={t.specification.suggestThemes}
             >
               <Sparkles className="h-4 w-4" />
-              Suggest Themes
+              {t.specification.suggestThemes}
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1022,7 +1132,7 @@ export function SpecificationSection({ project }: SectionProps) {
 
         {/* Pacing & Complexity */}
         <AccordionSection
-          title="Pacing & Complexity"
+          title={t.specification.pacingComplexity}
           id="pacing"
           isExpanded={expandedSections.pacing}
           onToggle={() => toggleSection('pacing')}
@@ -1030,11 +1140,11 @@ export function SpecificationSection({ project }: SectionProps) {
           <div className="space-y-6">
             <div>
               <div className="flex justify-between text-sm text-text-secondary mb-2">
-                <span>Pacing</span>
+                <span>{t.specification.pacing}</span>
                 <span>{spec.pacing}/10</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-text-secondary w-20">Slow burn</span>
+                <span className="text-xs text-text-secondary w-20">{t.specification.slowBurn}</span>
                 <input
                   type="range"
                   min={1}
@@ -1043,17 +1153,17 @@ export function SpecificationSection({ project }: SectionProps) {
                   onChange={(e) => updateSpec('pacing', parseInt(e.target.value))}
                   className="flex-1 h-2 bg-surface-elevated rounded-lg appearance-none cursor-pointer accent-accent"
                 />
-                <span className="text-xs text-text-secondary w-20 text-right">Fast-paced</span>
+                <span className="text-xs text-text-secondary w-20 text-right">{t.specification.fastPaced}</span>
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-sm text-text-secondary mb-2">
-                <span>Complexity</span>
+                <span>{t.specification.complexity}</span>
                 <span>{spec.complexity}/10</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-text-secondary w-20">Simple/Linear</span>
+                <span className="text-xs text-text-secondary w-20">{t.specification.simpleLinear}</span>
                 <input
                   type="range"
                   min={1}
@@ -1062,7 +1172,7 @@ export function SpecificationSection({ project }: SectionProps) {
                   onChange={(e) => updateSpec('complexity', parseInt(e.target.value))}
                   className="flex-1 h-2 bg-surface-elevated rounded-lg appearance-none cursor-pointer accent-accent"
                 />
-                <span className="text-xs text-text-secondary w-20 text-right">Complex</span>
+                <span className="text-xs text-text-secondary w-20 text-right">{t.specification.complex}</span>
               </div>
             </div>
           </div>

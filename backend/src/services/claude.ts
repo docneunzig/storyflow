@@ -1,7 +1,92 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { spawn } from 'child_process'
+import { existsSync } from 'fs'
+import { homedir } from 'os'
+import { join } from 'path'
 
-// Initialize Anthropic client - uses ANTHROPIC_API_KEY env var by default
-const anthropic = new Anthropic()
+// Check if Claude CLI is authenticated (has history.jsonl from prior use)
+export function isClaudeCliAuthenticated(): boolean {
+  const historyPath = join(homedir(), '.claude', 'history.jsonl')
+  return existsSync(historyPath)
+}
+
+// Legacy function for API key check (kept for backwards compatibility)
+export function isApiKeyConfigured(): boolean {
+  // Now we check for Claude CLI authentication instead
+  return isClaudeCliAuthenticated()
+}
+
+interface ClaudeCliResponse {
+  type: string
+  subtype: string
+  is_error: boolean
+  result: string
+  duration_ms: number
+  total_cost_usd: number
+  usage?: {
+    input_tokens: number
+    output_tokens: number
+  }
+}
+
+// Call Claude CLI with a prompt and return the response
+async function callClaudeCli(prompt: string, systemPrompt?: string): Promise<{ result: string; usage?: { inputTokens: number; outputTokens: number } }> {
+  return new Promise((resolve, reject) => {
+    // Build the command with system prompt if provided
+    const args = ['-p', '--output-format', 'json', '--model', 'sonnet']
+
+    if (systemPrompt) {
+      args.push('--append-system-prompt', systemPrompt)
+    }
+
+    const claude = spawn('claude', args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env },
+    })
+
+    let stdout = ''
+    let stderr = ''
+
+    claude.stdout.on('data', (data) => {
+      stdout += data.toString()
+    })
+
+    claude.stderr.on('data', (data) => {
+      stderr += data.toString()
+    })
+
+    claude.on('error', (err) => {
+      reject(new Error(`Failed to start Claude CLI: ${err.message}. Make sure 'claude' is in your PATH.`))
+    })
+
+    claude.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Claude CLI exited with code ${code}: ${stderr}`))
+        return
+      }
+
+      try {
+        const response: ClaudeCliResponse = JSON.parse(stdout)
+        if (response.is_error) {
+          reject(new Error(`Claude CLI error: ${response.result}`))
+          return
+        }
+        resolve({
+          result: response.result,
+          usage: response.usage ? {
+            inputTokens: response.usage.input_tokens,
+            outputTokens: response.usage.output_tokens,
+          } : undefined,
+        })
+      } catch (err) {
+        reject(new Error(`Failed to parse Claude CLI response: ${stdout}`))
+      }
+    })
+
+    // Send the prompt to stdin
+    claude.stdin.write(prompt)
+    claude.stdin.end()
+  })
+}
 
 // System prompts for different agent types
 const SYSTEM_PROMPTS: Record<string, string> = {
@@ -390,9 +475,9 @@ export function isGenerationCancelled(id: string): boolean {
   return activeGenerations.get(id)?.cancelled ?? false
 }
 
-// Main generation function using Claude
+// Main generation function using Claude CLI (uses Claude Max subscription)
 export async function generateWithClaude(options: GenerationOptions): Promise<GenerationResult> {
-  const { agentType, action, context, generationId, maxTokens = 4096, temperature = 0.7 } = options
+  const { agentType, action, context, generationId } = options
 
   // Check for cancellation before starting
   if (isGenerationCancelled(generationId)) {
@@ -415,40 +500,30 @@ export async function generateWithClaude(options: GenerationOptions): Promise<Ge
   const userPrompt = promptBuilder(context)
 
   try {
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: maxTokens,
-      temperature,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    })
+    console.log(`[Claude CLI] Starting generation for action: ${action}`)
+    const response = await callClaudeCli(userPrompt, systemPrompt)
 
     // Check for cancellation after API call
     if (isGenerationCancelled(generationId)) {
       return { result: '', cancelled: true }
     }
 
-    // Extract text from response
-    const textContent = message.content.find((block) => block.type === 'text')
-    const result = textContent?.type === 'text' ? textContent.text : ''
+    console.log(`[Claude CLI] Generation complete, tokens: ${response.usage?.inputTokens || 'N/A'} in / ${response.usage?.outputTokens || 'N/A'} out`)
 
     return {
-      result,
+      result: response.result,
       cancelled: false,
-      usage: {
-        inputTokens: message.usage.input_tokens,
-        outputTokens: message.usage.output_tokens,
-      },
+      usage: response.usage,
     }
   } catch (error) {
-    console.error('[Claude Service] Generation error:', error)
+    console.error('[Claude CLI] Generation error:', error)
     throw error
   }
 }
 
-// Streaming generation for long content
+// Streaming generation for long content (using CLI, returns full result at once)
 export async function* streamWithClaude(options: GenerationOptions): AsyncGenerator<string, void, unknown> {
-  const { agentType, action, context, generationId, maxTokens = 4096, temperature = 0.7 } = options
+  const { agentType, action, context, generationId } = options
 
   if (isGenerationCancelled(generationId)) {
     return
@@ -464,21 +539,15 @@ export async function* streamWithClaude(options: GenerationOptions): AsyncGenera
 
   const userPrompt = promptBuilder(context)
 
-  const stream = await anthropic.messages.stream({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: maxTokens,
-    temperature,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userPrompt }],
-  })
+  try {
+    // Claude CLI doesn't support streaming, so we yield the full result at once
+    const response = await callClaudeCli(userPrompt, systemPrompt)
 
-  for await (const event of stream) {
-    if (isGenerationCancelled(generationId)) {
-      return
+    if (!isGenerationCancelled(generationId)) {
+      yield response.result
     }
-
-    if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-      yield event.delta.text
-    }
+  } catch (error) {
+    console.error('[Claude CLI] Streaming error:', error)
+    yield `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
   }
 }

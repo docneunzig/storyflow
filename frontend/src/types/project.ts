@@ -15,6 +15,8 @@ export interface Project {
   relationships: CharacterRelationship[]
   revisions: RevisionHistory[]
   qualityScores: ChapterQualityScore[]
+  subplots: Subplot[]
+  subplotTouches: SubplotTouch[]
   statistics: WritingStatistics | null
   marketAnalysis: MarketAnalysis | null
   createdAt: string
@@ -43,6 +45,8 @@ export interface NovelSpecification {
   genre: string[]
   subgenre: string[]
   targetAudience: TargetAudience
+  childrensAgeCategory?: ChildrensAgeCategory // Only used when targetAudience is Children/Middle Grade/YA
+  novelLanguage: NovelLanguage // Language the novel will be written in
   writingStyle: {
     reference: string
     custom: string
@@ -66,6 +70,16 @@ export interface NovelSpecification {
 export type TargetAudience = 'Children' | 'Middle Grade' | 'YA' | 'New Adult' | 'Adult'
 export type POV = 'First Person' | 'Third Limited' | 'Third Omniscient' | 'Second Person' | 'Multiple POV'
 export type Tense = 'Past' | 'Present'
+
+// Novel language for AI generation and content
+export type NovelLanguage = 'en' | 'de' | 'fr' | 'es' | 'it'
+
+// Granular age categories for children's/YA books
+export type ChildrensAgeCategory =
+  | '4-6'   // Picture Book / Early Reader
+  | '7-10'  // Chapter Books
+  | '11-14' // Middle Grade
+  | '15-18' // Young Adult
 
 export interface PlotStructure {
   framework: PlotFramework

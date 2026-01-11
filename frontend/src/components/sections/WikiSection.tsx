@@ -8,22 +8,12 @@ import { WikiEntryModal } from '@/components/ui/WikiEntryModal'
 import { toast } from '@/components/ui/Toaster'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
+import { UnifiedActionButton } from '@/components/ui/UnifiedActionButton'
+import { useLanguageStore } from '@/stores/languageStore'
 
 interface SectionProps {
   project: Project
 }
-
-const WIKI_CATEGORIES: { value: WikiCategory | 'all'; label: string }[] = [
-  { value: 'all', label: 'All Categories' },
-  { value: 'locations', label: 'Locations' },
-  { value: 'characters', label: 'Characters' },
-  { value: 'timeline', label: 'Timeline' },
-  { value: 'magicTechnology', label: 'Magic/Technology' },
-  { value: 'culturesFactions', label: 'Cultures/Factions' },
-  { value: 'objects', label: 'Objects' },
-  { value: 'terminology', label: 'Terminology' },
-  { value: 'rules', label: 'Rules' },
-]
 
 const CATEGORY_COLORS: Record<WikiCategory, string> = {
   locations: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -44,6 +34,7 @@ interface LinkedWikiEntry extends WikiEntry {
 
 export function WikiSection({ project }: SectionProps) {
   const navigate = useNavigate()
+  const t = useLanguageStore((state) => state.t)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<WikiEntry | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -51,10 +42,23 @@ export function WikiSection({ project }: SectionProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
 
+  // Wiki categories with translated labels
+  const wikiCategories: { value: WikiCategory | 'all'; label: string }[] = useMemo(() => [
+    { value: 'all', label: t.wiki.allCategories },
+    { value: 'locations', label: t.wiki.locations },
+    { value: 'characters', label: t.wiki.characters },
+    { value: 'timeline', label: t.wiki.timeline },
+    { value: 'magicTechnology', label: t.wiki.magicTechnology },
+    { value: 'culturesFactions', label: t.wiki.culturesFactions },
+    { value: 'objects', label: t.wiki.objects },
+    { value: 'terminology', label: t.wiki.terminology },
+    { value: 'rules', label: t.wiki.rules },
+  ], [t])
+
   // AI Generation
   const { generate, isGenerating, progress, message, status, cancel, reset: resetAI } = useAIGeneration()
   const [showAIProgress, setShowAIProgress] = useState(false)
-  const [aiProgressTitle, setAIProgressTitle] = useState('Extracting Wiki Elements')
+  const [aiProgressTitle, setAIProgressTitle] = useState(t.wiki.extractingElements)
   const [extractedEntries, setExtractedEntries] = useState<{ name: string; category: WikiCategory; description: string }[]>([])
   const [showExtractedModal, setShowExtractedModal] = useState(false)
   const [expandingEntryId, setExpandingEntryId] = useState<string | null>(null)
@@ -63,11 +67,11 @@ export function WikiSection({ project }: SectionProps) {
   const handleExtractFromChapters = async () => {
     const chapters = project.chapters || []
     if (chapters.length === 0 || !chapters.some(c => c.content)) {
-      toast({ title: 'No chapter content to analyze', variant: 'error' })
+      toast({ title: t.wiki.noChapterContent, variant: 'error' })
       return
     }
 
-    setAIProgressTitle('Extracting Wiki Elements from Chapters')
+    setAIProgressTitle(t.wiki.extractingElements)
     setShowAIProgress(true)
 
     try {
@@ -106,7 +110,7 @@ export function WikiSection({ project }: SectionProps) {
       }
     } catch (error) {
       console.error('Failed to extract wiki elements:', error)
-      toast({ title: 'Failed to extract elements', variant: 'error' })
+      toast({ title: t.wiki.failedToExtract, variant: 'error' })
     } finally {
       setShowAIProgress(false)
     }
@@ -134,10 +138,10 @@ export function WikiSection({ project }: SectionProps) {
       setSaveStatus('saved')
       setShowExtractedModal(false)
       setExtractedEntries([])
-      toast({ title: `Added ${newEntries.length} wiki entries`, variant: 'success' })
+      toast({ title: `${t.wiki.addedEntries} (${newEntries.length})`, variant: 'success' })
     } catch (error) {
       console.error('Failed to add entries:', error)
-      toast({ title: 'Failed to add entries', variant: 'error' })
+      toast({ title: t.wiki.failedToAddEntries, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -145,7 +149,7 @@ export function WikiSection({ project }: SectionProps) {
   // Expand a wiki entry with more detail
   const handleExpandEntry = async (entry: WikiEntry) => {
     setExpandingEntryId(entry.id)
-    setAIProgressTitle(`Expanding: ${entry.name}`)
+    setAIProgressTitle(`${t.wiki.expandingEntry}: ${entry.name}`)
     setShowAIProgress(true)
 
     try {
@@ -174,11 +178,11 @@ export function WikiSection({ project }: SectionProps) {
         await updateProject(project.id, { worldbuildingEntries: updatedEntries })
         updateProjectStore(project.id, { worldbuildingEntries: updatedEntries })
         setSaveStatus('saved')
-        toast({ title: `Expanded "${entry.name}"`, variant: 'success' })
+        toast({ title: `${t.wiki.expandedEntry} "${entry.name}"`, variant: 'success' })
       }
     } catch (error) {
       console.error('Failed to expand entry:', error)
-      toast({ title: 'Failed to expand entry', variant: 'error' })
+      toast({ title: t.wiki.failedToExpandEntry, variant: 'error' })
     } finally {
       setShowAIProgress(false)
       setExpandingEntryId(null)
@@ -216,10 +220,10 @@ export function WikiSection({ project }: SectionProps) {
 
       if (isEditing) {
         updatedEntries = wikiEntries.map(e => e.id === entry.id ? entry : e)
-        toast({ title: `Wiki entry "${entry.name}" updated`, variant: 'success' })
+        toast({ title: `${t.wiki.wikiEntryUpdated}: "${entry.name}"`, variant: 'success' })
       } else {
         updatedEntries = [...wikiEntries, entry]
-        toast({ title: `Wiki entry "${entry.name}" created`, variant: 'success' })
+        toast({ title: `${t.wiki.wikiEntryCreated}: "${entry.name}"`, variant: 'success' })
       }
 
       await updateProject(project.id, { worldbuildingEntries: updatedEntries })
@@ -228,7 +232,7 @@ export function WikiSection({ project }: SectionProps) {
       setEditingEntry(null)
     } catch (error) {
       console.error('Failed to save wiki entry:', error)
-      toast({ title: 'Failed to save wiki entry', variant: 'error' })
+      toast({ title: t.wiki.failedToSaveEntry, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -242,10 +246,10 @@ export function WikiSection({ project }: SectionProps) {
       updateProjectStore(project.id, { worldbuildingEntries: updatedEntries })
       setSaveStatus('saved')
       setDeleteConfirmId(null)
-      toast({ title: `Wiki entry "${entry?.name}" deleted`, variant: 'success' })
+      toast({ title: `${t.wiki.wikiEntryDeleted}: "${entry?.name}"`, variant: 'success' })
     } catch (error) {
       console.error('Failed to delete wiki entry:', error)
-      toast({ title: 'Failed to delete wiki entry', variant: 'error' })
+      toast({ title: t.wiki.failedToDeleteEntry, variant: 'error' })
       setSaveStatus('unsaved')
     }
   }
@@ -291,7 +295,7 @@ export function WikiSection({ project }: SectionProps) {
   }
 
   const getCategoryLabel = (cat: WikiCategory) => {
-    return WIKI_CATEGORIES.find(c => c.value === cat)?.label || cat
+    return wikiCategories.find(c => c.value === cat)?.label || cat
   }
 
   // Get chapter info by ID
@@ -330,44 +334,47 @@ export function WikiSection({ project }: SectionProps) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Worldbuilding Wiki</h1>
+          <h1 className="text-2xl font-bold text-text-primary">{t.wiki.title}</h1>
           <p className="text-text-secondary mt-1">
-            Maintain internal consistency with organized worldbuilding details.
+            {t.wiki.subtitle}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleExtractFromChapters}
-            disabled={isGenerating}
-            className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
-            title="Scan chapters for locations, terms, and items"
-          >
-            <Sparkles className="h-4 w-4" aria-hidden="true" />
-            Extract from Chapters
-          </button>
-          <button
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Add Entry
-          </button>
-        </div>
+        <UnifiedActionButton
+          primaryAction={{
+            id: 'add-entry',
+            label: t.wiki.addEntry,
+            icon: Plus,
+            onClick: () => handleOpenModal(),
+          }}
+          secondaryActions={[
+            {
+              id: 'extract-chapters',
+              label: t.wiki.extractFromChapters,
+              description: t.wiki.extractFromChaptersDesc,
+              icon: Sparkles,
+              onClick: handleExtractFromChapters,
+              disabled: isGenerating,
+              variant: 'accent',
+            },
+          ]}
+          size="sm"
+          disabled={isGenerating}
+        />
       </div>
 
       {allEntries.length === 0 ? (
         <div className="card text-center py-12">
           <BookOpen className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
-          <h3 className="text-lg font-medium text-text-primary mb-2">No wiki entries yet</h3>
+          <h3 className="text-lg font-medium text-text-primary mb-2">{t.wiki.noEntriesYet}</h3>
           <p className="text-text-secondary mb-4">
-            Start building your world by documenting locations, items, and lore.
+            {t.wiki.startBuildingWorld}
           </p>
           <button
             onClick={() => handleOpenModal()}
             className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Create First Entry
+            {t.wiki.createFirstEntry}
           </button>
         </div>
       ) : (
@@ -382,7 +389,7 @@ export function WikiSection({ project }: SectionProps) {
                 onChange={e => setSelectedCategory(e.target.value as WikiCategory | 'all')}
                 className="px-3 py-1.5 bg-surface-elevated border border-border rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               >
-                {WIKI_CATEGORIES.map(cat => (
+                {wikiCategories.map(cat => (
                   <option key={cat.value} value={cat.value}>{cat.label}</option>
                 ))}
               </select>
@@ -394,7 +401,7 @@ export function WikiSection({ project }: SectionProps) {
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search entries..."
+                placeholder={t.wiki.searchEntries}
                 className="w-full px-3 py-1.5 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
@@ -402,10 +409,10 @@ export function WikiSection({ project }: SectionProps) {
 
           {/* Stats */}
           <div className="text-sm text-text-secondary">
-            {filteredEntries.length} of {allEntries.length} entries
+            {filteredEntries.length} / {allEntries.length} {t.wiki.entries}
             {autoLinkedCharacters.length > 0 && (
               <span className="ml-2 text-purple-400">
-                ({autoLinkedCharacters.length} auto-linked from Characters)
+                ({autoLinkedCharacters.length} {t.wiki.autoLinkedFrom})
               </span>
             )}
           </div>
@@ -413,12 +420,12 @@ export function WikiSection({ project }: SectionProps) {
           {/* Entry List grouped by category */}
           {filteredEntries.length === 0 ? (
             <div className="card text-center py-8">
-              <p className="text-text-secondary">No matching entries found</p>
+              <p className="text-text-secondary">{t.wiki.noMatchingEntries}</p>
               <button
                 onClick={() => { setSelectedCategory('all'); setSearchQuery(''); }}
                 className="mt-2 text-sm text-accent hover:underline"
               >
-                Clear Filters
+                {t.wiki.clearFilters}
               </button>
             </div>
           ) : (
@@ -454,7 +461,7 @@ export function WikiSection({ project }: SectionProps) {
                             <h4 className="font-medium text-text-primary flex items-center gap-2">
                               {entry.name}
                               {isAutoLinked && (
-                                <span title="Auto-linked from Characters"><Link2 className="h-4 w-4 text-purple-400" aria-hidden="true" /></span>
+                                <span title={t.wiki.autoLinkedFrom}><Link2 className="h-4 w-4 text-purple-400" aria-hidden="true" /></span>
                               )}
                             </h4>
                             <div className="flex items-center gap-2 mt-1">
@@ -463,7 +470,7 @@ export function WikiSection({ project }: SectionProps) {
                               </span>
                               {isAutoLinked && (
                                 <span className="text-xs text-purple-400">
-                                  Click to view in Characters
+                                  {t.wiki.clickToViewCharacters}
                                 </span>
                               )}
                             </div>
@@ -474,16 +481,16 @@ export function WikiSection({ project }: SectionProps) {
                                 onClick={(e) => { e.stopPropagation(); handleExpandEntry(entry); }}
                                 disabled={isGenerating}
                                 className="p-1.5 rounded-md hover:bg-accent/10 transition-colors disabled:opacity-50"
-                                aria-label="Expand entry"
-                                title="Expand with AI-generated details"
+                                aria-label={t.actions.expand}
+                                title={t.wiki.expandWithAI}
                               >
                                 <Wand2 className="h-4 w-4 text-accent" aria-hidden="true" />
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleOpenModal(entry); }}
                                 className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
-                                aria-label="Edit entry"
-                                title="Edit entry"
+                                aria-label={t.wiki.editEntry}
+                                title={t.wiki.editEntry}
                               >
                                 <Edit2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
                               </button>
@@ -493,21 +500,21 @@ export function WikiSection({ project }: SectionProps) {
                                     onClick={(e) => { e.stopPropagation(); handleDeleteEntry(entry.id); }}
                                     className="px-2 py-1 text-xs bg-error text-white rounded hover:bg-error/90"
                                   >
-                                    Confirm
+                                    {t.common.confirm}
                                   </button>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(null); }}
                                     className="px-2 py-1 text-xs border border-border rounded hover:bg-surface-elevated"
                                   >
-                                    Cancel
+                                    {t.actions.cancel}
                                   </button>
                                 </div>
                               ) : (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(entry.id); }}
                                   className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
-                                  aria-label="Delete entry"
-                                  title="Delete entry"
+                                  aria-label={t.wiki.deleteEntry}
+                                  title={t.wiki.deleteEntry}
                                 >
                                   <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
                                 </button>
@@ -533,7 +540,7 @@ export function WikiSection({ project }: SectionProps) {
                             ))}
                             {entry.tags.length > 4 && (
                               <span className="text-xs text-text-secondary">
-                                +{entry.tags.length - 4} more
+                                +{entry.tags.length - 4} {t.wiki.more}
                               </span>
                             )}
                           </div>
@@ -545,7 +552,7 @@ export function WikiSection({ project }: SectionProps) {
                             <div className="flex items-center gap-1 flex-wrap text-xs">
                               <span className="flex items-center gap-1 text-text-secondary">
                                 <FileText className="h-3 w-3" aria-hidden="true" />
-                                Sources:
+                                {t.wiki.sources}
                               </span>
                               {entry.sourceChapters.map(chapterId => {
                                 const chapterInfo = getChapterInfo(chapterId)
@@ -570,7 +577,7 @@ export function WikiSection({ project }: SectionProps) {
                             <div className="flex items-center gap-1 flex-wrap text-xs">
                               <span className="flex items-center gap-1 text-text-secondary">
                                 <Link2 className="h-3 w-3" aria-hidden="true" />
-                                Related:
+                                {t.wiki.related}
                               </span>
                               {entry.relatedEntries.map(relatedId => {
                                 const relatedInfo = getWikiEntryInfo(relatedId)
@@ -638,7 +645,7 @@ export function WikiSection({ project }: SectionProps) {
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-accent" aria-hidden="true" />
                 <h2 className="text-lg font-semibold text-text-primary">
-                  Extracted Wiki Elements
+                  {t.wiki.extractedElements}
                 </h2>
               </div>
               <button
@@ -653,7 +660,7 @@ export function WikiSection({ project }: SectionProps) {
             </div>
             <div className="p-4">
               <p className="text-sm text-text-secondary mb-4">
-                Found {extractedEntries.length} potential wiki entries from your chapters:
+                {t.wiki.foundPotentialEntries} ({extractedEntries.length})
               </p>
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
                 {extractedEntries.map((entry, index) => (
@@ -677,13 +684,13 @@ export function WikiSection({ project }: SectionProps) {
                 }}
                 className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
               >
-                Cancel
+                {t.actions.cancel}
               </button>
               <button
                 onClick={handleAddExtractedEntries}
                 className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
               >
-                Add All to Wiki
+                {t.wiki.addAllToWiki}
               </button>
             </div>
           </div>

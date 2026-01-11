@@ -3,37 +3,29 @@ import { Lightbulb, Sparkles, MessageSquare, ArrowRight, Check, Send } from 'luc
 import type { Project, BrainstormSession, BrainstormTag, PlotFoundation, CharacterFoundation, SceneFoundation } from '@/types/project'
 import { updateProject as updateProjectInDb } from '@/lib/db'
 import { useProjectStore } from '@/stores/projectStore'
+import { useLanguageStore } from '@/stores/languageStore'
 import { cn } from '@/lib/utils'
 
 interface SectionProps {
   project: Project
 }
 
-// Tag configuration
-const TAGS: { value: BrainstormTag; label: string; emoji: string; color: string }[] = [
-  { value: 'character', label: 'Character', emoji: '🎭', color: 'bg-purple-500' },
-  { value: 'setting', label: 'Setting', emoji: '📍', color: 'bg-blue-500' },
-  { value: 'plot', label: 'Plot', emoji: '⚡', color: 'bg-yellow-500' },
-  { value: 'theme', label: 'Theme', emoji: '💭', color: 'bg-green-500' },
-  { value: 'scene', label: 'Scene', emoji: '🎬', color: 'bg-red-500' },
-  { value: 'question', label: 'Question', emoji: '❓', color: 'bg-orange-500' },
-  { value: 'inspiration', label: 'Inspiration', emoji: '✨', color: 'bg-pink-500' },
-]
-
-// Writing prompts to help authors
-const WRITING_PROMPTS = [
-  "What's the core story you want to tell?",
-  "Who are the main people in this story?",
-  "What scenes do you already see clearly?",
-  "What feeling do you want readers to have?",
-  "What inspired this idea?",
-  "What questions do you have about your own story?",
+// Tag configuration - base data (labels are translated in the component)
+const TAG_CONFIG: { value: BrainstormTag; emoji: string; color: string }[] = [
+  { value: 'character', emoji: '🎭', color: 'bg-purple-500' },
+  { value: 'setting', emoji: '📍', color: 'bg-blue-500' },
+  { value: 'plot', emoji: '⚡', color: 'bg-yellow-500' },
+  { value: 'theme', emoji: '💭', color: 'bg-green-500' },
+  { value: 'scene', emoji: '🎬', color: 'bg-red-500' },
+  { value: 'question', emoji: '❓', color: 'bg-orange-500' },
+  { value: 'inspiration', emoji: '✨', color: 'bg-pink-500' },
 ]
 
 type Phase = 'input' | 'analyzing' | 'questions' | 'foundations' | 'review'
 
 export function BrainstormSection({ project }: SectionProps) {
   const { updateProject, setSaveStatus } = useProjectStore()
+  const t = useLanguageStore((state) => state.t)
 
   // Initialize or load existing brainstorm session
   const [session, setSession] = useState<BrainstormSession>(() => {
@@ -307,85 +299,96 @@ export function BrainstormSection({ project }: SectionProps) {
     }
   }
 
-  const renderInputPhase = () => (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-            <Lightbulb className="h-6 w-6 text-yellow-400" />
-            Brainstorm Mode
-          </h1>
-          <p className="text-text-secondary mt-1">
-            Write freely about your story. Don't worry about structure—just capture your ideas.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowPrompts(!showPrompts)}
-          className="text-sm text-text-secondary hover:text-text-primary"
-        >
-          {showPrompts ? 'Hide prompts' : 'Show prompts'}
-        </button>
-      </div>
+  const renderInputPhase = () => {
+    const writingPrompts = [
+      t.brainstorm.prompts.coreStory,
+      t.brainstorm.prompts.mainPeople,
+      t.brainstorm.prompts.clearScenes,
+      t.brainstorm.prompts.readerFeeling,
+      t.brainstorm.prompts.inspiration,
+      t.brainstorm.prompts.ownQuestions,
+    ]
 
-      {/* Writing Prompts */}
-      {showPrompts && (
-        <div className="bg-surface-elevated border border-border rounded-lg p-4">
-          <h3 className="text-sm font-medium text-text-secondary mb-2">Need inspiration? Consider:</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {WRITING_PROMPTS.map((prompt, i) => (
-              <p key={i} className="text-sm text-text-secondary/80 italic">• {prompt}</p>
-            ))}
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+              <Lightbulb className="h-6 w-6 text-yellow-400" />
+              {t.brainstorm.brainstormMode}
+            </h1>
+            <p className="text-text-secondary mt-1">
+              {t.brainstorm.writeFreely}
+            </p>
+          </div>
+          <button
+            onClick={() => setShowPrompts(!showPrompts)}
+            className="text-sm text-text-secondary hover:text-text-primary"
+          >
+            {showPrompts ? t.brainstorm.hidePrompts : t.brainstorm.showPrompts}
+          </button>
+        </div>
+
+        {/* Writing Prompts */}
+        {showPrompts && (
+          <div className="bg-surface-elevated border border-border rounded-lg p-4">
+            <h3 className="text-sm font-medium text-text-secondary mb-2">{t.brainstorm.needInspiration}</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {writingPrompts.map((prompt, i) => (
+                <p key={i} className="text-sm text-text-secondary/80 italic">• {prompt}</p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tag Palette */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-text-secondary">{t.brainstorm.optionalTags}</span>
+          {TAG_CONFIG.map(tag => (
+            <span
+              key={tag.value}
+              className="px-2 py-1 text-xs rounded-full bg-surface-elevated border border-border text-text-secondary"
+            >
+              {tag.emoji} {t.brainstorm.tags[tag.value]}
+            </span>
+          ))}
+        </div>
+
+        {/* Main Text Area */}
+        <div className="relative">
+          <textarea
+            value={session.rawText}
+            onChange={(e) => handleTextChange(e.target.value)}
+            placeholder={t.brainstorm.startWritingPlaceholder}
+            className="w-full h-96 p-4 bg-surface border border-border rounded-lg text-text-primary placeholder:text-text-secondary/50 focus:ring-2 focus:ring-accent focus:border-accent outline-none resize-none"
+          />
+          <div className="absolute bottom-4 right-4 text-sm text-text-secondary">
+            {session.rawText.split(/\s+/).filter(Boolean).length} {t.brainstorm.words}
           </div>
         </div>
-      )}
 
-      {/* Tag Palette */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm text-text-secondary">Optional tags:</span>
-        {TAGS.map(tag => (
-          <span
-            key={tag.value}
-            className="px-2 py-1 text-xs rounded-full bg-surface-elevated border border-border text-text-secondary"
+        {/* Analyze Button */}
+        <div className="flex justify-end">
+          <button
+            onClick={handleAnalyze}
+            disabled={!session.rawText.trim()}
+            className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {tag.emoji} {tag.label}
-          </span>
-        ))}
-      </div>
-
-      {/* Main Text Area */}
-      <div className="relative">
-        <textarea
-          value={session.rawText}
-          onChange={(e) => handleTextChange(e.target.value)}
-          placeholder="Start writing your ideas here... What's the story about? Who are the characters? What scenes do you imagine? Just let it flow..."
-          className="w-full h-96 p-4 bg-surface border border-border rounded-lg text-text-primary placeholder:text-text-secondary/50 focus:ring-2 focus:ring-accent focus:border-accent outline-none resize-none"
-        />
-        <div className="absolute bottom-4 right-4 text-sm text-text-secondary">
-          {session.rawText.split(/\s+/).filter(Boolean).length} words
+            <Sparkles className="h-4 w-4" />
+            {t.brainstorm.analyzeAndGenerateQuestions}
+            <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
       </div>
-
-      {/* Analyze Button */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleAnalyze}
-          disabled={!session.rawText.trim()}
-          className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Sparkles className="h-4 w-4" />
-          Analyze & Generate Questions
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  )
+    )
+  }
 
   const renderAnalyzingPhase = () => (
     <div className="flex flex-col items-center justify-center h-64 gap-4">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent" />
-      <p className="text-text-secondary">Analyzing your brainstorm...</p>
-      <p className="text-sm text-text-secondary/70">Finding story elements, themes, and potential questions</p>
+      <p className="text-text-secondary">{t.brainstorm.analyzingBrainstorm}</p>
+      <p className="text-sm text-text-secondary/70">{t.brainstorm.findingElements}</p>
     </div>
   )
 
@@ -398,18 +401,18 @@ export function BrainstormSection({ project }: SectionProps) {
         <div>
           <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
             <MessageSquare className="h-6 w-6 text-accent" />
-            Let's Clarify Your Vision
+            {t.brainstorm.clarifyVision}
           </h1>
           <p className="text-text-secondary mt-1">
-            Answer these questions to help shape your story. Skip any you're not sure about.
+            {t.brainstorm.answerQuestions}
           </p>
         </div>
 
         {/* Progress Bar */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm text-text-secondary">
-            <span>Question {currentQuestionIndex + 1} of {session.questionsAsked.length}</span>
-            <span>{Math.round(progress)}% complete</span>
+            <span>{t.brainstorm.questionOf.replace('{current}', String(currentQuestionIndex + 1)).replace('{total}', String(session.questionsAsked.length))}</span>
+            <span>{Math.round(progress)}% {t.brainstorm.complete}</span>
           </div>
           <div className="h-2 bg-surface-elevated rounded-full overflow-hidden">
             <div className="h-full bg-accent transition-all" style={{ width: `${progress}%` }} />
@@ -425,7 +428,7 @@ export function BrainstormSection({ project }: SectionProps) {
             {currentQuestion.contextQuote && (
               <div className="bg-surface-elevated p-3 rounded-lg border-l-4 border-accent">
                 <p className="text-sm text-text-secondary italic">
-                  From your brainstorm: "{currentQuestion.contextQuote}"
+                  {t.brainstorm.fromYourBrainstorm} "{currentQuestion.contextQuote}"
                 </p>
               </div>
             )}
@@ -433,7 +436,7 @@ export function BrainstormSection({ project }: SectionProps) {
             <textarea
               value={currentAnswer}
               onChange={(e) => setCurrentAnswer(e.target.value)}
-              placeholder="Your thoughts..."
+              placeholder={t.brainstorm.yourThoughts}
               className="w-full h-32 p-3 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none resize-none"
             />
 
@@ -442,7 +445,7 @@ export function BrainstormSection({ project }: SectionProps) {
                 onClick={() => handleAnswerQuestion(true)}
                 className="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors"
               >
-                Skip this question
+                {t.brainstorm.skipQuestion}
               </button>
               <button
                 onClick={() => handleAnswerQuestion(false)}
@@ -450,7 +453,7 @@ export function BrainstormSection({ project }: SectionProps) {
                 className="btn-primary flex items-center gap-2 disabled:opacity-50"
               >
                 <Send className="h-4 w-4" />
-                {currentQuestionIndex < session.questionsAsked.length - 1 ? 'Next Question' : 'Generate Foundations'}
+                {currentQuestionIndex < session.questionsAsked.length - 1 ? t.brainstorm.nextQuestion : t.brainstorm.generateIdeas}
               </button>
             </div>
           </div>
@@ -464,10 +467,10 @@ export function BrainstormSection({ project }: SectionProps) {
       <div>
         <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
           <Sparkles className="h-6 w-6 text-yellow-400" />
-          Your Story Foundations
+          {t.brainstorm.storyFoundations}
         </h1>
         <p className="text-text-secondary mt-1">
-          Review and select the elements you want to develop further. Selected items will be sent to Plot, Characters, and Scenes.
+          {t.brainstorm.reviewSelect}
         </p>
       </div>
 
@@ -475,20 +478,20 @@ export function BrainstormSection({ project }: SectionProps) {
         {/* Plot Foundation */}
         <div className="card p-4 space-y-4">
           <h2 className="font-semibold text-text-primary flex items-center gap-2">
-            📊 Plot Foundation
+            📊 {t.brainstorm.plotFoundation}
           </h2>
           {session.plotFoundation && (
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-text-secondary">Premise</label>
+                <label className="text-xs text-text-secondary">{t.brainstorm.premise}</label>
                 <p className="text-sm text-text-primary">{session.plotFoundation.premise}</p>
               </div>
               <div>
-                <label className="text-xs text-text-secondary">Central Conflict</label>
+                <label className="text-xs text-text-secondary">{t.brainstorm.centralConflict}</label>
                 <p className="text-sm text-text-primary">{session.plotFoundation.centralConflict}</p>
               </div>
               <div>
-                <label className="text-xs text-text-secondary">Key Plot Points</label>
+                <label className="text-xs text-text-secondary">{t.brainstorm.keyPlotPoints}</label>
                 <div className="space-y-2 mt-1">
                   {session.plotFoundation.keyPlotPoints.map(seed => (
                     <label
@@ -529,12 +532,12 @@ export function BrainstormSection({ project }: SectionProps) {
         {/* Character Foundation */}
         <div className="card p-4 space-y-4">
           <h2 className="font-semibold text-text-primary flex items-center gap-2">
-            🎭 Character Foundation
+            🎭 {t.brainstorm.characterFoundation}
           </h2>
           {session.characterFoundation && (
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-text-secondary">Identified Characters</label>
+                <label className="text-xs text-text-secondary">{t.brainstorm.identifiedCharacters}</label>
                 <div className="space-y-2 mt-1">
                   {session.characterFoundation.identifiedCharacters.map(seed => (
                     <label
@@ -577,7 +580,7 @@ export function BrainstormSection({ project }: SectionProps) {
               </div>
               {session.characterFoundation.missingArchetypes.length > 0 && (
                 <div>
-                  <label className="text-xs text-text-secondary">Suggested Archetypes to Add</label>
+                  <label className="text-xs text-text-secondary">{t.brainstorm.suggestedArchetypes}</label>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {session.characterFoundation.missingArchetypes.map((archetype, i) => (
                       <span key={i} className="text-xs px-2 py-1 bg-surface-elevated rounded-full text-text-secondary">
@@ -594,12 +597,12 @@ export function BrainstormSection({ project }: SectionProps) {
         {/* Scene Foundation */}
         <div className="card p-4 space-y-4">
           <h2 className="font-semibold text-text-primary flex items-center gap-2">
-            🎬 Scene Foundation
+            🎬 {t.brainstorm.sceneFoundation}
           </h2>
           {session.sceneFoundation && (
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-text-secondary">Envisioned Scenes</label>
+                <label className="text-xs text-text-secondary">{t.brainstorm.envisionedScenes}</label>
                 <div className="space-y-2 mt-1">
                   {session.sceneFoundation.envisionedScenes.map(seed => (
                     <label
@@ -625,7 +628,7 @@ export function BrainstormSection({ project }: SectionProps) {
               </div>
               {session.sceneFoundation.keyMoments.length > 0 && (
                 <div>
-                  <label className="text-xs text-text-secondary">Key Moments</label>
+                  <label className="text-xs text-text-secondary">{t.brainstorm.keyMoments}</label>
                   <ul className="list-disc list-inside text-xs text-text-secondary mt-1">
                     {session.sceneFoundation.keyMoments.map((moment, i) => (
                       <li key={i}>{moment}</li>
@@ -644,14 +647,14 @@ export function BrainstormSection({ project }: SectionProps) {
           onClick={() => setPhase('input')}
           className="text-text-secondary hover:text-text-primary"
         >
-          ← Back to Brainstorm
+          ← {t.brainstorm.backToBrainstorm}
         </button>
         <button
           onClick={handleFinalize}
           className="btn-primary flex items-center gap-2"
         >
           <Check className="h-4 w-4" />
-          Finalize & Continue to Development
+          {t.brainstorm.finalizeAndContinue}
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>
@@ -664,9 +667,9 @@ export function BrainstormSection({ project }: SectionProps) {
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/20 mb-4">
           <Check className="h-8 w-8 text-green-400" />
         </div>
-        <h1 className="text-2xl font-bold text-text-primary">Brainstorm Complete!</h1>
+        <h1 className="text-2xl font-bold text-text-primary">{t.brainstorm.brainstormComplete}</h1>
         <p className="text-text-secondary mt-2">
-          Your foundations have been prepared. Continue to Plot, Characters, or Scenes to develop them further.
+          {t.brainstorm.foundationsPrepared}
         </p>
       </div>
 
@@ -676,9 +679,9 @@ export function BrainstormSection({ project }: SectionProps) {
           className="card p-4 text-center hover:border-accent transition-colors"
         >
           <div className="text-2xl mb-2">📊</div>
-          <div className="font-medium text-text-primary">Plot</div>
+          <div className="font-medium text-text-primary">{t.plot.title}</div>
           <div className="text-xs text-text-secondary mt-1">
-            {session.plotFoundation?.keyPlotPoints.filter(s => s.selected).length || 0} seeds ready
+            {session.plotFoundation?.keyPlotPoints.filter(s => s.selected).length || 0} {t.brainstorm.seedsReady}
           </div>
         </a>
         <a
@@ -686,9 +689,9 @@ export function BrainstormSection({ project }: SectionProps) {
           className="card p-4 text-center hover:border-accent transition-colors"
         >
           <div className="text-2xl mb-2">🎭</div>
-          <div className="font-medium text-text-primary">Characters</div>
+          <div className="font-medium text-text-primary">{t.characters.title}</div>
           <div className="text-xs text-text-secondary mt-1">
-            {session.characterFoundation?.identifiedCharacters.filter(s => s.selected).length || 0} seeds ready
+            {session.characterFoundation?.identifiedCharacters.filter(s => s.selected).length || 0} {t.brainstorm.seedsReady}
           </div>
         </a>
         <a
@@ -696,10 +699,10 @@ export function BrainstormSection({ project }: SectionProps) {
           className="card p-4 text-center hover:border-accent transition-colors"
         >
           <div className="text-2xl mb-2">🎬</div>
-          <div className="font-medium text-text-primary">Scenes</div>
+          <div className="font-medium text-text-primary">{t.scenes.title}</div>
           <div className="text-xs text-text-secondary mt-1">
             {(session.sceneFoundation?.envisionedScenes.filter(s => s.selected).length || 0) +
-             (session.sceneFoundation?.suggestedScenes.filter(s => s.selected).length || 0)} seeds ready
+             (session.sceneFoundation?.suggestedScenes.filter(s => s.selected).length || 0)} {t.brainstorm.seedsReady}
           </div>
         </a>
       </div>
@@ -713,7 +716,7 @@ export function BrainstormSection({ project }: SectionProps) {
           }}
           className="text-text-secondary hover:text-text-primary"
         >
-          ← Return to Brainstorm to Add More
+          ← {t.brainstorm.returnToAddMore}
         </button>
       </div>
     </div>

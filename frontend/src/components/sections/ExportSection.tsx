@@ -5,6 +5,7 @@ import { AIProgressModal } from '@/components/ui/AIProgressModal'
 import type { Project } from '@/types/project'
 import { createProject } from '@/lib/db'
 import { useProjectStore } from '@/stores/projectStore'
+import { useLanguageStore } from '@/stores/languageStore'
 import { toast } from '@/components/ui/Toaster'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -98,6 +99,7 @@ const DOCX_PRESETS: Record<DOCXPreset, DOCXPresetConfig> = {
 export function ExportSection({ project }: SectionProps) {
   const navigate = useNavigate()
   useProjectStore() // State subscription only
+  const t = useLanguageStore((state) => state.t)
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [selectedPreset, setSelectedPreset] = useState<DOCXPreset>('standard-manuscript')
@@ -113,11 +115,11 @@ export function ExportSection({ project }: SectionProps) {
   // AI Generation handlers
   async function handleGenerateSynopsis(length: 'elevator' | 'one-page' | 'two-page') {
     const lengthLabels = {
-      'elevator': 'Elevator Pitch',
-      'one-page': 'One-Page Synopsis',
-      'two-page': 'Two-Page Synopsis'
+      'elevator': t.export.elevatorPitch,
+      'one-page': t.export.onePageSynopsis,
+      'two-page': t.export.twoPageSynopsis
     }
-    setAIProgressTitle(`Generating ${lengthLabels[length]}`)
+    setAIProgressTitle(t.export.generating.replace('{type}', lengthLabels[length]))
     setShowAIProgress(true)
 
     try {
@@ -135,18 +137,18 @@ export function ExportSection({ project }: SectionProps) {
 
       if (result && !result.includes('cancelled')) {
         setGeneratedContent({ type: lengthLabels[length], content: result })
-        toast({ title: 'Success', description: `${lengthLabels[length]} generated!`, variant: 'success' })
+        toast({ title: t.common.success, description: t.export.synopsisGenerated.replace('{type}', lengthLabels[length]), variant: 'success' })
       }
     } catch (error) {
       console.error('Synopsis generation failed:', error)
-      toast({ title: 'Error', description: 'Failed to generate synopsis', variant: 'error' })
+      toast({ title: t.common.error, description: t.export.failedGenerateSynopsis, variant: 'error' })
     } finally {
       setShowAIProgress(false)
     }
   }
 
   async function handleGenerateQueryLetter() {
-    setAIProgressTitle('Generating Query Letter')
+    setAIProgressTitle(t.export.generating.replace('{type}', t.export.queryLetter))
     setShowAIProgress(true)
 
     try {
@@ -162,19 +164,19 @@ export function ExportSection({ project }: SectionProps) {
       )
 
       if (result && !result.includes('cancelled')) {
-        setGeneratedContent({ type: 'Query Letter', content: result })
-        toast({ title: 'Success', description: 'Query letter generated!', variant: 'success' })
+        setGeneratedContent({ type: t.export.queryLetter, content: result })
+        toast({ title: t.common.success, description: t.export.queryLetterGenerated, variant: 'success' })
       }
     } catch (error) {
       console.error('Query letter generation failed:', error)
-      toast({ title: 'Error', description: 'Failed to generate query letter', variant: 'error' })
+      toast({ title: t.common.error, description: t.export.failedGenerateQueryLetter, variant: 'error' })
     } finally {
       setShowAIProgress(false)
     }
   }
 
   async function handleGenerateBookDescription() {
-    setAIProgressTitle('Generating Book Description')
+    setAIProgressTitle(t.export.generating.replace('{type}', t.export.bookDescription))
     setShowAIProgress(true)
 
     try {
@@ -189,12 +191,12 @@ export function ExportSection({ project }: SectionProps) {
       )
 
       if (result && !result.includes('cancelled')) {
-        setGeneratedContent({ type: 'Book Description', content: result })
-        toast({ title: 'Success', description: 'Book description generated!', variant: 'success' })
+        setGeneratedContent({ type: t.export.bookDescription, content: result })
+        toast({ title: t.common.success, description: t.export.bookDescriptionGenerated, variant: 'success' })
       }
     } catch (error) {
       console.error('Book description generation failed:', error)
-      toast({ title: 'Error', description: 'Failed to generate book description', variant: 'error' })
+      toast({ title: t.common.error, description: t.export.failedGenerateBookDescription, variant: 'error' })
     } finally {
       setShowAIProgress(false)
     }
@@ -205,10 +207,10 @@ export function ExportSection({ project }: SectionProps) {
     try {
       await navigator.clipboard.writeText(generatedContent.content)
       setCopiedToClipboard(true)
-      toast({ title: 'Copied', description: 'Content copied to clipboard', variant: 'success' })
+      toast({ title: t.export.copied, description: t.export.copiedToClipboard, variant: 'success' })
       setTimeout(() => setCopiedToClipboard(false), 2000)
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to copy to clipboard', variant: 'error' })
+      toast({ title: t.common.error, description: t.export.failedCopyClipboard, variant: 'error' })
     }
   }
 
@@ -234,10 +236,10 @@ export function ExportSection({ project }: SectionProps) {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
 
-      toast({ title: 'Success', description: 'Project exported as JSON', variant: 'success' })
+      toast({ title: t.common.success, description: t.export.projectExportedJson, variant: 'success' })
     } catch (error) {
       console.error('Export failed:', error)
-      toast({ title: 'Error', description: 'Failed to export project', variant: 'error' })
+      toast({ title: t.common.error, description: t.export.failedExport, variant: 'error' })
     } finally {
       setIsExporting(false)
     }
@@ -272,10 +274,10 @@ export function ExportSection({ project }: SectionProps) {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
 
-      toast({ title: 'Success', description: 'Project exported as Markdown', variant: 'success' })
+      toast({ title: t.common.success, description: t.export.projectExportedMarkdown, variant: 'success' })
     } catch (error) {
       console.error('Export failed:', error)
-      toast({ title: 'Error', description: 'Failed to export project', variant: 'error' })
+      toast({ title: t.common.error, description: t.export.failedExport, variant: 'error' })
     } finally {
       setIsExporting(false)
     }
@@ -603,13 +605,13 @@ export function ExportSection({ project }: SectionProps) {
       saveAs(blob, `${title.replace(/[^a-z0-9]/gi, '-')}.docx`)
 
       toast({
-        title: 'Success',
-        description: `Exported as DOCX with ${preset.name} format`,
+        title: t.common.success,
+        description: t.export.exportedDocxFormat.replace('{format}', preset.name),
         variant: 'success',
       })
     } catch (error) {
       console.error('DOCX export failed:', error)
-      toast({ title: 'Error', description: 'Failed to export DOCX', variant: 'error' })
+      toast({ title: t.common.error, description: t.export.failedExportDocx, variant: 'error' })
     } finally {
       setIsExporting(false)
     }
@@ -654,8 +656,8 @@ export function ExportSection({ project }: SectionProps) {
       await createProject(importedProject)
 
       toast({
-        title: 'Success',
-        description: `Project "${importedData.metadata.workingTitle}" imported successfully`,
+        title: t.common.success,
+        description: t.export.projectImported.replace('{title}', importedData.metadata.workingTitle),
         variant: 'success',
       })
 
@@ -664,8 +666,8 @@ export function ExportSection({ project }: SectionProps) {
     } catch (error) {
       console.error('Import failed:', error)
       toast({
-        title: 'Error',
-        description: 'Failed to import project. Make sure the file is a valid Storyflow JSON export.',
+        title: t.common.error,
+        description: t.export.failedImport,
         variant: 'error',
       })
     } finally {
@@ -679,9 +681,9 @@ export function ExportSection({ project }: SectionProps) {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-text-primary mb-6">Export</h1>
+      <h1 className="text-2xl font-bold text-text-primary mb-6">{t.export.title}</h1>
       <p className="text-text-secondary mb-8">
-        Export your manuscript in professional formats or backup your project.
+        {t.export.subtitle}
       </p>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -692,13 +694,12 @@ export function ExportSection({ project }: SectionProps) {
               <FileJson className="h-6 w-6 text-accent" />
             </div>
             <div>
-              <h3 className="font-semibold text-text-primary">JSON Backup</h3>
-              <p className="text-sm text-text-secondary">Full project export</p>
+              <h3 className="font-semibold text-text-primary">{t.export.jsonBackup}</h3>
+              <p className="text-sm text-text-secondary">{t.export.fullProjectExport}</p>
             </div>
           </div>
           <p className="text-text-secondary text-sm mb-4">
-            Export your entire project including all characters, scenes, chapters, and settings.
-            Use this for backup or to transfer between devices.
+            {t.export.jsonDescription}
           </p>
           <button
             onClick={exportAsJSON}
@@ -710,7 +711,7 @@ export function ExportSection({ project }: SectionProps) {
             ) : (
               <Download className="h-4 w-4" />
             )}
-            Export JSON
+            {t.export.exportJson}
           </button>
         </div>
 
@@ -721,13 +722,12 @@ export function ExportSection({ project }: SectionProps) {
               <FileText className="h-6 w-6 text-accent" />
             </div>
             <div>
-              <h3 className="font-semibold text-text-primary">Markdown</h3>
-              <p className="text-sm text-text-secondary">Plain text manuscript</p>
+              <h3 className="font-semibold text-text-primary">{t.export.formats.markdown}</h3>
+              <p className="text-sm text-text-secondary">{t.export.plainTextManuscript}</p>
             </div>
           </div>
           <p className="text-text-secondary text-sm mb-4">
-            Export your manuscript as a Markdown file. Great for reading on any device or
-            converting to other formats.
+            {t.export.markdownDescription}
           </p>
           <button
             onClick={exportAsMarkdown}
@@ -739,7 +739,7 @@ export function ExportSection({ project }: SectionProps) {
             ) : (
               <Download className="h-4 w-4" />
             )}
-            Export Markdown
+            {t.export.exportMarkdown}
           </button>
         </div>
 
@@ -750,13 +750,12 @@ export function ExportSection({ project }: SectionProps) {
               <Upload className="h-6 w-6 text-success" />
             </div>
             <div>
-              <h3 className="font-semibold text-text-primary">Import Project</h3>
-              <p className="text-sm text-text-secondary">Restore from backup</p>
+              <h3 className="font-semibold text-text-primary">{t.export.importProject}</h3>
+              <p className="text-sm text-text-secondary">{t.export.restoreFromBackup}</p>
             </div>
           </div>
           <p className="text-text-secondary text-sm mb-4">
-            Import a previously exported JSON backup. This will create a new project with all
-            your data restored.
+            {t.export.importDescription}
           </p>
           <input
             type="file"
@@ -775,34 +774,33 @@ export function ExportSection({ project }: SectionProps) {
             ) : (
               <Upload className="h-4 w-4" />
             )}
-            Import JSON
+            {t.export.importJson}
           </button>
         </div>
       </div>
 
       {/* DOCX Professional Formats */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Professional Formats</h2>
+        <h2 className="text-lg font-semibold text-text-primary mb-4">{t.export.professionalFormats}</h2>
         <div className="card">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-purple-500/10 rounded-lg">
               <FileType className="h-6 w-6 text-purple-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-text-primary">DOCX Export</h3>
-              <p className="text-sm text-text-secondary">Professional manuscript format</p>
+              <h3 className="font-semibold text-text-primary">{t.export.docxExport}</h3>
+              <p className="text-sm text-text-secondary">{t.export.professionalManuscript}</p>
             </div>
           </div>
 
           <p className="text-text-secondary text-sm mb-4">
-            Export your manuscript as a DOCX file with professional formatting. Choose a preset that
-            matches your needs.
+            {t.export.docxDescription}
           </p>
 
           {/* Preset Selection */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-text-primary mb-2">
-              Format Preset
+              {t.export.formatPreset}
             </label>
             <div className="grid gap-2">
               {(Object.keys(DOCX_PRESETS) as DOCXPreset[]).map((presetKey) => {
@@ -822,7 +820,7 @@ export function ExportSection({ project }: SectionProps) {
                       <span className="font-medium text-text-primary">{preset.name}</span>
                       {isSelected && (
                         <span className="text-xs px-2 py-0.5 bg-purple-500 text-white rounded">
-                          Selected
+                          {t.export.selected}
                         </span>
                       )}
                     </div>
@@ -843,7 +841,7 @@ export function ExportSection({ project }: SectionProps) {
             ) : (
               <Download className="h-4 w-4" />
             )}
-            Export DOCX
+            {t.export.exportDocx}
           </button>
         </div>
       </div>
@@ -852,10 +850,10 @@ export function ExportSection({ project }: SectionProps) {
       <div className="mt-8">
         <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-accent" />
-          AI Publishing Tools
+          {t.export.aiPublishingTools}
         </h2>
         <p className="text-text-secondary text-sm mb-4">
-          Generate professional publishing materials using AI assistance.
+          {t.export.aiToolsDescription}
         </p>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -866,12 +864,12 @@ export function ExportSection({ project }: SectionProps) {
                 <BookOpen className="h-6 w-6 text-accent" />
               </div>
               <div>
-                <h3 className="font-semibold text-text-primary">Synopsis</h3>
-                <p className="text-sm text-text-secondary">Story summary for agents</p>
+                <h3 className="font-semibold text-text-primary">{t.export.synopsis}</h3>
+                <p className="text-sm text-text-secondary">{t.export.storySummaryForAgents}</p>
               </div>
             </div>
             <p className="text-text-secondary text-sm mb-4">
-              Generate a synopsis of your novel at different lengths for query submissions.
+              {t.export.synopsisDescription}
             </p>
             <div className="flex flex-col gap-2">
               <button
@@ -880,7 +878,7 @@ export function ExportSection({ project }: SectionProps) {
                 className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
               >
                 <Sparkles className="h-3 w-3" />
-                Elevator Pitch (2-3 sentences)
+                {t.export.elevatorPitch}
               </button>
               <button
                 onClick={() => handleGenerateSynopsis('one-page')}
@@ -888,7 +886,7 @@ export function ExportSection({ project }: SectionProps) {
                 className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
               >
                 <Sparkles className="h-3 w-3" />
-                One-Page Synopsis
+                {t.export.onePageSynopsis}
               </button>
               <button
                 onClick={() => handleGenerateSynopsis('two-page')}
@@ -896,7 +894,7 @@ export function ExportSection({ project }: SectionProps) {
                 className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
               >
                 <Sparkles className="h-3 w-3" />
-                Two-Page Synopsis
+                {t.export.twoPageSynopsis}
               </button>
             </div>
           </div>
@@ -908,12 +906,12 @@ export function ExportSection({ project }: SectionProps) {
                 <Mail className="h-6 w-6 text-success" />
               </div>
               <div>
-                <h3 className="font-semibold text-text-primary">Query Letter</h3>
-                <p className="text-sm text-text-secondary">Industry-standard format</p>
+                <h3 className="font-semibold text-text-primary">{t.export.queryLetter}</h3>
+                <p className="text-sm text-text-secondary">{t.export.industryStandardFormat}</p>
               </div>
             </div>
             <p className="text-text-secondary text-sm mb-4">
-              Generate a professional query letter to pitch your novel to literary agents.
+              {t.export.queryLetterDescription}
             </p>
             <button
               onClick={handleGenerateQueryLetter}
@@ -921,7 +919,7 @@ export function ExportSection({ project }: SectionProps) {
               className="btn-primary w-full flex items-center justify-center gap-2"
             >
               <Sparkles className="h-4 w-4" />
-              Generate Query Letter
+              {t.export.generateQueryLetter}
             </button>
           </div>
 
@@ -932,12 +930,12 @@ export function ExportSection({ project }: SectionProps) {
                 <BookMarked className="h-6 w-6 text-warning" />
               </div>
               <div>
-                <h3 className="font-semibold text-text-primary">Book Description</h3>
-                <p className="text-sm text-text-secondary">Back-cover copy</p>
+                <h3 className="font-semibold text-text-primary">{t.export.bookDescription}</h3>
+                <p className="text-sm text-text-secondary">{t.export.backCoverCopy}</p>
               </div>
             </div>
             <p className="text-text-secondary text-sm mb-4">
-              Generate compelling back-cover copy that hooks readers and sells your story.
+              {t.export.bookDescriptionDescription}
             </p>
             <button
               onClick={handleGenerateBookDescription}
@@ -945,7 +943,7 @@ export function ExportSection({ project }: SectionProps) {
               className="btn-primary w-full flex items-center justify-center gap-2"
             >
               <Sparkles className="h-4 w-4" />
-              Generate Description
+              {t.export.generateDescription}
             </button>
           </div>
         </div>
@@ -971,7 +969,7 @@ export function ExportSection({ project }: SectionProps) {
                 <button
                   onClick={handleCopyToClipboard}
                   className="p-2 rounded-lg hover:bg-surface-elevated transition-colors"
-                  title="Copy to clipboard"
+                  title={t.export.copyToClipboard}
                 >
                   {copiedToClipboard ? (
                     <Check className="h-5 w-5 text-success" />
@@ -997,14 +995,14 @@ export function ExportSection({ project }: SectionProps) {
                 onClick={() => setGeneratedContent(null)}
                 className="btn-secondary"
               >
-                Close
+                {t.export.close}
               </button>
               <button
                 onClick={handleCopyToClipboard}
                 className="btn-primary flex items-center gap-2"
               >
                 {copiedToClipboard ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                {copiedToClipboard ? 'Copied!' : 'Copy to Clipboard'}
+                {copiedToClipboard ? t.export.copied : t.export.copyToClipboard}
               </button>
             </div>
           </div>
