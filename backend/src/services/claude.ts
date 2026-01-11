@@ -315,27 +315,74 @@ Generate a JSON object with:
   }
 }`,
 
-  'critique-chapter': (ctx) => `Provide a detailed critique of this chapter across all 12 quality dimensions.
+  'critique-chapter': (ctx) => `You are a world-class literary editor who has edited bestselling novels. Provide an expert critique of this chapter.
 
 ${buildContext(ctx)}
 
-Chapter to critique:
+CHAPTER TO CRITIQUE:
+---
 ${ctx.chapterContent}
+---
 
-For each dimension, provide:
-1. Score (1-10)
-2. Specific observations
-3. Concrete improvement suggestions
+CRITIQUE METHODOLOGY:
+Analyze the chapter across these 12 professional quality dimensions. For each:
+- Provide a score from 1-10 (be honest and calibrated - 7 is good, 8 is very good, 9+ is exceptional)
+- Quote specific passages that exemplify issues or strengths
+- Give actionable, specific improvement suggestions
 
-Format as JSON:
+THE 12 DIMENSIONS:
+1. PLOT_COHERENCE (12% weight): Does the chapter advance the story logically? Are cause-and-effect clear?
+2. CHARACTER_CONSISTENCY (10%): Do characters act in ways consistent with their established personalities?
+3. CHARACTER_VOICE (8%): Is each character's dialogue distinctive and true to their voice?
+4. PACING (10%): Does the chapter flow well? Is the balance of action/reflection appropriate?
+5. DIALOGUE_QUALITY (8%): Is dialogue natural, purposeful, and distinct per character?
+6. PROSE_STYLE (10%): Is the prose clear, evocative, and appropriate for the genre/audience?
+7. EMOTIONAL_IMPACT (10%): Does the chapter create genuine emotional engagement?
+8. TENSION_MANAGEMENT (8%): Is tension built and released effectively?
+9. WORLD_BUILDING (6%): Are setting details vivid and consistent?
+10. THEME_EXPRESSION (6%): Are themes expressed subtly through story rather than stated?
+11. MARKET_APPEAL (6%): Would this engage the target audience? Genre expectations met?
+12. ORIGINALITY (6%): Does this offer fresh perspectives or feel derivative?
+
+RESPOND WITH THIS EXACT JSON STRUCTURE:
 {
+  "overallScore": <weighted average as number>,
   "dimensions": {
-    "plotCoherence": {"score": 8, "observations": "...", "suggestions": ["..."]},
-    // ... all 12 dimensions
+    "PLOT_COHERENCE": {
+      "score": <1-10>,
+      "weight": 12,
+      "strengths": ["specific strength with quote"],
+      "weaknesses": ["specific weakness with quote"],
+      "suggestions": ["actionable improvement"]
+    },
+    "CHARACTER_CONSISTENCY": { "score": <1-10>, "weight": 10, "strengths": [], "weaknesses": [], "suggestions": [] },
+    "CHARACTER_VOICE": { "score": <1-10>, "weight": 8, "strengths": [], "weaknesses": [], "suggestions": [] },
+    "PACING": { "score": <1-10>, "weight": 10, "strengths": [], "weaknesses": [], "suggestions": [] },
+    "DIALOGUE_QUALITY": { "score": <1-10>, "weight": 8, "strengths": [], "weaknesses": [], "suggestions": [] },
+    "PROSE_STYLE": { "score": <1-10>, "weight": 10, "strengths": [], "weaknesses": [], "suggestions": [] },
+    "EMOTIONAL_IMPACT": { "score": <1-10>, "weight": 10, "strengths": [], "weaknesses": [], "suggestions": [] },
+    "TENSION_MANAGEMENT": { "score": <1-10>, "weight": 8, "strengths": [], "weaknesses": [], "suggestions": [] },
+    "WORLD_BUILDING": { "score": <1-10>, "weight": 6, "strengths": [], "weaknesses": [], "suggestions": [] },
+    "THEME_EXPRESSION": { "score": <1-10>, "weight": 6, "strengths": [], "weaknesses": [], "suggestions": [] },
+    "MARKET_APPEAL": { "score": <1-10>, "weight": 6, "strengths": [], "weaknesses": [], "suggestions": [] },
+    "ORIGINALITY": { "score": <1-10>, "weight": 6, "strengths": [], "weaknesses": [], "suggestions": [] }
   },
-  "overallScore": 7.5,
-  "prioritizedSuggestions": [{"dimension": "", "suggestion": "", "impact": "high|medium|low"}]
-}`,
+  "prioritizedSuggestions": [
+    {
+      "id": "sug_1",
+      "dimension": "<DIMENSION_NAME>",
+      "priority": "HIGH",
+      "suggestion": "Specific, actionable improvement",
+      "targetPassage": "Quote the exact passage to improve",
+      "expectedImpact": "How this will improve the chapter"
+    }
+  ],
+  "overallStrengths": ["Top 3 things working well"],
+  "criticalIssues": ["Top 3 things that must be fixed"],
+  "marketComparison": "Brief comparison to published works in genre"
+}
+
+Provide ONLY the JSON, no other text.`,
 
   'extract-facts': (ctx) => `Extract all factual assertions from this chapter that should be tracked for continuity.
 
@@ -435,6 +482,100 @@ Predict the reader's state:
   },
   "predictedReactions": ["reader might feel confused about X", "twist will land well because Y"]
 }`,
+
+  'implement-suggestions': (ctx) => `You are a world-class fiction writer. Rewrite this chapter implementing the approved improvement suggestions while preserving everything that works well.
+
+${buildContext(ctx)}
+
+ORIGINAL CHAPTER:
+---
+${ctx.chapterContent}
+---
+
+APPROVED SUGGESTIONS TO IMPLEMENT:
+${ctx.approvedSuggestions?.map((s: any, i: number) => `${i + 1}. [${s.dimension}] ${s.suggestion}
+   Target passage: "${s.targetPassage || 'General improvement'}"`).join('\n\n')}
+
+LOCKED PASSAGES (DO NOT MODIFY THESE):
+${ctx.lockedPassages?.map((p: any) => `- "${p.text}"`).join('\n') || 'None - you may modify any passage'}
+
+REWRITE INSTRUCTIONS:
+1. Implement ALL approved suggestions thoughtfully
+2. Preserve the chapter's strengths and working elements
+3. Maintain the same POV, tense, voice, and overall structure
+4. Keep the same approximate length (${ctx.targetWords || 'similar to original'} words)
+5. DO NOT modify any locked passages - keep them exactly as written
+6. Ensure all character voices remain consistent
+7. Maintain plot continuity with the rest of the story
+
+Write the COMPLETE revised chapter. Output ONLY the chapter text, no commentary.`,
+
+  'auto-improve': (ctx) => `You are a world-class literary editor and writer. Improve this chapter by focusing on its weakest dimension.
+
+${buildContext(ctx)}
+
+CURRENT CHAPTER (Score: ${ctx.currentScore || 'N/A'}/10):
+---
+${ctx.chapterContent}
+---
+
+CURRENT CRITIQUE SCORES:
+${Object.entries(ctx.dimensionScores || {}).map(([dim, score]) => `- ${dim}: ${score}/10`).join('\n')}
+
+WEAKEST DIMENSION TO FOCUS ON: ${ctx.weakestDimension || 'Overall quality'}
+SPECIFIC ISSUES: ${ctx.weakestDimensionIssues || 'Improve overall prose quality'}
+
+LOCKED PASSAGES (DO NOT MODIFY):
+${ctx.lockedPassages?.map((p: any) => `- "${p.text}"`).join('\n') || 'None'}
+
+IMPROVEMENT ITERATION ${ctx.iteration || 1}/${ctx.maxIterations || 5}
+
+YOUR TASK:
+1. Focus primarily on improving ${ctx.weakestDimension || 'the weakest areas'}
+2. Make targeted improvements that address the specific issues noted
+3. Preserve what's already working well
+4. Maintain POV, tense, voice, and overall structure
+5. Keep approximately the same length
+6. DO NOT modify locked passages
+
+After improving, provide your response in this JSON format:
+{
+  "improvedChapter": "The complete rewritten chapter text...",
+  "changesDescription": "Brief description of what you changed and why",
+  "focusedDimension": "${ctx.weakestDimension || 'OVERALL'}",
+  "estimatedImprovement": "Brief explanation of how this addresses the issues",
+  "newEstimatedScore": <your estimate of the new score for the focused dimension>
+}
+
+Provide ONLY the JSON, no other text.`,
+
+  'rewrite-chapter': (ctx) => `You are a world-class fiction writer. Rewrite this chapter to achieve professional publication quality.
+
+${buildContext(ctx)}
+
+ORIGINAL CHAPTER:
+---
+${ctx.chapterContent}
+---
+
+${ctx.focusAreas ? `PRIORITY FOCUS AREAS:\n${ctx.focusAreas.map((f: string) => `- ${f}`).join('\n')}` : ''}
+
+${ctx.specificFeedback ? `SPECIFIC FEEDBACK TO ADDRESS:\n${ctx.specificFeedback}` : ''}
+
+LOCKED PASSAGES (DO NOT MODIFY):
+${ctx.lockedPassages?.map((p: any) => `- "${p.text}"`).join('\n') || 'None'}
+
+REWRITE GUIDELINES:
+1. Elevate the prose to professional publication quality
+2. Sharpen character voices to be distinct and memorable
+3. Enhance sensory details and "show don't tell"
+4. Improve dialogue to feel natural and purposeful
+5. Ensure pacing keeps readers engaged
+6. Strengthen emotional beats
+7. Maintain the same POV, tense, and overall structure
+8. Keep approximately the same length (±10%)
+
+Write the COMPLETE rewritten chapter. Output ONLY the chapter text, no commentary.`,
 }
 
 export interface GenerationResult {
