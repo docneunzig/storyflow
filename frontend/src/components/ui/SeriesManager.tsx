@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import {
   BookOpen,
   Library,
@@ -13,13 +13,68 @@ import {
   ChevronRight,
   Trash2,
   User,
-  History
+  History,
+  Sparkles,
+  Loader2,
+  FileText,
+  Lightbulb
 } from 'lucide-react'
 import type {
   Series,
   CrossBookPromise,
-  Project
+  Project,
+  Character
 } from '@/types/project'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { AIProgressModal } from '@/components/ui/AIProgressModal'
+
+// Types for AI responses
+interface ContinuityCheckResult {
+  continuityIssues: {
+    id: string
+    severity: 'high' | 'medium' | 'low'
+    type: string
+    description: string
+    book1: number
+    book1Location: string
+    book2: number
+    book2Location: string
+    suggestion: string
+  }[]
+  unresolvedPromises: {
+    promiseId: string
+    promiseText: string
+    madeInBook: number
+    urgency: string
+    suggestedResolution: string
+  }[]
+  characterEvolutionGaps: {
+    characterName: string
+    lastKnownState: string
+    currentState: string
+    missingDevelopment: string
+    suggestion: string
+  }[]
+  callbackOpportunities: {
+    element: string
+    originalBook: number
+    suggestedCallback: string
+    suggestedLocation: string
+    impactLevel: string
+  }[]
+  overallHealth: {
+    score: number
+    summary: string
+    criticalActions: string[]
+  }
+}
+
+interface SeriesElementsResult {
+  newWorldbuildingElements: { name: string; category: string; description: string }[]
+  characterStateChanges: { characterName: string; changeType: string; newState: string }[]
+  newPromises: { promiseText: string; promiseType: string; importance: string }[]
+  timelineEvents: { event: string; relativeTime: string; significance: string }[]
+}
 
 interface SeriesManagerProps {
   series: Series[]
@@ -40,6 +95,11 @@ interface SeriesCardProps {
   onAddBook: (projectId: string) => void
   onRemoveBook: (projectId: string) => void
   onUpdatePromise: (promiseId: string, updates: Partial<CrossBookPromise>) => void
+  isGenerating: boolean
+  onCheckContinuity: () => void
+  onExtractElements: (projectId: string) => void
+  continuityResult: ContinuityCheckResult | null
+  onClearContinuityResult: () => void
 }
 
 function SeriesCard({
@@ -49,10 +109,15 @@ function SeriesCard({
   onDelete,
   onAddBook,
   onRemoveBook,
-  onUpdatePromise
+  onUpdatePromise,
+  isGenerating,
+  onCheckContinuity,
+  onExtractElements,
+  continuityResult,
+  onClearContinuityResult
 }: SeriesCardProps) {
   const [expanded, setExpanded] = useState(false)
-  const [activeTab, setActiveTab] = useState<'books' | 'characters' | 'promises' | 'timeline'>('books')
+  const [activeTab, setActiveTab] = useState<'books' | 'characters' | 'promises' | 'timeline' | 'ai'>('books')
   const [showAddBook, setShowAddBook] = useState(false)
 
   const seriesProjects = projects.filter(p => series.projectIds.includes(p.id))
@@ -82,10 +147,37 @@ function SeriesCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {continuityResult && (
+            <span className={`text-xs px-2 py-0.5 rounded ${
+              continuityResult.overallHealth.score >= 7 ? 'bg-green-500/20 text-green-400' :
+              continuityResult.overallHealth.score >= 5 ? 'bg-yellow-500/20 text-yellow-400' :
+              'bg-red-500/20 text-red-400'
+            }`}>
+              Health: {continuityResult.overallHealth.score}/10
+            </span>
+          )}
           {openPromises.length > 0 && (
             <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">
               {openPromises.length} open promise{openPromises.length !== 1 ? 's' : ''}
             </span>
+          )}
+          {series.projectIds.length >= 2 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onCheckContinuity()
+              }}
+              disabled={isGenerating}
+              className="text-xs flex items-center gap-1 text-accent hover:bg-accent/10 px-2 py-1 rounded transition-colors"
+              title="AI Continuity Check"
+            >
+              {isGenerating ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Sparkles className="w-3 h-3" />
+              )}
+              Check
+            </button>
           )}
         </div>
       </button>
@@ -94,7 +186,7 @@ function SeriesCard({
         <div className="border-t border-border">
           {/* Tabs */}
           <div className="flex border-b border-border">
-            {(['books', 'characters', 'promises', 'timeline'] as const).map(tab => (
+            {(['books', 'characters', 'promises', 'timeline', 'ai'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -104,7 +196,14 @@ function SeriesCard({
                     : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === 'ai' ? (
+                  <span className="flex items-center justify-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    AI
+                  </span>
+                ) : (
+                  tab.charAt(0).toUpperCase() + tab.slice(1)
+                )}
               </button>
             ))}
           </div>
@@ -340,6 +439,163 @@ function SeriesCard({
                 )}
               </div>
             )}
+
+            {/* AI Tab */}
+            {activeTab === 'ai' && (
+              <div className="space-y-4">
+                {/* Continuity Check Results */}
+                {continuityResult ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-sm font-semibold text-accent flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        Continuity Analysis
+                      </h5>
+                      <button
+                        onClick={onClearContinuityResult}
+                        className="text-text-secondary hover:text-text-primary"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Health Score */}
+                    <div className={`p-3 rounded-lg ${
+                      continuityResult.overallHealth.score >= 7 ? 'bg-green-500/10 border border-green-500/30' :
+                      continuityResult.overallHealth.score >= 5 ? 'bg-yellow-500/10 border border-yellow-500/30' :
+                      'bg-red-500/10 border border-red-500/30'
+                    }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-text-secondary">Overall Health</span>
+                        <span className={`text-lg font-bold ${
+                          continuityResult.overallHealth.score >= 7 ? 'text-green-400' :
+                          continuityResult.overallHealth.score >= 5 ? 'text-yellow-400' :
+                          'text-red-400'
+                        }`}>
+                          {continuityResult.overallHealth.score}/10
+                        </span>
+                      </div>
+                      <p className="text-xs text-text-primary">{continuityResult.overallHealth.summary}</p>
+                    </div>
+
+                    {/* Continuity Issues */}
+                    {continuityResult.continuityIssues.length > 0 && (
+                      <div>
+                        <h6 className="text-xs font-semibold text-red-400 uppercase mb-2">
+                          Continuity Issues ({continuityResult.continuityIssues.length})
+                        </h6>
+                        <div className="space-y-2">
+                          {continuityResult.continuityIssues.map((issue, i) => (
+                            <div key={i} className={`p-2 rounded-lg text-xs ${
+                              issue.severity === 'high' ? 'bg-red-500/10 border border-red-500/30' :
+                              issue.severity === 'medium' ? 'bg-yellow-500/10 border border-yellow-500/30' :
+                              'bg-blue-500/10 border border-blue-500/30'
+                            }`}>
+                              <p className="text-text-primary mb-1">{issue.description}</p>
+                              <p className="text-text-secondary">
+                                Book {issue.book1} vs Book {issue.book2}
+                              </p>
+                              <p className="text-accent mt-1">Fix: {issue.suggestion}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Callback Opportunities */}
+                    {continuityResult.callbackOpportunities.length > 0 && (
+                      <div>
+                        <h6 className="text-xs font-semibold text-green-400 uppercase mb-2 flex items-center gap-1">
+                          <Lightbulb className="w-3 h-3" />
+                          Callback Opportunities ({continuityResult.callbackOpportunities.length})
+                        </h6>
+                        <div className="space-y-2">
+                          {continuityResult.callbackOpportunities.slice(0, 3).map((opp, i) => (
+                            <div key={i} className="p-2 bg-green-500/10 rounded-lg text-xs border border-green-500/30">
+                              <p className="text-text-primary">{opp.element} (Book {opp.originalBook})</p>
+                              <p className="text-text-secondary mt-1">{opp.suggestedCallback}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Critical Actions */}
+                    {continuityResult.overallHealth.criticalActions.length > 0 && (
+                      <div className="p-3 bg-surface-elevated rounded-lg">
+                        <h6 className="text-xs font-semibold text-text-primary mb-2">Priority Actions</h6>
+                        <ul className="space-y-1">
+                          {continuityResult.overallHealth.criticalActions.map((action, i) => (
+                            <li key={i} className="text-xs text-text-secondary flex items-start gap-1">
+                              <CheckCircle className="w-3 h-3 mt-0.5 flex-shrink-0 text-accent" />
+                              {action}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Sparkles className="w-8 h-8 text-text-secondary mx-auto mb-2 opacity-50" />
+                    <p className="text-sm text-text-secondary">No analysis yet</p>
+                    <p className="text-xs text-text-secondary mt-1 mb-4">
+                      Click "Check" to analyze series continuity
+                    </p>
+                    {series.projectIds.length >= 2 ? (
+                      <button
+                        onClick={onCheckContinuity}
+                        disabled={isGenerating}
+                        className="btn-primary flex items-center gap-2 mx-auto"
+                      >
+                        {isGenerating ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-4 h-4" />
+                        )}
+                        Analyze Continuity
+                      </button>
+                    ) : (
+                      <p className="text-xs text-yellow-400">Add at least 2 books to analyze continuity</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Extract Elements from Books */}
+                {seriesProjects.length > 0 && (
+                  <div className="border-t border-border pt-4">
+                    <h6 className="text-xs font-semibold text-text-secondary uppercase mb-2 flex items-center gap-1">
+                      <FileText className="w-3 h-3" />
+                      Extract Series Elements
+                    </h6>
+                    <div className="space-y-2">
+                      {seriesProjects.map((project, index) => (
+                        <div
+                          key={project.id}
+                          className="flex items-center justify-between bg-surface-elevated rounded-lg p-2"
+                        >
+                          <span className="text-sm text-text-primary">
+                            Book {index + 1}: {project.metadata.workingTitle}
+                          </span>
+                          <button
+                            onClick={() => onExtractElements(project.id)}
+                            disabled={isGenerating}
+                            className="text-xs flex items-center gap-1 text-accent hover:bg-accent/10 px-2 py-1 rounded"
+                          >
+                            {isGenerating ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-3 h-3" />
+                            )}
+                            Extract
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -372,6 +628,10 @@ export function SeriesManager({
   const [newSeriesName, setNewSeriesName] = useState('')
   const [newSeriesDescription, setNewSeriesDescription] = useState('')
 
+  // AI Integration
+  const [continuityResults, setContinuityResults] = useState<Record<string, ContinuityCheckResult>>({})
+  const { generateContent, isGenerating, progressInfo, cancelGeneration } = useAIGeneration()
+
   const handleCreate = () => {
     if (!newSeriesName.trim()) return
 
@@ -389,6 +649,84 @@ export function SeriesManager({
     setNewSeriesDescription('')
     setShowCreate(false)
   }
+
+  // AI: Check series continuity
+  const handleCheckContinuity = useCallback(async (s: Series) => {
+    const seriesProjects = projects.filter(p => s.projectIds.includes(p.id))
+    if (seriesProjects.length < 2) return
+
+    try {
+      const result = await generateContent({
+        agentType: 'series',
+        action: 'check-series-continuity',
+        context: {
+          series: s,
+          books: seriesProjects.map((p, i) => ({
+            title: p.metadata.workingTitle,
+            wordCount: p.specification?.targetWordCount || 0,
+            status: p.metadata.status,
+            characters: p.characters?.map((c: Character) => ({ name: c.name })) || [],
+            keyEvents: []
+          })),
+          sharedCharacters: s.sharedCharacters,
+          crossBookPromises: s.crossBookPromises,
+          timeline: s.timeline
+        }
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result) as ContinuityCheckResult
+          setContinuityResults(prev => ({ ...prev, [s.id]: parsed }))
+        } catch {
+          console.error('Failed to parse continuity result')
+        }
+      }
+    } catch (error) {
+      console.error('Continuity check failed:', error)
+    }
+  }, [generateContent, projects])
+
+  // AI: Extract series elements from a book
+  const handleExtractElements = useCallback(async (s: Series, projectId: string) => {
+    const project = projects.find(p => p.id === projectId)
+    if (!project) return
+
+    const bookNumber = s.projectIds.indexOf(projectId) + 1
+
+    try {
+      const result = await generateContent({
+        agentType: 'series',
+        action: 'extract-series-elements',
+        context: {
+          book: {
+            title: project.metadata.workingTitle,
+            wordCount: project.specification?.targetWordCount || 0
+          },
+          bookNumber,
+          contentSummary: 'See chapter summaries below',
+          chapterSummaries: project.chapters?.map((c, i) => ({
+            number: i + 1,
+            summary: c.content?.slice(0, 500) || 'No content yet'
+          })) || [],
+          characters: project.characters || [],
+          existingSeriesBible: s.seriesBible
+        }
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result) as SeriesElementsResult
+          console.log('Extracted elements:', parsed)
+          // TODO: Update series with extracted elements
+        } catch {
+          console.error('Failed to parse extracted elements')
+        }
+      }
+    } catch (error) {
+      console.error('Element extraction failed:', error)
+    }
+  }, [generateContent, projects])
 
   // Calculate total open promises across all series
   const totalOpenPromises = series.reduce(
@@ -483,10 +821,27 @@ export function SeriesManager({
               onAddBook={(projectId) => onAddBookToSeries(s.id, projectId)}
               onRemoveBook={(projectId) => onRemoveBookFromSeries(s.id, projectId)}
               onUpdatePromise={(promiseId, updates) => onUpdatePromise(s.id, promiseId, updates)}
+              isGenerating={isGenerating}
+              onCheckContinuity={() => handleCheckContinuity(s)}
+              onExtractElements={(projectId) => handleExtractElements(s, projectId)}
+              continuityResult={continuityResults[s.id] || null}
+              onClearContinuityResult={() => setContinuityResults(prev => {
+                const updated = { ...prev }
+                delete updated[s.id]
+                return updated
+              })}
             />
           ))}
         </div>
       )}
+
+      {/* AI Progress Modal */}
+      <AIProgressModal
+        isOpen={isGenerating}
+        onClose={cancelGeneration}
+        title="Analyzing Series..."
+        progress={progressInfo}
+      />
     </div>
   )
 }

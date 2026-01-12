@@ -289,6 +289,12 @@ export function ReviewSection({ project }: SectionProps) {
   const [, setSkipRequested] = useState(false)
   const [skippedToFinal, setSkippedToFinal] = useState(false)
 
+  // Breakthrough improvement strategy state
+  const [breakthroughMode, setBreakthroughMode] = useState<'standard' | 'radical' | 'surgery' | 'synthesis'>('standard')
+  const [previousVersions, setPreviousVersions] = useState<Array<{ content: string; score: number; strategy: string }>>([])
+  const [consecutiveSmallGains, setConsecutiveSmallGains] = useState(0)
+  const [radicalAlternatives, setRadicalAlternatives] = useState<Array<{ editor: string; content: string; score: number }>>([])
+
   // Locked passages state
   const [lockedPassages, setLockedPassages] = useState<{ start: number; end: number; reason: string }[]>([])
   const [showLockPassageModal, setShowLockPassageModal] = useState(false)
@@ -959,7 +965,24 @@ export function ReviewSection({ project }: SectionProps) {
     }
   }, [selectedChapter, approvedCount, critiqueResult, generate, lockedPassages, project.specification, project.characters])
 
-  // Auto-improvement loop - continues until quality threshold is reached
+  // Helper to extract JSON from AI response
+  const extractJson = useCallback((result: string) => {
+    let jsonStr = result
+    const jsonMatch = result.match(/```json\s*([\s\S]*?)\s*```/)
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1]
+    } else {
+      const jsonStart = result.indexOf('{')
+      const jsonEnd = result.lastIndexOf('}')
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        jsonStr = result.substring(jsonStart, jsonEnd + 1)
+      }
+    }
+    return JSON.parse(jsonStr)
+  }, [])
+
+  // Auto-improvement loop with BREAKTHROUGH STRATEGY
+  // Detects diminishing returns and switches to radical alternatives
   const handleAutoImprove = useCallback(async () => {
     if (!selectedChapter || !critiqueResult) return
 
@@ -969,11 +992,20 @@ export function ReviewSection({ project }: SectionProps) {
     setIterationLimitWarning(null)
     setSkipRequested(false)
     setSkippedToFinal(false)
+    setBreakthroughMode('standard')
+    setPreviousVersions([])
+    setConsecutiveSmallGains(0)
+    setRadicalAlternatives([])
 
     let currentScore = critiqueResult.overallScore
     let currentContent = selectedChapter.content || ''
     let currentDimensions = critiqueResult.dimensions
     let iteration = 0
+    let smallGainsCount = 0
+    const SMALL_GAIN_THRESHOLD = 0.5
+    const versions: Array<{ content: string; score: number; strategy: string }> = [
+      { content: currentContent, score: currentScore, strategy: 'original' }
+    ]
 
     // Add initial score to history
     setImprovementHistory([{
@@ -986,9 +1018,10 @@ export function ReviewSection({ project }: SectionProps) {
       iteration++
       setCurrentIteration(iteration)
 
-      // Find weakest dimension to focus on
+      // Find weakest dimensions (top 3 for targeted improvement)
       const sortedDimensions = [...currentDimensions].sort((a, b) => a.score - b.score)
-      const weakestDim = sortedDimensions[0]
+      const weakestDims = sortedDimensions.slice(0, 3)
+      const weakestDim = weakestDims[0]
       const weakestDimDef = QUALITY_DIMENSIONS.find(d => d.id === weakestDim.dimensionId)
 
       // Build dimension scores object for AI context
@@ -1000,66 +1033,179 @@ export function ReviewSection({ project }: SectionProps) {
       // Show AI progress modal
       setShowAIProgress(true)
 
-      // Call AI for targeted improvement
-      const result = await generate({
-        agentTarget: 'writer',
-        action: 'auto-improve',
-        context: {
-          chapterContent: currentContent,
-          chapterNumber: selectedChapter.number,
-          chapterTitle: selectedChapter.title,
-          currentScore: currentScore,
-          dimensionScores: dimensionScores,
-          weakestDimension: weakestDimDef?.name || weakestDim.dimensionId,
-          weakestDimensionIssues: weakestDim.feedback,
-          lockedPassages: lockedPassages,
-          iteration: iteration,
-          maxIterations: maxIterations,
-          specification: project.specification,
-          characters: project.characters,
-        },
-      })
+      let newScore = currentScore
+      let improvedContent = currentContent
 
-      if (result) {
-        // Try to parse JSON response from auto-improve
-        let improvedContent = currentContent
-        let newScore = currentScore
+      // BREAKTHROUGH STRATEGY: Choose approach based on improvement pattern
+      if (smallGainsCount >= 2) {
+        // DIMINISHING RETURNS DETECTED - Switch to radical alternatives
+        setBreakthroughMode('radical')
+        console.log('[Breakthrough] Diminishing returns detected - switching to radical alternatives')
 
-        try {
-          // Extract JSON from response
-          let jsonStr = result
-          const jsonMatch = result.match(/```json\s*([\s\S]*?)\s*```/)
-          if (jsonMatch) {
-            jsonStr = jsonMatch[1]
-          } else {
-            const jsonStart = result.indexOf('{')
-            const jsonEnd = result.lastIndexOf('}')
-            if (jsonStart !== -1 && jsonEnd !== -1) {
-              jsonStr = result.substring(jsonStart, jsonEnd + 1)
+        // Generate 3 radical alternatives from different editor personas
+        const radicalResult = await generate({
+          agentTarget: 'writer',
+          action: 'radical-alternatives',
+          context: {
+            chapterContent: currentContent,
+            chapterNumber: selectedChapter.number,
+            chapterTitle: selectedChapter.title,
+            currentScore: currentScore,
+            dimensionScores: dimensionScores,
+            weakestDimensions: weakestDims.map(d => ({
+              name: QUALITY_DIMENSIONS.find(qd => qd.id === d.dimensionId)?.name || d.dimensionId,
+              score: d.score,
+              issues: d.feedback
+            })),
+            previousAttempts: versions.slice(-3).map(v => v.strategy),
+            specification: project.specification,
+            characters: project.characters,
+          },
+        })
+
+        if (radicalResult) {
+          try {
+            const parsed = extractJson(radicalResult)
+            const alternatives: Array<{ editor: string; content: string; score: number }> = []
+
+            // Parse the three editor versions
+            if (parsed.surgeonVersion?.improvedChapter) {
+              alternatives.push({
+                editor: 'Surgeon',
+                content: parsed.surgeonVersion.improvedChapter,
+                score: parsed.surgeonVersion.estimatedScore || currentScore + 0.8
+              })
             }
-          }
+            if (parsed.amplifierVersion?.improvedChapter) {
+              alternatives.push({
+                editor: 'Amplifier',
+                content: parsed.amplifierVersion.improvedChapter,
+                score: parsed.amplifierVersion.estimatedScore || currentScore + 0.7
+              })
+            }
+            if (parsed.subverterVersion?.improvedChapter) {
+              alternatives.push({
+                editor: 'Subverter',
+                content: parsed.subverterVersion.improvedChapter,
+                score: parsed.subverterVersion.estimatedScore || currentScore + 0.9
+              })
+            }
 
-          const parsed = JSON.parse(jsonStr)
+            setRadicalAlternatives(alternatives)
 
-          if (parsed.improvedChapter && parsed.improvedChapter.length > 100) {
-            improvedContent = parsed.improvedChapter
-            currentContent = improvedContent
-            newScore = parsed.newEstimatedScore || (currentScore + 0.5)
-          }
-        } catch {
-          // If parsing fails, use result directly if it looks like chapter content
-          if (result.length > 500 && !result.includes('not yet implemented')) {
-            improvedContent = result
-            currentContent = improvedContent
-            newScore = currentScore + 0.3 // Modest improvement estimate
+            // Pick the best alternative
+            if (alternatives.length > 0) {
+              const best = alternatives.reduce((a, b) => a.score > b.score ? a : b)
+              improvedContent = best.content
+              newScore = best.score
+              versions.push({ content: best.content, score: best.score, strategy: `radical-${best.editor}` })
+              console.log(`[Breakthrough] Best radical alternative: ${best.editor} with score ${best.score}`)
+            }
+          } catch (e) {
+            console.error('[Breakthrough] Failed to parse radical alternatives:', e)
           }
         }
 
-        currentScore = Math.min(10, newScore)
+        // Reset small gains counter after radical intervention
+        smallGainsCount = 0
+        setBreakthroughMode('synthesis')
+
+        // SYNTHESIS: Combine best elements from all versions
+        if (versions.length >= 3) {
+          console.log('[Breakthrough] Synthesizing best elements from all versions')
+          const synthesisResult = await generate({
+            agentTarget: 'writer',
+            action: 'synthesize-best',
+            context: {
+              versions: versions.slice(-4).map(v => ({
+                strategy: v.strategy,
+                content: v.content,
+                score: v.score
+              })),
+              chapterNumber: selectedChapter.number,
+              chapterTitle: selectedChapter.title,
+              dimensionScores: dimensionScores,
+              specification: project.specification,
+              characters: project.characters,
+            },
+          })
+
+          if (synthesisResult) {
+            try {
+              const synthParsed = extractJson(synthesisResult)
+              if (synthParsed.synthesizedChapter && synthParsed.synthesizedChapter.length > 100) {
+                const synthScore = synthParsed.estimatedScore || Math.max(...versions.map(v => v.score)) + 0.3
+                if (synthScore > newScore) {
+                  improvedContent = synthParsed.synthesizedChapter
+                  newScore = synthScore
+                  versions.push({ content: improvedContent, score: newScore, strategy: 'synthesis' })
+                  console.log(`[Breakthrough] Synthesis improved score to ${newScore}`)
+                }
+              }
+            } catch (e) {
+              console.error('[Breakthrough] Failed to parse synthesis result:', e)
+            }
+          }
+        }
+
       } else {
-        // Fallback: small random improvement if AI fails
-        currentScore = Math.min(10, currentScore + 0.2)
+        // STANDARD IMPROVEMENT with enhanced prompts
+        setBreakthroughMode('standard')
+
+        const result = await generate({
+          agentTarget: 'writer',
+          action: 'auto-improve',
+          context: {
+            chapterContent: currentContent,
+            chapterNumber: selectedChapter.number,
+            chapterTitle: selectedChapter.title,
+            currentScore: currentScore,
+            dimensionScores: dimensionScores,
+            weakestDimension: weakestDimDef?.name || weakestDim.dimensionId,
+            weakestDimensionIssues: weakestDim.feedback,
+            lockedPassages: lockedPassages,
+            iteration: iteration,
+            maxIterations: maxIterations,
+            specification: project.specification,
+            characters: project.characters,
+            previousStrategies: versions.slice(-3).map(v => v.strategy),
+          },
+        })
+
+        if (result) {
+          try {
+            const parsed = extractJson(result)
+
+            if (parsed.improvedChapter && parsed.improvedChapter.length > 100) {
+              improvedContent = parsed.improvedChapter
+              newScore = parsed.newEstimatedScore || (currentScore + 0.5)
+              versions.push({ content: improvedContent, score: newScore, strategy: 'auto-improve' })
+            }
+          } catch {
+            // If parsing fails, use result directly if it looks like chapter content
+            if (result.length > 500 && !result.includes('not yet implemented')) {
+              improvedContent = result
+              newScore = currentScore + 0.3
+              versions.push({ content: improvedContent, score: newScore, strategy: 'auto-improve-raw' })
+            }
+          }
+        }
       }
+
+      // Track improvement delta for diminishing returns detection
+      const improvement = newScore - currentScore
+      if (improvement < SMALL_GAIN_THRESHOLD) {
+        smallGainsCount++
+        console.log(`[Breakthrough] Small gain detected: ${improvement.toFixed(2)} (count: ${smallGainsCount})`)
+      } else {
+        smallGainsCount = 0 // Reset on good improvement
+      }
+      setConsecutiveSmallGains(smallGainsCount)
+
+      // Update current state
+      currentContent = improvedContent
+      currentScore = Math.min(10, newScore)
+      setPreviousVersions([...versions])
 
       // Update history
       setImprovementHistory(prev => [...prev, {
@@ -1088,18 +1234,72 @@ export function ReviewSection({ project }: SectionProps) {
         }
         break
       }
+
+      // If still stuck after radical alternatives, try passage surgery
+      if (smallGainsCount >= 3 && iteration < maxIterations - 1) {
+        setBreakthroughMode('surgery')
+        console.log('[Breakthrough] Still stuck - attempting passage surgery')
+
+        // Find the weakest passage based on dimension feedback
+        const surgeryResult = await generate({
+          agentTarget: 'writer',
+          action: 'passage-surgery',
+          context: {
+            chapterContent: currentContent,
+            chapterNumber: selectedChapter.number,
+            weakestDimensions: weakestDims.map(d => ({
+              name: QUALITY_DIMENSIONS.find(qd => qd.id === d.dimensionId)?.name || d.dimensionId,
+              score: d.score,
+              issues: d.feedback
+            })),
+            specification: project.specification,
+            characters: project.characters,
+          },
+        })
+
+        if (surgeryResult) {
+          try {
+            const surgParsed = extractJson(surgeryResult)
+            if (surgParsed.improvedChapter && surgParsed.improvedChapter.length > 100) {
+              const surgScore = surgParsed.estimatedScore || currentScore + 0.6
+              if (surgScore > currentScore) {
+                currentContent = surgParsed.improvedChapter
+                currentScore = surgScore
+                versions.push({ content: currentContent, score: currentScore, strategy: 'passage-surgery' })
+                smallGainsCount = 0 // Reset after surgery
+                console.log(`[Breakthrough] Passage surgery improved score to ${currentScore}`)
+              }
+            }
+          } catch (e) {
+            console.error('[Breakthrough] Failed to parse surgery result:', e)
+          }
+        }
+      }
+    }
+
+    // Final save if content was improved
+    if (currentContent !== selectedChapter.content) {
+      const updatedChapters = chapters.map(ch =>
+        ch.id === selectedChapter.id
+          ? { ...ch, content: currentContent, wordCount: currentContent.split(/\s+/).length }
+          : ch
+      )
+      await updateProjectInDb(project.id, { chapters: updatedChapters })
+      updateProject(project.id, { chapters: updatedChapters })
     }
 
     // Check if we hit the iteration limit without reaching threshold
     if (iteration >= maxIterations && currentScore < qualityThreshold) {
+      const strategies = versions.map(v => v.strategy).join(' → ')
       setIterationLimitWarning(
-        `Maximum iterations (${maxIterations}) reached. Score improved from ${critiqueResult.overallScore.toFixed(1)} to ${currentScore.toFixed(1)} but did not reach threshold of ${qualityThreshold}. Consider reviewing manually or adjusting expectations - further improvements may show diminishing returns.`
+        `Maximum iterations (${maxIterations}) reached. Score improved from ${critiqueResult.overallScore.toFixed(1)} to ${currentScore.toFixed(1)} using strategies: ${strategies}. The chapter may need manual structural changes or a fresh approach.`
       )
     }
 
     setIsAutoImproving(false)
     setShowAIProgress(false)
-  }, [selectedChapter, critiqueResult, qualityThreshold, maxIterations, generate, chapters, project.id, project.specification, project.characters, lockedPassages, updateProject])
+    setBreakthroughMode('standard')
+  }, [selectedChapter, critiqueResult, qualityThreshold, maxIterations, generate, chapters, project.id, project.specification, project.characters, lockedPassages, updateProject, extractJson])
 
   // Handle continuing improvement with extended iterations after acknowledging diminishing returns
   const handleContinueRevising = useCallback(() => {
@@ -1809,6 +2009,46 @@ export function ReviewSection({ project }: SectionProps) {
                         </span>
                       )}
                     </div>
+
+                    {/* Breakthrough Mode Indicator */}
+                    {isAutoImproving && breakthroughMode !== 'standard' && (
+                      <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Zap className="h-4 w-4 text-amber-400" />
+                          <span className="text-amber-300 font-medium">
+                            {breakthroughMode === 'radical' && 'Breakthrough: Generating 3 radical editor alternatives...'}
+                            {breakthroughMode === 'synthesis' && 'Breakthrough: Synthesizing best elements from all versions...'}
+                            {breakthroughMode === 'surgery' && 'Breakthrough: Performing passage surgery on weak spots...'}
+                          </span>
+                        </div>
+                        {consecutiveSmallGains > 0 && (
+                          <p className="text-xs text-text-secondary mt-1">
+                            Detected {consecutiveSmallGains} consecutive small gains ({`<`}0.5 improvement)
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Previous Versions Summary */}
+                    {previousVersions.length > 1 && (
+                      <div className="mt-2 text-xs text-text-secondary">
+                        Strategies tried: {previousVersions.map(v => v.strategy).join(' → ')}
+                      </div>
+                    )}
+
+                    {/* Radical Alternatives Summary (when generated) */}
+                    {radicalAlternatives.length > 0 && !isAutoImproving && (
+                      <div className="mt-2 p-2 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                        <p className="text-xs font-medium text-purple-300 mb-1">Radical Alternatives Generated:</p>
+                        <div className="flex gap-2">
+                          {radicalAlternatives.map((alt, idx) => (
+                            <span key={idx} className="px-2 py-0.5 bg-purple-500/20 rounded text-xs text-purple-200">
+                              {alt.editor}: {alt.score.toFixed(1)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Improvement History */}
                     {improvementHistory.length > 1 && (

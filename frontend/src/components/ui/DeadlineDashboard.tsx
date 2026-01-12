@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   Calendar,
   Target,
@@ -13,23 +13,79 @@ import {
   Edit3,
   Plus,
   BarChart3,
-  Flame
+  Flame,
+  Sparkles,
+  Loader2,
+  X,
+  Play
 } from 'lucide-react'
 import type {
   ProjectDeadline,
   DeadlineMilestone,
   VelocityStats,
   ProductivityInsight,
-  DailyWordCount
+  DailyWordCount,
+  Chapter
 } from '@/types/project'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { AIProgressModal } from '@/components/ui/AIProgressModal'
+
+// Types for AI responses
+interface AIVelocityPrediction {
+  velocityStats: {
+    avgDraftWordsPerHour: number
+    avgRevisionWordsPerHour: number
+    projectedCompletionDate: string
+    onTrack: boolean
+    daysAheadOrBehind: number
+    requiredDailyOutput: number
+    bestProductivityHours: number[]
+    bestProductivityDays: number[]
+    avgSessionDuration: number
+    avgWordsPerSession: number
+    longestStreak: number
+    currentStreak: number
+    wordsThisWeek: number
+    weekOverWeekChange: number
+  }
+  insights: { type: 'positive' | 'warning' | 'suggestion'; message: string; actionable: boolean }[]
+  adjustedMilestones: { id: string; name: string; recommendedDate: string; reason: string }[]
+  riskFactors: { factor: string; impact: string; mitigation: string }[]
+}
+
+interface SprintPlan {
+  sprintPlan: {
+    day: number
+    date: string
+    dayOfWeek: string
+    wordTarget: number
+    suggestedChapter: string | null
+    suggestedSessions: { startHour: number; duration: number; wordTarget: number; focus: string }[]
+    motivationalNote: string
+    flexibilityNotes: string
+  }[]
+  summary: {
+    totalDays: number
+    totalWritingDays: number
+    restDays: number[]
+    bufferDays: number
+    avgDailyTarget: number
+    peakDay: { day: number; words: number }
+  }
+  riskAssessment: 'low' | 'medium' | 'high'
+  contingencyPlan: { ifBehind: string; ifAhead: string; emergencyOptions: string[] }
+}
 
 interface DeadlineDashboardProps {
   deadline: ProjectDeadline | null
   velocityStats: VelocityStats | null
   currentWordCount: number
   dailyWordCounts: DailyWordCount[]
+  chapters?: Chapter[]
+  sessions?: { startTime: string; endTime: string; wordsWritten: number }[]
   onSetDeadline: (deadline: ProjectDeadline) => void
   onUpdateMilestone: (milestoneId: string, completed: boolean) => void
+  onUpdateVelocityStats?: (stats: VelocityStats) => void
 }
 
 interface MilestoneProgressProps {
@@ -124,8 +180,11 @@ export function DeadlineDashboard({
   velocityStats,
   currentWordCount,
   dailyWordCounts,
+  chapters = [],
+  sessions = [],
   onSetDeadline,
-  onUpdateMilestone
+  onUpdateMilestone,
+  onUpdateVelocityStats
 }: DeadlineDashboardProps) {
   const [showSetDeadline, setShowSetDeadline] = useState(false)
   const [expandedMilestones, setExpandedMilestones] = useState(true)
@@ -134,6 +193,128 @@ export function DeadlineDashboard({
     targetWords: 80000,
     targetQuality: 80
   })
+
+  // AI Integration State
+  const [aiPrediction, setAiPrediction] = useState<AIVelocityPrediction | null>(null)
+  const [sprintPlan, setSprintPlan] = useState<SprintPlan | null>(null)
+  const [showSprintPlan, setShowSprintPlan] = useState(false)
+
+  const { generateContent, isGenerating, progressInfo, cancelGeneration } = useAIGeneration()
+
+  // AI: Predict completion and analyze velocity
+  const handleAIPrediction = useCallback(async () => {
+    if (!deadline) return
+
+    try {
+      const result = await generateContent({
+        agentType: 'deadline',
+        action: 'predict-completion',
+        context: {
+          deadline,
+          currentWordCount,
+          chaptersCompleted: chapters.filter(c => c.content && c.content.length > 0).length,
+          targetChapters: chapters.length || 20,
+          daysSinceStart: Math.floor(
+            (Date.now() - new Date(deadline.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+          ),
+          daysRemaining: Math.ceil(
+            (new Date(deadline.targetCompletionDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+          ),
+          dailyWordCounts: dailyWordCounts.slice(-30),
+          sessions: sessions.slice(-50),
+          milestones: deadline.milestones
+        }
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result) as AIVelocityPrediction
+          setAiPrediction(parsed)
+
+          // Update velocity stats if callback provided
+          if (onUpdateVelocityStats && parsed.velocityStats) {
+            onUpdateVelocityStats(parsed.velocityStats)
+          }
+        } catch {
+          console.error('Failed to parse AI prediction')
+        }
+      }
+    } catch (error) {
+      console.error('AI prediction failed:', error)
+    }
+  }, [generateContent, deadline, currentWordCount, chapters, dailyWordCounts, sessions, onUpdateVelocityStats])
+
+  // AI: Generate sprint plan
+  const handleGenerateSprintPlan = useCallback(async () => {
+    if (!deadline) return
+
+    const wordsRemaining = Math.max(0, deadline.targetWordCount - currentWordCount)
+    const daysRemaining = Math.ceil(
+      (new Date(deadline.targetCompletionDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    )
+
+    // Calculate best hours and days from daily word counts
+    const hourCounts: Record<number, number> = {}
+    const dayCounts: Record<number, number> = {}
+    sessions.forEach(s => {
+      const hour = new Date(s.startTime).getHours()
+      const day = new Date(s.startTime).getDay()
+      hourCounts[hour] = (hourCounts[hour] || 0) + s.wordsWritten
+      dayCounts[day] = (dayCounts[day] || 0) + s.wordsWritten
+    })
+
+    const bestHours = Object.entries(hourCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([h]) => parseInt(h))
+
+    const bestDays = Object.entries(dayCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([d]) => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][parseInt(d)])
+
+    try {
+      const result = await generateContent({
+        agentType: 'deadline',
+        action: 'generate-sprint-plan',
+        context: {
+          currentWordCount,
+          wordsRemaining,
+          daysRemaining,
+          avgDailyOutput: dailyWordCounts.length > 0
+            ? Math.round(dailyWordCounts.reduce((sum, d) => sum + d.count, 0) / dailyWordCounts.length)
+            : 500,
+          bestHours,
+          bestDays,
+          avgSessionLength: sessions.length > 0
+            ? Math.round(
+                sessions.reduce((sum, s) => {
+                  const dur = new Date(s.endTime).getTime() - new Date(s.startTime).getTime()
+                  return sum + dur / 60000
+                }, 0) / sessions.length
+              )
+            : 60,
+          writingStyle: 'standard',
+          remainingChapters: chapters
+            .filter(c => !c.content || c.content.length < 100)
+            .map(c => ({ title: c.title, estimatedWords: 2500 })),
+          preferences: 'Prefer morning writing sessions when possible'
+        }
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result) as SprintPlan
+          setSprintPlan(parsed)
+          setShowSprintPlan(true)
+        } catch {
+          console.error('Failed to parse sprint plan')
+        }
+      }
+    } catch (error) {
+      console.error('Sprint plan generation failed:', error)
+    }
+  }, [generateContent, deadline, currentWordCount, dailyWordCounts, sessions, chapters])
 
   // Calculate days remaining
   const daysRemaining = useMemo(() => {
@@ -257,14 +438,104 @@ export function DeadlineDashboard({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-border">
-        <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2 mb-2">
-          <Target className="w-5 h-5 text-accent" />
-          Deadline Dashboard
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+            <Target className="w-5 h-5 text-accent" />
+            Deadline Dashboard
+          </h3>
+          {deadline && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleAIPrediction}
+                disabled={isGenerating}
+                className="btn-ghost text-xs flex items-center gap-1 text-accent hover:bg-accent/10"
+                title="AI-powered velocity analysis"
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3" />
+                )}
+                Analyze
+              </button>
+              <button
+                onClick={handleGenerateSprintPlan}
+                disabled={isGenerating}
+                className="btn-ghost text-xs flex items-center gap-1 text-green-400 hover:bg-green-500/10"
+                title="Generate AI sprint plan"
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Play className="w-3 h-3" />
+                )}
+                Sprint Plan
+              </button>
+            </div>
+          )}
+        </div>
         <p className="text-sm text-text-secondary">
           Track your writing velocity and deadline progress
         </p>
       </div>
+
+      {/* AI Prediction Results */}
+      {aiPrediction && (
+        <div className="p-4 bg-accent/5 border-b border-accent/20">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold text-accent flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              AI Analysis
+            </h4>
+            <button
+              onClick={() => setAiPrediction(null)}
+              className="text-text-secondary hover:text-text-primary"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Projected Completion */}
+          <div className="mb-3 p-3 bg-surface rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-text-secondary">Projected Completion</span>
+              <span className={`text-sm font-medium ${aiPrediction.velocityStats.onTrack ? 'text-green-400' : 'text-yellow-400'}`}>
+                {new Date(aiPrediction.velocityStats.projectedCompletionDate).toLocaleDateString()}
+              </span>
+            </div>
+            {aiPrediction.velocityStats.daysAheadOrBehind !== 0 && (
+              <p className="text-xs mt-1 text-text-secondary">
+                {aiPrediction.velocityStats.daysAheadOrBehind > 0
+                  ? `${aiPrediction.velocityStats.daysAheadOrBehind} days ahead of schedule`
+                  : `${Math.abs(aiPrediction.velocityStats.daysAheadOrBehind)} days behind schedule`
+                }
+              </p>
+            )}
+          </div>
+
+          {/* AI Insights */}
+          {aiPrediction.insights.length > 0 && (
+            <div className="space-y-2">
+              {aiPrediction.insights.slice(0, 3).map((insight, i) => (
+                <ProductivityCard key={i} insight={insight} />
+              ))}
+            </div>
+          )}
+
+          {/* Risk Factors */}
+          {aiPrediction.riskFactors.length > 0 && (
+            <div className="mt-3">
+              <h5 className="text-xs font-medium text-text-secondary mb-2">Risk Factors</h5>
+              {aiPrediction.riskFactors.slice(0, 2).map((risk, i) => (
+                <div key={i} className="text-xs text-text-secondary mb-1">
+                  <AlertTriangle className="w-3 h-3 inline mr-1 text-yellow-400" />
+                  {risk.factor} - <span className="text-text-primary">{risk.mitigation}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {!deadline ? (
@@ -557,6 +828,98 @@ export function DeadlineDashboard({
           </>
         )}
       </div>
+
+      {/* Sprint Plan Modal */}
+      {showSprintPlan && sprintPlan && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-surface rounded-xl p-6 max-w-2xl w-full mx-4 shadow-xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                <Play className="w-5 h-5 text-green-400" />
+                AI Sprint Plan
+              </h3>
+              <button
+                onClick={() => setShowSprintPlan(false)}
+                className="text-text-secondary hover:text-text-primary"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Summary */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-surface-elevated rounded-lg p-3 text-center">
+                <div className="text-xl font-bold text-text-primary">{sprintPlan.summary.totalWritingDays}</div>
+                <div className="text-xs text-text-secondary">Writing Days</div>
+              </div>
+              <div className="bg-surface-elevated rounded-lg p-3 text-center">
+                <div className="text-xl font-bold text-text-primary">{sprintPlan.summary.avgDailyTarget}</div>
+                <div className="text-xs text-text-secondary">Avg Words/Day</div>
+              </div>
+              <div className={`bg-surface-elevated rounded-lg p-3 text-center ${
+                sprintPlan.riskAssessment === 'low' ? 'border border-green-500/30' :
+                sprintPlan.riskAssessment === 'high' ? 'border border-red-500/30' :
+                'border border-yellow-500/30'
+              }`}>
+                <div className={`text-xl font-bold ${
+                  sprintPlan.riskAssessment === 'low' ? 'text-green-400' :
+                  sprintPlan.riskAssessment === 'high' ? 'text-red-400' :
+                  'text-yellow-400'
+                }`}>
+                  {sprintPlan.riskAssessment.charAt(0).toUpperCase() + sprintPlan.riskAssessment.slice(1)}
+                </div>
+                <div className="text-xs text-text-secondary">Risk Level</div>
+              </div>
+            </div>
+
+            {/* Daily Plan */}
+            <h4 className="text-sm font-semibold text-text-primary mb-2">Daily Schedule</h4>
+            <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+              {sprintPlan.sprintPlan.slice(0, 14).map((day) => (
+                <div key={day.day} className="flex items-center justify-between p-2 bg-surface-elevated rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-text-secondary w-20">
+                      {day.dayOfWeek.slice(0, 3)} {new Date(day.date).getDate()}
+                    </span>
+                    <span className="font-medium text-text-primary">
+                      {day.wordTarget.toLocaleString()} words
+                    </span>
+                    {day.suggestedChapter && (
+                      <span className="text-xs text-accent">• {day.suggestedChapter}</span>
+                    )}
+                  </div>
+                  {day.suggestedSessions.length > 0 && (
+                    <span className="text-xs text-text-secondary">
+                      {day.suggestedSessions.map(s => `${s.startHour}:00`).join(', ')}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Contingency */}
+            <div className="bg-yellow-500/10 rounded-lg p-3 border border-yellow-500/30">
+              <h5 className="text-xs font-medium text-yellow-400 mb-1">If You Fall Behind</h5>
+              <p className="text-xs text-text-secondary">{sprintPlan.contingencyPlan.ifBehind}</p>
+            </div>
+
+            <button
+              onClick={() => setShowSprintPlan(false)}
+              className="btn-primary w-full mt-4"
+            >
+              Got It
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI Progress Modal */}
+      <AIProgressModal
+        isOpen={isGenerating}
+        onClose={cancelGeneration}
+        title="Analyzing..."
+        progress={progressInfo}
+      />
     </div>
   )
 }

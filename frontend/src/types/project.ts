@@ -783,6 +783,121 @@ export interface ProductivityInsight {
 }
 
 // =============================================================================
+// FEATURE 8: Story Memory / RAG System
+// =============================================================================
+
+export interface ChapterSummary {
+  id: string
+  chapterId: string
+  chapterNumber: number
+  summary: string
+  keyEvents: string[]
+  charactersPresent: string[]
+  locationsUsed: string[]
+  emotionalBeats: string[]
+  plotBeatsAdvanced: string[]
+  subplotsTouched: string[]
+  foreshadowing: string[]
+  payoffs: string[]
+  cliffhanger: string | null
+  generatedAt: string
+  tokenCount: number
+}
+
+export interface CharacterKnowledgeState {
+  id: string
+  characterId: string
+  asOfChapterId: string
+  asOfChapterNumber: number
+  knownFacts: string[]
+  beliefs: string[]
+  secrets: string[]
+  relationships: Record<string, string> // characterId -> relationship description
+  emotionalState: string
+  activeGoals: string[]
+  recentExperiences: string[]
+  generatedAt: string
+}
+
+export interface StoryMemoryContext {
+  relevantSummaries: ChapterSummary[]
+  relevantCharacterStates: CharacterKnowledgeState[]
+  relevantFacts: FactAssertion[]
+  relevantWorldbuilding: WikiEntry[]
+  activeSubplots: Subplot[]
+  openQuestions: string[]
+  recentEmotionalBeats: string[]
+  unresolvedSetups: string[]
+}
+
+// =============================================================================
+// FEATURE 9: Show Don't Tell Analyzer
+// =============================================================================
+
+export interface ShowDontTellViolation {
+  id: string
+  chapterId: string
+  originalText: string
+  position: { start: number; end: number }
+  violationType: 'emotion' | 'trait' | 'state' | 'reaction'
+  severity: 'high' | 'medium' | 'low'
+  explanation: string
+  alternatives: ShowDontTellAlternative[]
+  status: 'pending' | 'fixed' | 'ignored'
+}
+
+export interface ShowDontTellAlternative {
+  rewrite: string
+  technique: 'action' | 'dialogue' | 'sensory' | 'physical' | 'metaphor'
+  explanation: string
+}
+
+// =============================================================================
+// FEATURE 10: Style Cloning
+// =============================================================================
+
+export interface StyleFingerprint {
+  id: string
+  name: string
+  sourceName?: string // Original author/work name
+  sentenceStructure: {
+    avgLength: number
+    variation: number // standard deviation
+    complexity: number // 0-1, based on clause depth
+    fragmentFrequency: number // 0-1, intentional fragments
+  }
+  vocabulary: {
+    sophistication: number // 0-1, based on word rarity
+    domainSpecific: string[] // frequent domain-specific terms
+    avoided: string[] // words the style avoids
+    favorites: string[] // distinctively overused words
+  }
+  narrativeTechniques: {
+    pov: string
+    tense: string
+    streamOfConsciousness: number // 0-1
+    dialogueToNarrativeRatio: number // 0-1
+    internalizationFrequency: number // 0-1
+  }
+  rhythm: {
+    punctuationStyle: string // "sparse", "dramatic", "standard"
+    paragraphLength: 'short' | 'medium' | 'long' | 'varied'
+    dialogueTagStyle: 'minimal' | 'descriptive' | 'action-oriented'
+    sceneTransitionStyle: string
+  }
+  distinctiveMarkers: string[] // unique stylistic elements
+  authorVoice: string // prose description of the voice
+  samplePassages: {
+    opening: string
+    dialogue: string
+    description: string
+    action: string
+    introspection: string
+  }
+  analyzedAt: string
+}
+
+// =============================================================================
 // Extended Project interface to include new features
 // =============================================================================
 
@@ -805,4 +920,12 @@ export interface ProjectExtended extends Project {
   // Feature 7: Deadline (Feature 6 is at Series level)
   deadline: ProjectDeadline | null
   velocityStats: VelocityStats | null
+  // Feature 8: Story Memory
+  chapterSummaries: ChapterSummary[]
+  characterKnowledgeStates: CharacterKnowledgeState[]
+  // Feature 9: Show Don't Tell
+  showDontTellViolations: ShowDontTellViolation[]
+  // Feature 10: Style Cloning
+  styleFingerprints: StyleFingerprint[]
+  activeStyleId: string | null
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   GitBranch,
   Plus,
@@ -9,7 +9,12 @@ import {
   ChevronDown,
   ChevronRight,
   Activity,
-  Circle
+  Circle,
+  Sparkles,
+  Loader2,
+  Lightbulb,
+  CheckCircle,
+  Target
 } from 'lucide-react'
 import type {
   Subplot,
@@ -19,8 +24,49 @@ import type {
   SubplotWarning,
   Character,
   Scene,
-  Chapter
+  Chapter,
+  NovelSpecification
 } from '@/types/project'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { AIProgressModal } from '@/components/ui/AIProgressModal'
+
+// Types for AI analysis results
+interface SubplotAnalysisResult {
+  subplotAnalysis: {
+    subplotId: string
+    subplotName: string
+    healthScore: number
+    status: 'healthy' | 'needs-attention' | 'critical' | 'dormant'
+    issues: { type: string; description: string; severity: string }[]
+    suggestions: string[]
+    recommendedNextTouch: {
+      chapterNumber: number
+      touchType: string
+      description: string
+      tensionTarget: number
+    }
+    optimalResolutionWindow: { startChapter: number; endChapter: number }
+  }[]
+  overallPacing: {
+    assessment: string
+    chaptersWithTooManySubplots: number[]
+    chaptersWithNoSubplotActivity: number[]
+  }
+  missingSubplotTypes: string[]
+  interactionOpportunities: { subplot1: string; subplot2: string; suggestion: string }[]
+}
+
+interface SubplotTouchSuggestion {
+  sceneId: string | null
+  chapterNumber: number
+  touchType: string
+  tensionLevel: number
+  description: string
+  characterFocus: string
+  dialogueHint: string
+  narrativeHint: string
+  integrationWithMainPlot: string
+}
 
 interface SubplotCanvasProps {
   subplots: Subplot[]
@@ -28,6 +74,8 @@ interface SubplotCanvasProps {
   characters: Character[]
   scenes: Scene[]
   chapters: Chapter[]
+  specification?: NovelSpecification
+  targetChapters?: number
   onCreateSubplot: (subplot: Omit<Subplot, 'id' | 'createdAt' | 'tensionCurve'>) => void
   onUpdateSubplot: (id: string, updates: Partial<Subplot>) => void
   onDeleteSubplot: (id: string) => void
@@ -94,8 +142,10 @@ export function SubplotCanvas({
   subplots,
   subplotTouches,
   characters,
-  scenes: _scenes,
+  scenes,
   chapters,
+  specification,
+  targetChapters = 20,
   onCreateSubplot,
   onUpdateSubplot,
   onDeleteSubplot,
@@ -112,6 +162,94 @@ export function SubplotCanvas({
     status: 'setup' as SubplotStatus,
     color: '#6b7280'
   })
+
+  // AI Integration State
+  const [aiAnalysis, setAiAnalysis] = useState<SubplotAnalysisResult | null>(null)
+  const [showAnalysis, setShowAnalysis] = useState(false)
+  const [touchSuggestions, setTouchSuggestions] = useState<Record<string, SubplotTouchSuggestion[]>>({})
+  const [loadingTouchSuggestions, setLoadingTouchSuggestions] = useState<string | null>(null)
+
+  const { generateContent, isGenerating, progressInfo, cancelGeneration } = useAIGeneration()
+
+  // AI: Analyze all subplots
+  const handleAnalyzeSubplots = useCallback(async () => {
+    if (subplots.length === 0) return
+
+    try {
+      const result = await generateContent({
+        agentType: 'subplot',
+        action: 'analyze-subplot-health',
+        context: {
+          specification,
+          characters,
+          subplots,
+          subplotTouches,
+          currentChapter: chapters.length,
+          targetChapters,
+          chaptersWritten: chapters.length
+        }
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result) as SubplotAnalysisResult
+          setAiAnalysis(parsed)
+          setShowAnalysis(true)
+        } catch {
+          console.error('Failed to parse subplot analysis result')
+        }
+      }
+    } catch (error) {
+      console.error('Subplot analysis failed:', error)
+    }
+  }, [generateContent, subplots, subplotTouches, chapters, characters, specification, targetChapters])
+
+  // AI: Suggest touches for a specific subplot
+  const handleSuggestTouches = useCallback(async (subplot: Subplot) => {
+    setLoadingTouchSuggestions(subplot.id)
+
+    try {
+      const relatedCharacters = characters.filter(c =>
+        subplot.relatedCharacterIds.includes(c.id)
+      )
+      const existingTouches = subplotTouches.filter(t => t.subplotId === subplot.id)
+
+      const result = await generateContent({
+        agentType: 'subplot',
+        action: 'suggest-subplot-touches',
+        context: {
+          specification,
+          characters,
+          subplot,
+          relatedCharacters,
+          existingTouches,
+          upcomingScenes: scenes.slice(0, 10),
+          currentChapter: chapters.length,
+          targetChapters,
+          mainPlotPhase: chapters.length < targetChapters * 0.25 ? 'setup'
+            : chapters.length < targetChapters * 0.5 ? 'confrontation'
+            : chapters.length < targetChapters * 0.75 ? 'escalation'
+            : 'resolution'
+        }
+      })
+
+      if (result) {
+        try {
+          const parsed = JSON.parse(result)
+          setTouchSuggestions(prev => ({
+            ...prev,
+            [subplot.id]: parsed.suggestions || []
+          }))
+        } catch {
+          console.error('Failed to parse touch suggestions')
+        }
+      }
+    } catch (error) {
+      console.error('Touch suggestion failed:', error)
+    } finally {
+      setLoadingTouchSuggestions(null)
+    }
+  }, [generateContent, subplotTouches, chapters, characters, scenes, specification, targetChapters])
 
   // Calculate warnings
   const warnings = useMemo((): SubplotWarning[] => {
@@ -198,18 +336,125 @@ export function SubplotCanvas({
             <GitBranch className="w-5 h-5 text-accent" />
             Subplot Tracker
           </h3>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="btn-primary text-sm flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            New Subplot
-          </button>
+          <div className="flex items-center gap-2">
+            {subplots.length > 0 && (
+              <button
+                onClick={handleAnalyzeSubplots}
+                disabled={isGenerating}
+                className="btn-ghost text-sm flex items-center gap-2 text-accent hover:bg-accent/10"
+                title="Analyze subplot health with AI"
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                AI Analyze
+              </button>
+            )}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="btn-primary text-sm flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              New Subplot
+            </button>
+          </div>
         </div>
         <p className="text-sm text-text-secondary">
           Track subplot threads and their tension curves across your story
         </p>
       </div>
+
+      {/* AI Analysis Results */}
+      {showAnalysis && aiAnalysis && (
+        <div className="p-4 bg-accent/5 border-b border-accent/20">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold text-accent flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              AI Subplot Analysis
+            </h4>
+            <button
+              onClick={() => setShowAnalysis(false)}
+              className="text-text-secondary hover:text-text-primary"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Overall Pacing */}
+          <div className="mb-4 p-3 bg-surface rounded-lg">
+            <h5 className="text-xs font-medium text-text-secondary mb-1">Overall Pacing</h5>
+            <p className="text-sm text-text-primary">{aiAnalysis.overallPacing.assessment}</p>
+          </div>
+
+          {/* Per-Subplot Analysis */}
+          <div className="space-y-2 mb-4">
+            {aiAnalysis.subplotAnalysis.map(analysis => {
+              const subplot = subplots.find(s => s.id === analysis.subplotId || s.name === analysis.subplotName)
+              const healthColor = analysis.healthScore >= 7 ? 'text-green-400'
+                : analysis.healthScore >= 5 ? 'text-yellow-400'
+                : 'text-red-400'
+
+              return (
+                <div key={analysis.subplotId || analysis.subplotName} className="p-3 bg-surface rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-text-primary">
+                      {subplot?.name || analysis.subplotName}
+                    </span>
+                    <span className={`text-sm font-semibold ${healthColor}`}>
+                      {analysis.healthScore}/10
+                    </span>
+                  </div>
+                  {analysis.issues.length > 0 && (
+                    <div className="mb-2">
+                      {analysis.issues.map((issue, i) => (
+                        <p key={i} className="text-xs text-yellow-400 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          {issue.description}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {analysis.recommendedNextTouch && (
+                    <div className="text-xs text-text-secondary bg-surface-elevated p-2 rounded">
+                      <span className="font-medium text-accent">Next:</span>{' '}
+                      Chapter {analysis.recommendedNextTouch.chapterNumber} - {analysis.recommendedNextTouch.description}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Missing Subplot Types */}
+          {aiAnalysis.missingSubplotTypes.length > 0 && (
+            <div className="mb-3">
+              <h5 className="text-xs font-medium text-text-secondary mb-1">Suggested Subplot Types</h5>
+              <div className="flex flex-wrap gap-1">
+                {aiAnalysis.missingSubplotTypes.map(type => (
+                  <span key={type} className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded">
+                    {type}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Interaction Opportunities */}
+          {aiAnalysis.interactionOpportunities.length > 0 && (
+            <div>
+              <h5 className="text-xs font-medium text-text-secondary mb-1">Interaction Opportunities</h5>
+              {aiAnalysis.interactionOpportunities.slice(0, 2).map((opp, i) => (
+                <p key={i} className="text-xs text-text-secondary">
+                  <Lightbulb className="w-3 h-3 inline mr-1 text-yellow-400" />
+                  {opp.subplot1} + {opp.subplot2}: {opp.suggestion}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Warnings */}
       {warnings.length > 0 && (
@@ -360,6 +605,54 @@ export function SubplotCanvas({
                         </div>
                       </div>
 
+                      {/* AI Touch Suggestions */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="text-xs font-medium text-text-secondary flex items-center gap-1">
+                            <Target className="w-3 h-3" />
+                            AI Touch Suggestions
+                          </h5>
+                          <button
+                            onClick={() => handleSuggestTouches(subplot)}
+                            disabled={loadingTouchSuggestions === subplot.id}
+                            className="btn-ghost text-xs flex items-center gap-1 text-accent hover:bg-accent/10"
+                          >
+                            {loadingTouchSuggestions === subplot.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-3 h-3" />
+                            )}
+                            Suggest
+                          </button>
+                        </div>
+                        {touchSuggestions[subplot.id]?.length > 0 ? (
+                          <div className="space-y-2">
+                            {touchSuggestions[subplot.id].slice(0, 3).map((suggestion, i) => (
+                              <div key={i} className="p-2 bg-accent/5 rounded-lg border border-accent/20">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs font-medium text-accent">
+                                    Chapter {suggestion.chapterNumber}
+                                  </span>
+                                  <span className="text-xs text-text-secondary">
+                                    {suggestion.touchType} • Tension {suggestion.tensionLevel}/10
+                                  </span>
+                                </div>
+                                <p className="text-xs text-text-primary mb-1">{suggestion.description}</p>
+                                {suggestion.dialogueHint && (
+                                  <p className="text-xs text-text-secondary italic">
+                                    "{suggestion.dialogueHint}"
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-text-secondary italic">
+                            Click "Suggest" to get AI recommendations
+                          </p>
+                        )}
+                      </div>
+
                       {/* Actions */}
                       <div className="flex gap-2 pt-2 border-t border-border">
                         <button
@@ -479,6 +772,14 @@ export function SubplotCanvas({
           </div>
         </div>
       )}
+
+      {/* AI Progress Modal */}
+      <AIProgressModal
+        isOpen={isGenerating}
+        onClose={cancelGeneration}
+        title="Analyzing Subplots..."
+        progress={progressInfo}
+      />
     </div>
   )
 }
