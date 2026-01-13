@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Sparkles, ArrowUpRight, ArrowDownRight, RefreshCw, MessageSquare, X, Wand2 } from 'lucide-react'
+import { Sparkles, ArrowUpRight, ArrowDownRight, RefreshCw, X, Wand2 } from 'lucide-react'
 
 interface InlineAIToolbarProps {
   selectedText: string

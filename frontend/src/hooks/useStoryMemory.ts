@@ -3,7 +3,6 @@ import { useAIGeneration } from './useAIGeneration'
 import { useProjectStore } from '@/stores/projectStore'
 import type {
   Chapter,
-  Character,
   ChapterSummary,
   CharacterKnowledgeState,
   StoryMemoryContext,

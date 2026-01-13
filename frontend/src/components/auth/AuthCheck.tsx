@@ -1,5 +1,5 @@
 import { useEffect, useState, ReactNode } from 'react'
-import { Loader2, Terminal, Key, AlertTriangle } from 'lucide-react'
+import { Loader2, Terminal, Key } from 'lucide-react'
 
 interface AuthCheckProps {
   children: ReactNode
@@ -15,7 +15,7 @@ interface AIStatus {
 
 export function AuthCheck({ children }: AuthCheckProps) {
   const [authState, setAuthState] = useState<'checking' | 'ready' | 'needs-api-key' | 'unauthenticated'>('checking')
-  const [statusMessage, setStatusMessage] = useState<string>('')
+  const [_statusMessage, setStatusMessage] = useState<string>('')
 
   useEffect(() => {
     checkAuthStatus()

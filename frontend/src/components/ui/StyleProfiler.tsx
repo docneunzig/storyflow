@@ -14,14 +14,12 @@ import {
   AlignLeft,
   Quote,
   Gauge,
-  BarChart3,
   Star,
   StarOff,
-  Edit3,
   Copy,
 } from 'lucide-react'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
-import AIProgressModal from './AIProgressModal'
+import { AIProgressModal } from './AIProgressModal'
 import type { StyleFingerprint } from '@/types/project'
 
 interface StyleProfilerProps {
@@ -84,7 +82,7 @@ export function StyleProfiler({
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   // AI generation
-  const { generate, isGenerating, progress, message } = useAIGeneration()
+  const { isGenerating, progress, message } = useAIGeneration()
 
   // Get active style
   const activeStyle = useMemo(
@@ -358,7 +356,7 @@ Distinctive markers: ${style.distinctiveMarkers.slice(0, 3).join(', ')}`
                           unit="%"
                         />
                         <MetricDisplay
-                          value={(style.narrativeTechniques.showVsTell * 100).toFixed(0)}
+                          value={((style.narrativeTechniques.showVsTell ?? 0.5) * 100).toFixed(0)}
                           label="Showing"
                           unit="%"
                         />
@@ -427,7 +425,7 @@ Distinctive markers: ${style.distinctiveMarkers.slice(0, 3).join(', ')}`
                                 label="Sophistication"
                               />
                               <ScoreBar
-                                value={style.vocabulary.concreteVsAbstract}
+                                value={style.vocabulary.concreteVsAbstract ?? 0.5}
                                 label="Concrete vs Abstract"
                               />
                               {style.vocabulary.favorites?.length > 0 && (
@@ -489,7 +487,7 @@ Distinctive markers: ${style.distinctiveMarkers.slice(0, 3).join(', ')}`
                                 label="Internalization"
                               />
                               <ScoreBar
-                                value={style.narrativeTechniques.sceneSummaryBalance}
+                                value={style.narrativeTechniques.sceneSummaryBalance ?? 0.5}
                                 label="Scene vs Summary"
                               />
                             </div>
@@ -609,6 +607,7 @@ Distinctive markers: ${style.distinctiveMarkers.slice(0, 3).join(', ')}`
       {/* AI Progress Modal */}
       <AIProgressModal
         isOpen={isAnalyzing || isGenerating}
+        onClose={() => {}}
         onCancel={() => {}}
         title="Analyzing Style"
         status="generating"

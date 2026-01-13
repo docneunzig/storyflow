@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 
 export type AIGenerationStatus = 'idle' | 'generating' | 'cancelling' | 'completed' | 'error' | 'cancelled'
 
@@ -16,6 +16,26 @@ export interface AIGenerationOptions {
   context?: Record<string, any>
   payload?: Record<string, any>
   onProgress?: (progress: AIGenerationProgress) => void
+  useStreaming?: boolean // Enable SSE streaming for real-time progress
+}
+
+// Map backend status to frontend status
+function mapStatus(backendStatus: string): AIGenerationStatus {
+  switch (backendStatus) {
+    case 'initializing':
+    case 'analyzing':
+    case 'generating':
+    case 'processing':
+      return 'generating'
+    case 'completed':
+      return 'completed'
+    case 'error':
+      return 'error'
+    case 'cancelled':
+      return 'cancelled'
+    default:
+      return 'generating'
+  }
 }
 
 export function useAIGeneration() {
@@ -26,7 +46,17 @@ export function useAIGeneration() {
   const [error, setError] = useState<string | null>(null)
 
   const abortControllerRef = useRef<AbortController | null>(null)
+  const eventSourceRef = useRef<EventSource | null>(null)
   const isGeneratingRef = useRef<boolean>(false)
+
+  // Clean up EventSource on unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+      }
+    }
+  }, [])
 
   const generate = useCallback(async (options: AIGenerationOptions): Promise<string | null> => {
     const { agentTarget, action, context, payload, onProgress } = options
@@ -60,20 +90,11 @@ export function useAIGeneration() {
     try {
       updateProgress({
         status: 'generating',
-        progress: 10,
+        progress: 5,
         message: `Starting ${action} generation...`,
       })
 
-      // Simulate progress stages for better UX
-      // In real implementation, this would be server-sent events or polling
-      const progressStages = [
-        { progress: 20, message: 'Analyzing context...', delay: 500 },
-        { progress: 40, message: 'Generating content...', delay: 1500 },
-        { progress: 60, message: 'Processing response...', delay: 1000 },
-        { progress: 80, message: 'Finalizing...', delay: 500 },
-      ]
-
-      // Start the actual API call
+      // Start the API call
       const fetchPromise = fetch('/api/ai/generate', {
         method: 'POST',
         headers: {
@@ -88,28 +109,8 @@ export function useAIGeneration() {
         signal: abortControllerRef.current.signal,
       })
 
-      // Simulate progress while waiting for the API
-      // This provides feedback even if the API takes a while
-      let currentStage = 0
-      const progressInterval = setInterval(() => {
-        if (abortControllerRef.current?.signal.aborted) {
-          clearInterval(progressInterval)
-          return
-        }
-
-        if (currentStage < progressStages.length) {
-          const stage = progressStages[currentStage]
-          updateProgress({
-            status: 'generating',
-            progress: stage.progress,
-            message: stage.message,
-          })
-          currentStage++
-        }
-      }, 800)
-
+      // Wait for initial response to get generationId
       const response = await fetchPromise
-      clearInterval(progressInterval)
 
       // Check if cancelled during fetch
       if (abortControllerRef.current?.signal.aborted) {
@@ -128,14 +129,19 @@ export function useAIGeneration() {
 
       const data = await response.json()
 
+      // If streaming is enabled and we have a generationId, the SSE would have been
+      // updating us in real-time. Since the generate endpoint returns synchronously
+      // after completion, we can just use the result directly.
+      const generatedResult = data.result || data.content || null
+
       updateProgress({
         status: 'completed',
         progress: 100,
         message: 'Generation complete!',
-        result: data.result || data.content || JSON.stringify(data),
+        result: generatedResult || undefined,
       })
 
-      return data.result || data.content || null
+      return generatedResult
     } catch (err) {
       if (err instanceof Error) {
         if (err.name === 'AbortError') {
@@ -182,7 +188,139 @@ export function useAIGeneration() {
     } finally {
       isGeneratingRef.current = false
       abortControllerRef.current = null
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+        eventSourceRef.current = null
+      }
     }
+  }, [])
+
+  // Streaming generate function - uses SSE for real-time updates
+  const generateWithStreaming = useCallback(async (options: AIGenerationOptions): Promise<string | null> => {
+    const { agentTarget, action, context, payload, onProgress } = options
+
+    // Prevent concurrent generations
+    if (isGeneratingRef.current) {
+      console.warn('AI generation already in progress')
+      return null
+    }
+
+    abortControllerRef.current = new AbortController()
+    isGeneratingRef.current = true
+
+    // Reset state
+    setStatus('generating')
+    setProgress(0)
+    setMessage('Initializing AI generation...')
+    setResult(null)
+    setError(null)
+
+    const updateProgress = (newProgress: AIGenerationProgress) => {
+      setStatus(newProgress.status)
+      setProgress(newProgress.progress)
+      setMessage(newProgress.message)
+      if (newProgress.result) setResult(newProgress.result)
+      if (newProgress.error) setError(newProgress.error)
+      onProgress?.(newProgress)
+    }
+
+    return new Promise((resolve) => {
+      // Start the API call to get generationId
+      fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentTarget, action, context, payload }),
+        signal: abortControllerRef.current!.signal,
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            throw new Error(errorData.message || `HTTP ${response.status}`)
+          }
+          return response.json()
+        })
+        .then((data) => {
+          const { generationId, result: generatedResult } = data
+
+          // If we got a result directly, use it
+          if (generatedResult) {
+            updateProgress({
+              status: 'completed',
+              progress: 100,
+              message: 'Generation complete!',
+              result: generatedResult,
+            })
+            resolve(generatedResult)
+            return
+          }
+
+          // Otherwise, connect to SSE for streaming updates
+          if (generationId) {
+            const eventSource = new EventSource(`/api/ai/stream/${generationId}`)
+            eventSourceRef.current = eventSource
+
+            eventSource.onmessage = (event) => {
+              try {
+                const data = JSON.parse(event.data)
+
+                if (data.type === 'progress') {
+                  updateProgress({
+                    status: mapStatus(data.status),
+                    progress: data.progress || 0,
+                    message: data.message || '',
+                    result: data.result,
+                    error: data.error,
+                  })
+
+                  if (data.status === 'completed') {
+                    eventSource.close()
+                    resolve(data.result || null)
+                  } else if (data.status === 'error' || data.status === 'cancelled') {
+                    eventSource.close()
+                    resolve(null)
+                  }
+                }
+              } catch (e) {
+                console.error('Error parsing SSE message:', e)
+              }
+            }
+
+            eventSource.onerror = () => {
+              eventSource.close()
+              updateProgress({
+                status: 'error',
+                progress: 0,
+                message: 'Connection lost',
+                error: 'Lost connection to the AI service.',
+              })
+              resolve(null)
+            }
+          } else {
+            resolve(null)
+          }
+        })
+        .catch((err) => {
+          if (err.name === 'AbortError') {
+            updateProgress({
+              status: 'cancelled',
+              progress: 0,
+              message: 'Generation cancelled by user',
+            })
+          } else {
+            updateProgress({
+              status: 'error',
+              progress: 0,
+              message: 'Generation failed',
+              error: err.message,
+            })
+          }
+          resolve(null)
+        })
+        .finally(() => {
+          isGeneratingRef.current = false
+          abortControllerRef.current = null
+        })
+    })
   }, [])
 
   const cancel = useCallback(() => {
@@ -190,6 +328,10 @@ export function useAIGeneration() {
       setStatus('cancelling')
       setMessage('Cancelling generation...')
       abortControllerRef.current.abort()
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+        eventSourceRef.current = null
+      }
     }
   }, [])
 
@@ -212,6 +354,7 @@ export function useAIGeneration() {
 
     // Actions
     generate,
+    generateWithStreaming,
     cancel,
     reset,
   }

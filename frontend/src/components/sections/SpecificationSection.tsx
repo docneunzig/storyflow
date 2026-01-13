@@ -1,8 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ChevronDown, ChevronUp, RotateCcw, Sparkles, X, Sword, Search, Rocket, Heart, Brain, Users, type LucideIcon } from 'lucide-react'
+import { ChevronDown, ChevronUp, RotateCcw, Sparkles, X, Sword, Search, Rocket, Heart, Brain, Users, Save, Folder, Trash2, type LucideIcon } from 'lucide-react'
 import type { Project, NovelSpecification, TargetAudience, POV, Tense, NovelLanguage, ChildrensAgeCategory } from '@/types/project'
 import { useLanguageStore } from '@/stores/languageStore'
-import { updateProject as updateProjectInDb } from '@/lib/db'
+import {
+  updateProject as updateProjectInDb,
+  getAllSpecificationPresets,
+  createSpecificationPreset,
+  deleteSpecificationPreset,
+  type SpecificationPreset,
+} from '@/lib/db'
 import { useProjectStore } from '@/stores/projectStore'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
@@ -278,6 +284,7 @@ export function SpecificationSection({ project }: SectionProps) {
     basic: true,
     language: true,
     templates: true,
+    presets: true,
     genre: true,
     audience: true,
     style: true,
@@ -305,6 +312,59 @@ export function SpecificationSection({ project }: SectionProps) {
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [suggestionType, setSuggestionType] = useState<'title' | 'tone' | 'theme' | null>(null)
   const [showSuggestionsModal, setShowSuggestionsModal] = useState(false)
+
+  // Preset state
+  const [presets, setPresets] = useState<SpecificationPreset[]>([])
+  const [showSavePresetModal, setShowSavePresetModal] = useState(false)
+  const [newPresetName, setNewPresetName] = useState('')
+  const [presetToDelete, setPresetToDelete] = useState<string | null>(null)
+
+  // Load presets on mount
+  useEffect(() => {
+    const loadPresets = async () => {
+      const savedPresets = await getAllSpecificationPresets()
+      setPresets(savedPresets)
+    }
+    loadPresets()
+  }, [])
+
+  // Save preset handler
+  const handleSavePreset = async () => {
+    if (!newPresetName.trim()) return
+
+    try {
+      await createSpecificationPreset(newPresetName.trim(), spec)
+      const updatedPresets = await getAllSpecificationPresets()
+      setPresets(updatedPresets)
+      setShowSavePresetModal(false)
+      setNewPresetName('')
+      toast({ title: t.specification.presetSaved, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to save preset:', error)
+      toast({ title: 'Failed to save preset', variant: 'error' })
+    }
+  }
+
+  // Load preset handler
+  const handleLoadPreset = (preset: SpecificationPreset) => {
+    setSpec(preset.specification)
+    setHasChanges(true)
+    toast({ title: t.specification.presetLoaded, variant: 'success' })
+  }
+
+  // Delete preset handler
+  const handleDeletePreset = async (presetId: string) => {
+    try {
+      await deleteSpecificationPreset(presetId)
+      const updatedPresets = await getAllSpecificationPresets()
+      setPresets(updatedPresets)
+      setPresetToDelete(null)
+      toast({ title: t.specification.presetDeleted, variant: 'success' })
+    } catch (error) {
+      console.error('Failed to delete preset:', error)
+      toast({ title: 'Failed to delete preset', variant: 'error' })
+    }
+  }
 
   // Generate title suggestions
   const handleSuggestTitles = async () => {
@@ -720,6 +780,81 @@ export function SpecificationSection({ project }: SectionProps) {
                 </button>
               )
             })}
+          </div>
+        </AccordionSection>
+
+        {/* My Presets */}
+        <AccordionSection
+          title={t.specification.myPresets}
+          id="presets"
+          isExpanded={expandedSections.presets}
+          onToggle={() => toggleSection('presets')}
+        >
+          <div className="space-y-4">
+            {/* Save current settings button */}
+            <button
+              onClick={() => setShowSavePresetModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+            >
+              <Save className="h-4 w-4" />
+              {t.specification.saveCurrentSettings}
+            </button>
+
+            {/* List of presets */}
+            {presets.length === 0 ? (
+              <div className="text-center py-8 text-text-secondary">
+                <Folder className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                <p className="font-medium">{t.specification.noPresetsYet}</p>
+                <p className="text-sm mt-1">{t.specification.noPresetsDescription}</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {presets.map(preset => (
+                  <div
+                    key={preset.id}
+                    className="p-4 bg-surface-elevated border border-border rounded-lg hover:border-accent transition-colors group"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-text-primary truncate">{preset.name}</h3>
+                        <p className="text-xs text-text-secondary mt-1">
+                          {new Date(preset.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleLoadPreset(preset)}
+                          className="p-1.5 text-accent hover:bg-accent/10 rounded transition-colors"
+                          title={t.specification.loadPreset}
+                        >
+                          <Folder className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setPresetToDelete(preset.id)}
+                          className="p-1.5 text-text-secondary hover:text-error hover:bg-error/10 rounded transition-colors"
+                          title={t.specification.deletePreset}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    {/* Preview of key settings */}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {preset.specification.genre?.slice(0, 2).map(g => (
+                        <span key={g} className="text-[10px] px-1.5 py-0.5 bg-surface rounded text-text-secondary">
+                          {g}
+                        </span>
+                      ))}
+                      {preset.specification.targetAudience && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-surface rounded text-text-secondary">
+                          {preset.specification.targetAudience}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </AccordionSection>
 
@@ -1253,6 +1388,111 @@ export function SpecificationSection({ project }: SectionProps) {
                 className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Preset Modal */}
+      {showSavePresetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowSavePresetModal(false)
+              setNewPresetName('')
+            }}
+          />
+          <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Save className="h-5 w-5 text-accent" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  {t.specification.savePreset}
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSavePresetModal(false)
+                  setNewPresetName('')
+                }}
+                className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+              >
+                <X className="h-5 w-5 text-text-secondary" />
+              </button>
+            </div>
+            <div className="p-4">
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                {t.specification.presetName}
+              </label>
+              <input
+                type="text"
+                value={newPresetName}
+                onChange={(e) => setNewPresetName(e.target.value)}
+                placeholder={t.specification.presetNamePlaceholder}
+                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSavePreset()
+                }}
+              />
+            </div>
+            <div className="p-4 border-t border-border flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowSavePresetModal(false)
+                  setNewPresetName('')
+                }}
+                className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
+              >
+                {t.actions.cancel}
+              </button>
+              <button
+                onClick={handleSavePreset}
+                disabled={!newPresetName.trim()}
+                className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50"
+              >
+                {t.actions.save}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Preset Confirmation Modal */}
+      {presetToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setPresetToDelete(null)}
+          />
+          <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-sm mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-error/10 rounded-full">
+                  <Trash2 className="h-5 w-5 text-error" />
+                </div>
+                <h2 className="text-lg font-semibold text-text-primary">
+                  {t.specification.confirmDeletePreset}
+                </h2>
+              </div>
+              <p className="text-sm text-text-secondary">
+                {presets.find(p => p.id === presetToDelete)?.name}
+              </p>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end gap-2">
+              <button
+                onClick={() => setPresetToDelete(null)}
+                className="px-4 py-2 border border-border rounded-lg text-text-primary hover:bg-surface-elevated transition-colors"
+              >
+                {t.actions.cancel}
+              </button>
+              <button
+                onClick={() => handleDeletePreset(presetToDelete)}
+                className="px-4 py-2 bg-error text-white rounded-lg hover:bg-error/90 transition-colors"
+              >
+                {t.actions.delete}
               </button>
             </div>
           </div>

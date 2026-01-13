@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback } from 'react'
 import {
   Eye,
   EyeOff,
-  AlertTriangle,
   CheckCircle,
   Lightbulb,
   Search,
@@ -20,7 +19,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
-import AIProgressModal from './AIProgressModal'
+import { AIProgressModal } from './AIProgressModal'
 import type {
   ShowDontTellViolation,
   ShowDontTellAlternative,
@@ -101,7 +100,7 @@ export function ShowDontTellAnalyzer({
     ShowDontTellViolation['severity'] | 'all'
   >('all')
   const [expandedViolations, setExpandedViolations] = useState<Set<string>>(new Set())
-  const [selectedViolation, setSelectedViolation] = useState<ShowDontTellViolation | null>(null)
+  const [_selectedViolation, _setSelectedViolation] = useState<ShowDontTellViolation | null>(null)
   const [showFixed, setShowFixed] = useState(false)
   const [showIgnored, setShowIgnored] = useState(false)
 
@@ -529,6 +528,7 @@ export function ShowDontTellAnalyzer({
       {/* AI Progress Modal */}
       <AIProgressModal
         isOpen={isGenerating}
+        onClose={() => {}}
         onCancel={() => {}}
         title="Generating Rewrite"
         status="generating"

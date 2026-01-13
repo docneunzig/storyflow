@@ -199,15 +199,15 @@ export function DeadlineDashboard({
   const [sprintPlan, setSprintPlan] = useState<SprintPlan | null>(null)
   const [showSprintPlan, setShowSprintPlan] = useState(false)
 
-  const { generateContent, isGenerating, progressInfo, cancelGeneration } = useAIGeneration()
+  const { generate, isGenerating, status, progress, message, cancel } = useAIGeneration()
 
   // AI: Predict completion and analyze velocity
   const handleAIPrediction = useCallback(async () => {
     if (!deadline) return
 
     try {
-      const result = await generateContent({
-        agentType: 'deadline',
+      const result = await generate({
+        agentTarget: 'deadline',
         action: 'predict-completion',
         context: {
           deadline,
@@ -242,7 +242,7 @@ export function DeadlineDashboard({
     } catch (error) {
       console.error('AI prediction failed:', error)
     }
-  }, [generateContent, deadline, currentWordCount, chapters, dailyWordCounts, sessions, onUpdateVelocityStats])
+  }, [generate, deadline, currentWordCount, chapters, dailyWordCounts, sessions, onUpdateVelocityStats])
 
   // AI: Generate sprint plan
   const handleGenerateSprintPlan = useCallback(async () => {
@@ -274,8 +274,8 @@ export function DeadlineDashboard({
       .map(([d]) => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][parseInt(d)])
 
     try {
-      const result = await generateContent({
-        agentType: 'deadline',
+      const result = await generate({
+        agentTarget: 'deadline',
         action: 'generate-sprint-plan',
         context: {
           currentWordCount,
@@ -314,7 +314,7 @@ export function DeadlineDashboard({
     } catch (error) {
       console.error('Sprint plan generation failed:', error)
     }
-  }, [generateContent, deadline, currentWordCount, dailyWordCounts, sessions, chapters])
+  }, [generate, deadline, currentWordCount, dailyWordCounts, sessions, chapters])
 
   // Calculate days remaining
   const daysRemaining = useMemo(() => {
@@ -916,9 +916,12 @@ export function DeadlineDashboard({
       {/* AI Progress Modal */}
       <AIProgressModal
         isOpen={isGenerating}
-        onClose={cancelGeneration}
+        onClose={cancel}
+        onCancel={cancel}
         title="Analyzing..."
-        progress={progressInfo}
+        status={status}
+        progress={progress}
+        message={message}
       />
     </div>
   )

@@ -116,6 +116,21 @@ export interface Translations {
     fastPaced: string
     simpleLinear: string
     complex: string
+    // Presets
+    presets: string
+    savePreset: string
+    loadPreset: string
+    deletePreset: string
+    presetName: string
+    presetNamePlaceholder: string
+    presetSaved: string
+    presetLoaded: string
+    presetDeleted: string
+    noPresetsYet: string
+    noPresetsDescription: string
+    confirmDeletePreset: string
+    saveCurrentSettings: string
+    myPresets: string
   }
   // Genre templates
   templates: {
@@ -730,6 +745,21 @@ const en: Translations = {
     fastPaced: 'Fast-paced',
     simpleLinear: 'Simple/Linear',
     complex: 'Complex',
+    // Presets
+    presets: 'Presets',
+    savePreset: 'Save Preset',
+    loadPreset: 'Load Preset',
+    deletePreset: 'Delete Preset',
+    presetName: 'Preset Name',
+    presetNamePlaceholder: 'My Fantasy Setup',
+    presetSaved: 'Preset saved',
+    presetLoaded: 'Preset loaded',
+    presetDeleted: 'Preset deleted',
+    noPresetsYet: 'No saved presets yet',
+    noPresetsDescription: 'Save your current specification settings as a preset to quickly apply them to future projects.',
+    confirmDeletePreset: 'Delete this preset?',
+    saveCurrentSettings: 'Save Current Settings',
+    myPresets: 'My Presets',
   },
   templates: {
     epicFantasy: 'Epic Fantasy',
@@ -1322,6 +1352,21 @@ const de: Translations = {
     fastPaced: 'Schnelles Tempo',
     simpleLinear: 'Einfach/Linear',
     complex: 'Komplex',
+    // Vorlagen
+    presets: 'Vorlagen',
+    savePreset: 'Vorlage speichern',
+    loadPreset: 'Vorlage laden',
+    deletePreset: 'Vorlage löschen',
+    presetName: 'Vorlagenname',
+    presetNamePlaceholder: 'Mein Fantasy-Setup',
+    presetSaved: 'Vorlage gespeichert',
+    presetLoaded: 'Vorlage geladen',
+    presetDeleted: 'Vorlage gelöscht',
+    noPresetsYet: 'Noch keine gespeicherten Vorlagen',
+    noPresetsDescription: 'Speichere deine aktuellen Spezifikationseinstellungen als Vorlage, um sie schnell auf zukünftige Projekte anzuwenden.',
+    confirmDeletePreset: 'Diese Vorlage löschen?',
+    saveCurrentSettings: 'Aktuelle Einstellungen speichern',
+    myPresets: 'Meine Vorlagen',
   },
   templates: {
     epicFantasy: 'Epische Fantasy',

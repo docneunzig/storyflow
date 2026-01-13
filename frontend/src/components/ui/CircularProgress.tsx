@@ -32,19 +32,17 @@ export function CircularProgress({
     lg: { container: 'w-20 h-20', stroke: 10, fontSize: 'text-base' },
   }
 
-  // Color based on score
+  // Color based on score (green >8, yellow 6-8, red <6)
   const getColor = () => {
-    if (clampedValue >= 9) return 'stroke-success'
-    if (clampedValue >= 7.5) return 'stroke-accent'
-    if (clampedValue >= 6) return 'stroke-warning'
-    return 'stroke-error'
+    if (clampedValue > 8) return 'stroke-green-500'
+    if (clampedValue >= 6) return 'stroke-yellow-500'
+    return 'stroke-red-500'
   }
 
   const getTextColor = () => {
-    if (clampedValue >= 9) return 'text-success'
-    if (clampedValue >= 7.5) return 'text-accent'
-    if (clampedValue >= 6) return 'text-warning'
-    return 'text-error'
+    if (clampedValue > 8) return 'text-green-500'
+    if (clampedValue >= 6) return 'text-yellow-500'
+    return 'text-red-500'
   }
 
   const config = sizeConfig[size]

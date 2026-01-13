@@ -797,9 +797,10 @@ export interface ChapterSummary {
   emotionalBeats: string[]
   plotBeatsAdvanced: string[]
   subplotsTouched: string[]
-  foreshadowing: string[]
+  foreshadowing: string[] | { element: string; setup: string }[]
   payoffs: string[]
   cliffhanger: string | null
+  openQuestions?: string[]
   generatedAt: string
   tokenCount: number
 }
@@ -865,12 +866,14 @@ export interface StyleFingerprint {
     variation: number // standard deviation
     complexity: number // 0-1, based on clause depth
     fragmentFrequency: number // 0-1, intentional fragments
+    patterns?: string[] // common sentence structures
   }
   vocabulary: {
     sophistication: number // 0-1, based on word rarity
     domainSpecific: string[] // frequent domain-specific terms
     avoided: string[] // words the style avoids
     favorites: string[] // distinctively overused words
+    concreteVsAbstract?: number // 0-1, 0=abstract, 1=concrete
   }
   narrativeTechniques: {
     pov: string
@@ -878,12 +881,15 @@ export interface StyleFingerprint {
     streamOfConsciousness: number // 0-1
     dialogueToNarrativeRatio: number // 0-1
     internalizationFrequency: number // 0-1
+    showVsTell?: number // 0-1, 0=telling, 1=showing
+    sceneSummaryBalance?: number // 0-1, 0=summary, 1=scene
   }
   rhythm: {
     punctuationStyle: string // "sparse", "dramatic", "standard"
     paragraphLength: 'short' | 'medium' | 'long' | 'varied'
     dialogueTagStyle: 'minimal' | 'descriptive' | 'action-oriented'
     sceneTransitionStyle: string
+    pacingPattern?: string // description of rhythm and flow
   }
   distinctiveMarkers: string[] // unique stylistic elements
   authorVoice: string // prose description of the voice
@@ -900,6 +906,119 @@ export interface StyleFingerprint {
 // =============================================================================
 // Extended Project interface to include new features
 // =============================================================================
+
+// =============================================================================
+// GENRE-SPECIFIC FEATURES
+// =============================================================================
+
+// Mystery/Thriller Types
+export interface MysteryElements {
+  clues: Clue[]
+  redHerrings: RedHerring[]
+  suspects: Suspect[]
+  revelationSchedule: Revelation[]
+  tensionCurve: ChapterTension[]
+}
+
+export interface Clue {
+  id: string
+  description: string
+  plantedInChapterId: string
+  revealedInChapterId: string | null
+  importance: 'critical' | 'supporting' | 'minor'
+  status: 'planted' | 'revealed' | 'red-herring'
+  connectedClueIds: string[]
+  notes: string
+}
+
+export interface RedHerring {
+  id: string
+  description: string
+  plantedInChapterId: string
+  revealedAsRedHerringInChapterId: string | null
+  targetSuspectId: string | null
+  convincingness: number // 1-10
+  notes: string
+}
+
+export interface Suspect {
+  id: string
+  characterId: string
+  motive: string
+  opportunity: string
+  means: string
+  alibi: string | null
+  isGuilty: boolean
+  isRevealed: boolean
+  suspicionLevel: number // 1-10, reader's suspicion
+  revealChapterId: string | null
+}
+
+export interface Revelation {
+  id: string
+  content: string
+  type: 'clue' | 'suspect-cleared' | 'twist' | 'solution' | 'backstory'
+  chapterId: string
+  impact: 'high' | 'medium' | 'low'
+  dependsOnClueIds: string[]
+  notes: string
+}
+
+export interface ChapterTension {
+  chapterId: string
+  chapterNumber: number
+  tensionLevel: number // 1-10
+  suspenseLevel: number // 1-10
+  dangerLevel: number // 1-10
+}
+
+// Romance Types
+export interface RomanceElements {
+  protagonistAId: string // Character ID
+  protagonistBId: string // Character ID
+  relationshipArc: RelationshipBeat[]
+  tropes: RomanceTrope[]
+  conflictType: 'internal' | 'external' | 'both'
+  heatLevel: 1 | 2 | 3 | 4 | 5
+  chemistryScores: ChapterChemistry[]
+}
+
+export interface RelationshipBeat {
+  id: string
+  type: RelationshipBeatType
+  chapterId: string | null
+  description: string
+  povCharacterId: string
+  emotionalIntensity: number // 1-10
+  notes: string
+}
+
+export type RelationshipBeatType =
+  | 'meet-cute'
+  | 'first-conflict'
+  | 'growing-closer'
+  | 'first-kiss'
+  | 'misunderstanding'
+  | 'separation'
+  | 'black-moment'
+  | 'grand-gesture'
+  | 'resolution'
+  | 'hea' // Happily Ever After
+
+export interface RomanceTrope {
+  id: string
+  name: string
+  description: string
+  isActive: boolean
+}
+
+export interface ChapterChemistry {
+  chapterId: string
+  chapterNumber: number
+  tensionLevel: number // 1-10 sexual/romantic tension
+  intimacyLevel: number // 1-10 emotional intimacy
+  conflictLevel: number // 1-10 relationship conflict
+}
 
 export interface ProjectExtended extends Project {
   // Feature 1: Continuity Graph
@@ -928,4 +1047,7 @@ export interface ProjectExtended extends Project {
   // Feature 10: Style Cloning
   styleFingerprints: StyleFingerprint[]
   activeStyleId: string | null
+  // Genre-Specific Features
+  mysteryElements: MysteryElements | null
+  romanceElements: RomanceElements | null
 }

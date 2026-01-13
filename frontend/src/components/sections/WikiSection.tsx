@@ -61,7 +61,8 @@ export function WikiSection({ project }: SectionProps) {
   const [aiProgressTitle, setAIProgressTitle] = useState(t.wiki.extractingElements)
   const [extractedEntries, setExtractedEntries] = useState<{ name: string; category: WikiCategory; description: string }[]>([])
   const [showExtractedModal, setShowExtractedModal] = useState(false)
-  const [expandingEntryId, setExpandingEntryId] = useState<string | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_expandingEntryId, setExpandingEntryId] = useState<string | null>(null)
 
   // Extract wiki elements from chapters
   const handleExtractFromChapters = async () => {

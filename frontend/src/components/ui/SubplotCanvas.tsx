@@ -13,7 +13,6 @@ import {
   Sparkles,
   Loader2,
   Lightbulb,
-  CheckCircle,
   Target
 } from 'lucide-react'
 import type {
@@ -169,15 +168,15 @@ export function SubplotCanvas({
   const [touchSuggestions, setTouchSuggestions] = useState<Record<string, SubplotTouchSuggestion[]>>({})
   const [loadingTouchSuggestions, setLoadingTouchSuggestions] = useState<string | null>(null)
 
-  const { generateContent, isGenerating, progressInfo, cancelGeneration } = useAIGeneration()
+  const { generate, isGenerating, status, progress, message, cancel } = useAIGeneration()
 
   // AI: Analyze all subplots
   const handleAnalyzeSubplots = useCallback(async () => {
     if (subplots.length === 0) return
 
     try {
-      const result = await generateContent({
-        agentType: 'subplot',
+      const result = await generate({
+        agentTarget: 'subplot',
         action: 'analyze-subplot-health',
         context: {
           specification,
@@ -202,7 +201,7 @@ export function SubplotCanvas({
     } catch (error) {
       console.error('Subplot analysis failed:', error)
     }
-  }, [generateContent, subplots, subplotTouches, chapters, characters, specification, targetChapters])
+  }, [generate, subplots, subplotTouches, chapters, characters, specification, targetChapters])
 
   // AI: Suggest touches for a specific subplot
   const handleSuggestTouches = useCallback(async (subplot: Subplot) => {
@@ -214,8 +213,8 @@ export function SubplotCanvas({
       )
       const existingTouches = subplotTouches.filter(t => t.subplotId === subplot.id)
 
-      const result = await generateContent({
-        agentType: 'subplot',
+      const result = await generate({
+        agentTarget: 'subplot',
         action: 'suggest-subplot-touches',
         context: {
           specification,
@@ -249,7 +248,7 @@ export function SubplotCanvas({
     } finally {
       setLoadingTouchSuggestions(null)
     }
-  }, [generateContent, subplotTouches, chapters, characters, scenes, specification, targetChapters])
+  }, [generate, subplotTouches, chapters, characters, scenes, specification, targetChapters])
 
   // Calculate warnings
   const warnings = useMemo((): SubplotWarning[] => {
@@ -776,9 +775,12 @@ export function SubplotCanvas({
       {/* AI Progress Modal */}
       <AIProgressModal
         isOpen={isGenerating}
-        onClose={cancelGeneration}
+        onClose={cancel}
+        onCancel={cancel}
         title="Analyzing Subplots..."
-        progress={progressInfo}
+        status={status}
+        progress={progress}
+        message={message}
       />
     </div>
   )

@@ -1,5 +1,14 @@
 import Dexie, { type Table } from 'dexie'
-import type { Project } from '@/types/project'
+import type { Project, NovelSpecification } from '@/types/project'
+
+// Specification preset type
+export interface SpecificationPreset {
+  id: string
+  name: string
+  specification: NovelSpecification
+  createdAt: string
+  updatedAt: string
+}
 
 // Backup entry type
 export interface ProjectBackup {
@@ -15,6 +24,7 @@ export interface ProjectBackup {
 export class StoryflowDatabase extends Dexie {
   projects!: Table<Project, string>
   backups!: Table<ProjectBackup, string>
+  specificationPresets!: Table<SpecificationPreset, string>
 
   constructor() {
     super('storyflow')
@@ -28,6 +38,13 @@ export class StoryflowDatabase extends Dexie {
     this.version(2).stores({
       projects: 'id, metadata.workingTitle, updatedAt, createdAt',
       backups: 'id, projectId, timestamp, projectTitle',
+    })
+
+    // Version 3 adds specification presets
+    this.version(3).stores({
+      projects: 'id, metadata.workingTitle, updatedAt, createdAt',
+      backups: 'id, projectId, timestamp, projectTitle',
+      specificationPresets: 'id, name, createdAt, updatedAt',
     })
   }
 }
@@ -172,4 +189,42 @@ export function createEmptyProject(title: string, authorName: string = ''): Proj
     updatedAt: now,
     lastExportedAt: null,
   }
+}
+
+// Specification preset helper functions
+export async function getAllSpecificationPresets(): Promise<SpecificationPreset[]> {
+  return db.specificationPresets.orderBy('updatedAt').reverse().toArray()
+}
+
+export async function getSpecificationPreset(id: string): Promise<SpecificationPreset | undefined> {
+  return db.specificationPresets.get(id)
+}
+
+export async function createSpecificationPreset(
+  name: string,
+  specification: NovelSpecification
+): Promise<string> {
+  const now = new Date().toISOString()
+  const preset: SpecificationPreset = {
+    id: generateId(),
+    name,
+    specification,
+    createdAt: now,
+    updatedAt: now,
+  }
+  return db.specificationPresets.add(preset)
+}
+
+export async function updateSpecificationPreset(
+  id: string,
+  updates: Partial<Omit<SpecificationPreset, 'id' | 'createdAt'>>
+): Promise<number> {
+  return db.specificationPresets.update(id, {
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+export async function deleteSpecificationPreset(id: string): Promise<void> {
+  return db.specificationPresets.delete(id)
 }

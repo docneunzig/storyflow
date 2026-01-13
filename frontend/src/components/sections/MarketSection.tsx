@@ -165,7 +165,7 @@ function generateMockMarketAnalysis(project: Project): MarketAnalysis {
 export function MarketSection({ project }: SectionProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
-  const { generate, isGenerating, cancel } = useAIGeneration()
+  const { generate, isGenerating, cancel, status, progress, message } = useAIGeneration()
   const t = useLanguageStore((state) => state.t)
 
   // AI-specific state
@@ -183,15 +183,15 @@ export function MarketSection({ project }: SectionProps) {
     setSaveStatus('saving')
 
     try {
-      const result = await generate(
-        'market',
-        'analyze-market',
-        {
+      const result = await generate({
+        agentTarget: 'market',
+        action: 'analyze-market',
+        context: {
           specification: project.specification,
           characters: project.characters,
           plot: project.plot
         }
-      )
+      })
 
       if (result && !result.includes('cancelled')) {
         // Parse the AI result into market analysis structure
@@ -228,15 +228,15 @@ export function MarketSection({ project }: SectionProps) {
     setShowAIProgress(true)
 
     try {
-      const result = await generate(
-        'market',
-        'suggest-keywords',
-        {
+      const result = await generate({
+        agentTarget: 'market',
+        action: 'suggest-keywords',
+        context: {
           specification: project.specification,
           characters: project.characters,
           plot: project.plot
         }
-      )
+      })
 
       if (result && !result.includes('cancelled')) {
         try {
@@ -489,11 +489,15 @@ export function MarketSection({ project }: SectionProps) {
       <AIProgressModal
         isOpen={showAIProgress}
         title={aiProgressTitle}
+        onClose={() => setShowAIProgress(false)}
         onCancel={() => {
           cancel()
           setShowAIProgress(false)
           setIsAnalyzing(false)
         }}
+        status={status}
+        progress={progress}
+        message={message}
       />
     </div>
   )

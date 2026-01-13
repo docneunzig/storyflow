@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Download, Upload, FileJson, FileText, Loader2, FileType, Sparkles, BookOpen, Mail, BookMarked, Copy, Check, X } from 'lucide-react'
+import { Download, Upload, FileJson, FileText, Loader2, FileType, Sparkles, BookOpen, Mail, BookMarked, Copy, Check, X, Book, FileBox } from 'lucide-react'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
 import type { Project } from '@/types/project'
@@ -19,6 +19,8 @@ import {
   convertInchesToTwip,
 } from 'docx'
 import { saveAs } from 'file-saver'
+import { exportToEPUB } from '@/lib/export/epub'
+import { exportToPDF, PDF_PRESETS } from '@/lib/export/pdf'
 
 // DOCX Export Preset Types
 type DOCXPreset = 'standard-manuscript' | 'modern' | 'paperback' | 'print-ready-6x9'
@@ -106,7 +108,7 @@ export function ExportSection({ project }: SectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // AI Generation state
-  const { generate, isGenerating, cancel } = useAIGeneration()
+  const { generate, isGenerating, cancel, status, progress, message } = useAIGeneration()
   const [showAIProgress, setShowAIProgress] = useState(false)
   const [aiProgressTitle, setAIProgressTitle] = useState('Generating...')
   const [generatedContent, setGeneratedContent] = useState<{ type: string; content: string } | null>(null)
@@ -123,17 +125,17 @@ export function ExportSection({ project }: SectionProps) {
     setShowAIProgress(true)
 
     try {
-      const result = await generate(
-        'export',
-        'generate-synopsis',
-        {
+      const result = await generate({
+        agentTarget: 'export',
+        action: 'generate-synopsis',
+        context: {
           specification: project.specification,
           plot: project.plot,
           characters: project.characters,
           chapters: project.chapters,
           length
         }
-      )
+      })
 
       if (result && !result.includes('cancelled')) {
         setGeneratedContent({ type: lengthLabels[length], content: result })
@@ -152,16 +154,16 @@ export function ExportSection({ project }: SectionProps) {
     setShowAIProgress(true)
 
     try {
-      const result = await generate(
-        'export',
-        'generate-query-letter',
-        {
+      const result = await generate({
+        agentTarget: 'export',
+        action: 'generate-query-letter',
+        context: {
           specification: project.specification,
           plot: project.plot,
           characters: project.characters,
           chapters: project.chapters
         }
-      )
+      })
 
       if (result && !result.includes('cancelled')) {
         setGeneratedContent({ type: t.export.queryLetter, content: result })
@@ -180,15 +182,15 @@ export function ExportSection({ project }: SectionProps) {
     setShowAIProgress(true)
 
     try {
-      const result = await generate(
-        'export',
-        'generate-book-description',
-        {
+      const result = await generate({
+        agentTarget: 'export',
+        action: 'generate-book-description',
+        context: {
           specification: project.specification,
           plot: project.plot,
           characters: project.characters
         }
-      )
+      })
 
       if (result && !result.includes('cancelled')) {
         setGeneratedContent({ type: t.export.bookDescription, content: result })
@@ -617,6 +619,52 @@ export function ExportSection({ project }: SectionProps) {
     }
   }
 
+  // EPUB Export
+  async function exportAsEPUB() {
+    setIsExporting(true)
+    try {
+      await exportToEPUB(project)
+      toast({
+        title: t.common.success,
+        description: 'Project exported as EPUB successfully',
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('EPUB export failed:', error)
+      toast({
+        title: t.common.error,
+        description: error instanceof Error ? error.message : 'Failed to export as EPUB',
+        variant: 'error',
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  // PDF Export
+  const [selectedPDFPreset, setSelectedPDFPreset] = useState<keyof typeof PDF_PRESETS>('standard-manuscript')
+
+  async function exportAsPDF() {
+    setIsExporting(true)
+    try {
+      await exportToPDF(project, PDF_PRESETS[selectedPDFPreset])
+      toast({
+        title: t.common.success,
+        description: 'Project exported as PDF successfully',
+        variant: 'success',
+      })
+    } catch (error) {
+      console.error('PDF export failed:', error)
+      toast({
+        title: t.common.error,
+        description: error instanceof Error ? error.message : 'Failed to export as PDF',
+        variant: 'error',
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   function handleImportClick() {
     fileInputRef.current?.click()
   }
@@ -844,6 +892,82 @@ export function ExportSection({ project }: SectionProps) {
             {t.export.exportDocx}
           </button>
         </div>
+
+        {/* EPUB & PDF Exports */}
+        <div className="grid gap-6 md:grid-cols-2 mt-6">
+          {/* EPUB Export */}
+          <div className="card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-emerald-500/10 rounded-lg">
+                <Book className="h-6 w-6 text-emerald-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-text-primary">EPUB Export</h3>
+                <p className="text-sm text-text-secondary">E-reader compatible format</p>
+              </div>
+            </div>
+            <p className="text-text-secondary text-sm mb-4">
+              Export your manuscript as an EPUB file, compatible with Kindle, Apple Books, Kobo, and other e-readers. Perfect for beta readers and personal review.
+            </p>
+            <button
+              onClick={exportAsEPUB}
+              disabled={isExporting}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50"
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Export EPUB
+            </button>
+          </div>
+
+          {/* PDF Export */}
+          <div className="card">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-500/10 rounded-lg">
+                <FileBox className="h-6 w-6 text-red-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-text-primary">PDF Export</h3>
+                <p className="text-sm text-text-secondary">Universal document format</p>
+              </div>
+            </div>
+            <p className="text-text-secondary text-sm mb-4">
+              Export as a PDF for printing, sharing, or archiving. Choose from different formatting presets.
+            </p>
+
+            {/* PDF Preset Selection */}
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-text-secondary mb-2">
+                Format Preset
+              </label>
+              <select
+                value={selectedPDFPreset}
+                onChange={(e) => setSelectedPDFPreset(e.target.value as keyof typeof PDF_PRESETS)}
+                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="standard-manuscript">Standard Manuscript (12pt, double-spaced)</option>
+                <option value="paperback-trade">Trade Paperback (6x9, single-spaced)</option>
+                <option value="ebook-preview">E-book Preview (A4, for screen reading)</option>
+              </select>
+            </div>
+
+            <button
+              onClick={exportAsPDF}
+              disabled={isExporting}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Export PDF
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* AI Publishing Tools */}
@@ -953,10 +1077,14 @@ export function ExportSection({ project }: SectionProps) {
       <AIProgressModal
         isOpen={showAIProgress}
         title={aiProgressTitle}
+        onClose={() => setShowAIProgress(false)}
         onCancel={() => {
           cancel()
           setShowAIProgress(false)
         }}
+        status={status}
+        progress={progress}
+        message={message}
       />
 
       {/* Generated Content Modal */}

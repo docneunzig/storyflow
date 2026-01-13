@@ -630,7 +630,7 @@ export function SeriesManager({
 
   // AI Integration
   const [continuityResults, setContinuityResults] = useState<Record<string, ContinuityCheckResult>>({})
-  const { generateContent, isGenerating, progressInfo, cancelGeneration } = useAIGeneration()
+  const { generate, isGenerating, status, progress, message, cancel } = useAIGeneration()
 
   const handleCreate = () => {
     if (!newSeriesName.trim()) return
@@ -656,15 +656,15 @@ export function SeriesManager({
     if (seriesProjects.length < 2) return
 
     try {
-      const result = await generateContent({
-        agentType: 'series',
+      const result = await generate({
+        agentTarget: 'series',
         action: 'check-series-continuity',
         context: {
           series: s,
-          books: seriesProjects.map((p, i) => ({
+          books: seriesProjects.map((p) => ({
             title: p.metadata.workingTitle,
             wordCount: p.specification?.targetWordCount || 0,
-            status: p.metadata.status,
+            status: p.metadata.currentPhase,
             characters: p.characters?.map((c: Character) => ({ name: c.name })) || [],
             keyEvents: []
           })),
@@ -685,7 +685,7 @@ export function SeriesManager({
     } catch (error) {
       console.error('Continuity check failed:', error)
     }
-  }, [generateContent, projects])
+  }, [generate, projects])
 
   // AI: Extract series elements from a book
   const handleExtractElements = useCallback(async (s: Series, projectId: string) => {
@@ -695,8 +695,8 @@ export function SeriesManager({
     const bookNumber = s.projectIds.indexOf(projectId) + 1
 
     try {
-      const result = await generateContent({
-        agentType: 'series',
+      const result = await generate({
+        agentTarget: 'series',
         action: 'extract-series-elements',
         context: {
           book: {
@@ -726,7 +726,7 @@ export function SeriesManager({
     } catch (error) {
       console.error('Element extraction failed:', error)
     }
-  }, [generateContent, projects])
+  }, [generate, projects])
 
   // Calculate total open promises across all series
   const totalOpenPromises = series.reduce(
@@ -838,9 +838,12 @@ export function SeriesManager({
       {/* AI Progress Modal */}
       <AIProgressModal
         isOpen={isGenerating}
-        onClose={cancelGeneration}
+        onClose={cancel}
+        onCancel={cancel}
         title="Analyzing Series..."
-        progress={progressInfo}
+        status={status}
+        progress={progress}
+        message={message}
       />
     </div>
   )

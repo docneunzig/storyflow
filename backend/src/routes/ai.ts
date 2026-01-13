@@ -6,11 +6,18 @@ import {
   registerGeneration,
   cancelGeneration,
   cleanupGeneration,
-  isApiKeyConfigured,
+  isApiKeyConfigured as _isApiKeyConfigured,
   isClaudeCliAuthenticated,
 } from '../services/claude.js'
+import {
+  subscribeToProgress,
+  cleanupProgress,
+  createProgressTracker,
+  getProgress,
+  type GenerationProgress,
+} from '../services/claude/progress-emitter.js'
 
-const execAsync = promisify(exec)
+const _execAsync = promisify(exec)
 const router = Router()
 
 // Configuration: set to true to use real Claude API, false for simulated responses
@@ -723,7 +730,7 @@ function rewriteSelection(context: Record<string, any>): string {
   const isPresentTense = tense.includes('present')
 
   // Generate a rewritten version with different structure
-  const sentences = selectedText.split(/[.!?]+/).filter(s => s.trim())
+  const sentences = selectedText.split(/[.!?]+/).filter((s: string) => s.trim())
 
   if (sentences.length === 0) return selectedText
 
@@ -2067,10 +2074,16 @@ router.post('/generate', async (req: Request, res: Response) => {
   const { agentTarget, action, context, payload: _payload } = req.body
   const generationId = `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
+  // Create progress tracker for real-time updates
+  const progressTracker = createProgressTracker(generationId)
+
   // Route to appropriate specialized agent via orchestrator
   const routedAgent = routeToAgent(agentTarget, action)
   console.log(`[Orchestrator] Routing request to ${routedAgent.agent} for action: ${action}`)
   console.log(`[${routedAgent.agent}] Starting generation ${generationId} (Claude: ${USE_REAL_CLAUDE})`)
+
+  // Emit initial progress
+  progressTracker.initialize()
 
   // Register this generation (both local and in Claude service)
   activeGenerations.set(generationId, { cancelled: false })
@@ -2096,7 +2109,13 @@ router.post('/generate', async (req: Request, res: Response) => {
     let result: string
     let cancelled: boolean
 
+    // Emit analyzing progress
+    progressTracker.analyzing()
+
     if (USE_REAL_CLAUDE) {
+      // Emit generating progress
+      progressTracker.generating(`Generating with ${routedAgent.agent}...`)
+
       // Use real Claude API
       const agentType = agentTarget?.toLowerCase() || 'writer'
       const response = await generateWithClaude({
@@ -2112,11 +2131,17 @@ router.post('/generate', async (req: Request, res: Response) => {
         console.log(`[${routedAgent.agent}] Tokens used - Input: ${response.usage.inputTokens}, Output: ${response.usage.outputTokens}`)
       }
     } else {
+      // Emit generating progress for simulated
+      progressTracker.generating('Generating content...')
+
       // Use simulated generation for testing
       const response = await simulateAIGeneration(action, context || {}, generationId)
       result = response.result
       cancelled = response.cancelled
     }
+
+    // Emit processing progress
+    progressTracker.processing()
 
     // Clean up socket listener and registrations
     socket.off('close', onSocketClose)
@@ -2127,6 +2152,8 @@ router.post('/generate', async (req: Request, res: Response) => {
 
     if (cancelled) {
       console.log(`[AI Generate] Generation ${generationId} was cancelled`)
+      progressTracker.cancelled()
+      cleanupProgress(generationId)
       if (!res.writableEnded) {
         res.status(499).json({
           status: 'cancelled',
@@ -2137,6 +2164,13 @@ router.post('/generate', async (req: Request, res: Response) => {
     }
 
     console.log(`[${routedAgent.agent}] Generation ${generationId} completed successfully`)
+
+    // Emit completion progress
+    progressTracker.complete(result)
+
+    // Clean up progress after a delay (allow clients to receive the final update)
+    setTimeout(() => cleanupProgress(generationId), 5000)
+
     res.json({
       status: 'success',
       result,
@@ -2152,12 +2186,82 @@ router.post('/generate', async (req: Request, res: Response) => {
     if (USE_REAL_CLAUDE) {
       cleanupGeneration(generationId)
     }
+    const errorMessage = error instanceof Error ? error.message : 'Generation failed'
     console.error('AI generation error:', error)
+
+    // Emit error progress
+    progressTracker.error(errorMessage)
+    setTimeout(() => cleanupProgress(generationId), 5000)
+
     res.status(500).json({
       status: 'error',
-      message: error instanceof Error ? error.message : 'Generation failed',
+      message: errorMessage,
     })
   }
+})
+
+// GET /api/ai/stream/:generationId - SSE endpoint for real-time progress
+router.get('/stream/:generationId', (req: Request, res: Response) => {
+  const { generationId } = req.params
+
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('X-Accel-Buffering', 'no') // Disable nginx buffering
+
+  // Send initial connection message
+  res.write(`data: ${JSON.stringify({ type: 'connected', generationId })}\n\n`)
+
+  // Check if there's already a progress for this generation
+  const existingProgress = getProgress(generationId)
+  if (existingProgress) {
+    res.write(`data: ${JSON.stringify({ type: 'progress', ...existingProgress })}\n\n`)
+
+    // If already completed or errored, close the connection
+    if (['completed', 'error', 'cancelled'].includes(existingProgress.status)) {
+      res.end()
+      return
+    }
+  }
+
+  // Subscribe to progress updates
+  const unsubscribe = subscribeToProgress(generationId, (progress: GenerationProgress) => {
+    try {
+      res.write(`data: ${JSON.stringify({ type: 'progress', ...progress })}\n\n`)
+
+      // Close connection when generation is done
+      if (['completed', 'error', 'cancelled'].includes(progress.status)) {
+        setTimeout(() => {
+          unsubscribe()
+          res.end()
+        }, 100) // Small delay to ensure the final message is sent
+      }
+    } catch (err) {
+      // Client disconnected
+      unsubscribe()
+    }
+  })
+
+  // Handle client disconnect
+  req.on('close', () => {
+    unsubscribe()
+  })
+
+  // Keep connection alive with periodic heartbeat
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(`: heartbeat\n\n`)
+    } catch {
+      clearInterval(heartbeat)
+      unsubscribe()
+    }
+  }, 30000) // Send heartbeat every 30 seconds
+
+  // Clean up heartbeat on close
+  req.on('close', () => {
+    clearInterval(heartbeat)
+  })
 })
 
 // POST /api/ai/consistency-check - Check for consistency issues

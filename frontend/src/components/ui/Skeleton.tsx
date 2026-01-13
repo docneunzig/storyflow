@@ -158,3 +158,63 @@ export function GridSkeleton({ count = 6, columns = 3, children }: GridSkeletonP
     </div>
   )
 }
+
+// Text lines skeleton
+export function SkeletonText({ lines = 3, className }: { lines?: number; className?: string }) {
+  return (
+    <div className={cn('space-y-2', className)}>
+      {Array.from({ length: lines }).map((_, i) => (
+        <Skeleton
+          key={i}
+          className={cn(
+            'h-3',
+            i === lines - 1 ? 'w-3/4' : 'w-full'
+          )}
+        />
+      ))}
+    </div>
+  )
+}
+
+// Stats card skeleton
+export function SkeletonStatsCard() {
+  return (
+    <div className="bg-surface-elevated rounded-lg p-4 border border-border">
+      <div className="flex items-center gap-2 mb-2">
+        <Skeleton className="h-5 w-5 rounded" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+      <Skeleton className="h-8 w-16" />
+      <Skeleton className="h-3 w-20 mt-1" />
+    </div>
+  )
+}
+
+// Dashboard stats skeleton
+export function SkeletonDashboard() {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <SkeletonStatsCard key={i} />
+      ))}
+    </div>
+  )
+}
+
+// Editor skeleton
+export function SkeletonEditor() {
+  return (
+    <div className="flex-1 p-6 space-y-4">
+      <div className="flex items-center justify-between mb-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="flex gap-2">
+          <Skeleton className="h-8 w-24 rounded-lg" />
+          <Skeleton className="h-8 w-24 rounded-lg" />
+        </div>
+      </div>
+      <SkeletonText lines={8} />
+      <SkeletonText lines={6} className="mt-6" />
+      <SkeletonText lines={4} className="mt-6" />
+    </div>
+  )
+}
