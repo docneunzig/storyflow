@@ -1,5 +1,5 @@
-import { useEffect, useCallback } from 'react'
-import { X, Sparkles, Loader2, CheckCircle, XCircle, AlertCircle, Check } from 'lucide-react'
+import { useEffect, useCallback, useState, useRef } from 'react'
+import { X, Sparkles, Loader2, CheckCircle, XCircle, AlertCircle, Check, Clock } from 'lucide-react'
 import type { AIGenerationStatus } from '@/hooks/useAIGeneration'
 
 interface AIProgressModalProps {
@@ -14,6 +14,13 @@ interface AIProgressModalProps {
   onSkipToFinal?: () => void // Optional callback for "Skip to Final" during auto-improve
 }
 
+// Format elapsed time as MM:SS
+function formatElapsedTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
 export function AIProgressModal({
   isOpen,
   onClose,
@@ -25,6 +32,45 @@ export function AIProgressModal({
   title = 'AI Generation',
   onSkipToFinal,
 }: AIProgressModalProps) {
+  const [elapsedTime, setElapsedTime] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const startTimeRef = useRef<number | null>(null)
+
+  // Track elapsed time when generating
+  useEffect(() => {
+    if (status === 'generating' && isOpen) {
+      // Start timer
+      startTimeRef.current = Date.now()
+      setElapsedTime(0)
+      timerRef.current = setInterval(() => {
+        if (startTimeRef.current) {
+          setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000))
+        }
+      }, 1000)
+    } else {
+      // Stop timer when not generating
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
+  }, [status, isOpen])
+
+  // Reset elapsed time when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setElapsedTime(0)
+      startTimeRef.current = null
+    }
+  }, [isOpen])
+
   // Handle Escape key to close (only when not generating)
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -150,6 +196,11 @@ export function AIProgressModal({
                     aria-valuemin={0}
                     aria-valuemax={100}
                   />
+                </div>
+                {/* Elapsed time */}
+                <div className="flex items-center justify-center gap-1.5 mt-3 text-xs text-text-secondary">
+                  <Clock className="h-3 w-3" aria-hidden="true" />
+                  <span>Elapsed: {formatElapsedTime(elapsedTime)}</span>
                 </div>
               </div>
             )}

@@ -17,7 +17,13 @@ export interface AIGenerationOptions {
   payload?: Record<string, unknown>
   onProgress?: (progress: AIGenerationProgress) => void
   useStreaming?: boolean // Enable SSE streaming for real-time progress
+  timeoutMs?: number // Timeout in milliseconds (default: 60000 = 60s)
 }
+
+// Default timeout: 60 seconds
+const DEFAULT_TIMEOUT_MS = 60000
+// Time before showing "taking longer" message: 30 seconds
+const LONG_WAIT_THRESHOLD_MS = 30000
 
 // Map backend status to frontend status
 function mapStatus(backendStatus: string): AIGenerationStatus {
@@ -151,7 +157,7 @@ export function useAIGeneration() {
 
   const generate = useCallback(
     async (options: AIGenerationOptions): Promise<string | null> => {
-      const { agentTarget, action, context, payload, onProgress } = options
+      const { agentTarget, action, context, payload, onProgress, timeoutMs = DEFAULT_TIMEOUT_MS } = options
 
       // Prevent concurrent generations
       if (isGeneratingRef.current) {
@@ -175,6 +181,34 @@ export function useAIGeneration() {
       setResult(null)
       setError(null)
 
+      // Set up "taking longer than expected" message timer
+      let longWaitTimer: ReturnType<typeof setTimeout> | null = null
+      if (isMountedRef.current) {
+        longWaitTimer = setTimeout(() => {
+          if (isMountedRef.current && isGeneratingRef.current) {
+            updateProgressSafe(
+              {
+                status: 'generating',
+                progress: progress,
+                message: 'This is taking longer than usual. Please wait...',
+              },
+              onProgress
+            )
+          }
+        }, LONG_WAIT_THRESHOLD_MS)
+      }
+
+      // Set up timeout timer that will abort the request
+      let timeoutTimer: ReturnType<typeof setTimeout> | null = null
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutTimer = setTimeout(() => {
+          if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+            abortControllerRef.current.abort()
+          }
+          reject(new Error('TIMEOUT'))
+        }, timeoutMs)
+      })
+
       try {
         updateProgressSafe(
           {
@@ -185,8 +219,8 @@ export function useAIGeneration() {
           onProgress
         )
 
-        // Start the API call
-        const response = await fetch('/api/ai/generate', {
+        // Start the API call with timeout
+        const fetchPromise = fetch('/api/ai/generate', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -199,6 +233,9 @@ export function useAIGeneration() {
           }),
           signal: abortControllerRef.current.signal,
         })
+
+        // Race between fetch and timeout
+        const response = await Promise.race([fetchPromise, timeoutPromise])
 
         // Check if cancelled during fetch or component unmounted
         if (!isMountedRef.current) {
@@ -275,16 +312,19 @@ export function useAIGeneration() {
         }
         return null
       } finally {
+        // Clean up timers
+        if (longWaitTimer) clearTimeout(longWaitTimer)
+        if (timeoutTimer) clearTimeout(timeoutTimer)
         cleanupGeneration()
       }
     },
-    [updateProgressSafe, cleanupGeneration]
+    [updateProgressSafe, cleanupGeneration, progress]
   )
 
   // Streaming generate function - uses SSE for real-time updates
   const generateWithStreaming = useCallback(
     async (options: AIGenerationOptions): Promise<string | null> => {
-      const { agentTarget, action, context, payload, onProgress } = options
+      const { agentTarget, action, context, payload, onProgress, timeoutMs = DEFAULT_TIMEOUT_MS } = options
 
       // Prevent concurrent generations
       if (isGeneratingRef.current) {
@@ -307,7 +347,51 @@ export function useAIGeneration() {
       setResult(null)
       setError(null)
 
+      // Set up "taking longer than expected" message timer
+      let longWaitTimer: ReturnType<typeof setTimeout> | null = null
+      longWaitTimer = setTimeout(() => {
+        if (isMountedRef.current && isGeneratingRef.current) {
+          updateProgressSafe(
+            {
+              status: 'generating',
+              progress: progress,
+              message: 'This is taking longer than usual. Please wait...',
+            },
+            onProgress
+          )
+        }
+      }, LONG_WAIT_THRESHOLD_MS)
+
+      // Set up timeout timer
+      let timeoutTimer: ReturnType<typeof setTimeout> | null = null
+      timeoutTimer = setTimeout(() => {
+        if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+          abortControllerRef.current.abort()
+        }
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close()
+          eventSourceRef.current = null
+        }
+        if (isMountedRef.current) {
+          updateProgressSafe(
+            {
+              status: 'error',
+              progress: 0,
+              message: 'Request timed out',
+              error: 'The AI service is taking longer than expected. Please try again.',
+            },
+            onProgress
+          )
+        }
+      }, timeoutMs)
+
       return new Promise((resolve) => {
+        // Cleanup function for timers
+        const cleanupTimers = () => {
+          if (longWaitTimer) clearTimeout(longWaitTimer)
+          if (timeoutTimer) clearTimeout(timeoutTimer)
+        }
+
         // Start the API call to get generationId
         fetch('/api/ai/generate', {
           method: 'POST',
@@ -383,10 +467,12 @@ export function useAIGeneration() {
                     if (eventData.status === 'completed') {
                       eventSource.close()
                       eventSourceRef.current = null
+                      cleanupTimers()
                       resolve(eventData.result || null)
                     } else if (eventData.status === 'error' || eventData.status === 'cancelled') {
                       eventSource.close()
                       eventSourceRef.current = null
+                      cleanupTimers()
                       resolve(null)
                     }
                   }
@@ -398,6 +484,7 @@ export function useAIGeneration() {
               eventSource.onerror = () => {
                 eventSource.close()
                 eventSourceRef.current = null
+                cleanupTimers()
 
                 // Only update state if still mounted
                 if (isMountedRef.current) {
@@ -448,11 +535,12 @@ export function useAIGeneration() {
             resolve(null)
           })
           .finally(() => {
+            cleanupTimers()
             cleanupGeneration()
           })
       })
     },
-    [updateProgressSafe, cleanupGeneration]
+    [updateProgressSafe, cleanupGeneration, progress]
   )
 
   const cancel = useCallback(() => {

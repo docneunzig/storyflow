@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { X, Film, Link2, ArrowRight, ArrowLeft } from 'lucide-react'
 import type { Scene, ContentStatus, Character, WikiEntry, Chapter, PlotBeat } from '@/types/project'
 import { generateId } from '@/lib/db'
+import { toast } from '@/components/ui/Toaster'
 
 interface SceneModalProps {
   isOpen: boolean
@@ -100,6 +101,10 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
+      toast({
+        title: 'Please fix validation errors',
+        variant: 'error',
+      })
       return
     }
 
@@ -110,6 +115,10 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
     }
 
     onSave(scene)
+    toast({
+      title: editScene ? 'Scene updated' : 'Scene created',
+      variant: 'success',
+    })
     onClose()
   }
 

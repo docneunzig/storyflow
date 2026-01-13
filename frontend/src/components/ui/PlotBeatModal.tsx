@@ -3,6 +3,7 @@ import { X, Target, Sparkles, Loader2, ArrowRight, ArrowLeft } from 'lucide-reac
 import type { PlotBeat, PlotFramework, Character, ContentStatus } from '@/types/project'
 import { generateId } from '@/lib/db'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { toast } from '@/components/ui/Toaster'
 
 interface PlotBeatModalProps {
   isOpen: boolean
@@ -95,6 +96,7 @@ export function PlotBeatModal({
   const [userNotes, setUserNotes] = useState('')
   const [foreshadowing, setForeshadowing] = useState<string[]>([])  // IDs of beats this beat sets up
   const [payoffs, setPayoffs] = useState<string[]>([])  // IDs of beats that set up this beat
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   // AI generation for expanding beat
   const { isGenerating, generate } = useAIGeneration()
@@ -185,7 +187,28 @@ export function PlotBeatModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!title.trim()) return
+    // Validate required fields
+    const newErrors: Record<string, string> = {}
+    if (!title.trim()) {
+      newErrors.title = 'Title is required'
+    }
+    if (!summary.trim()) {
+      newErrors.summary = 'Summary is required'
+    }
+
+    // If there are validation errors, show them and don't proceed
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      toast({
+        title: 'Please fix validation errors',
+        description: 'Title and summary are required fields.',
+        variant: 'error',
+      })
+      return
+    }
+
+    // Clear any previous errors
+    setErrors({})
 
     const beat: PlotBeat = {
       id: editBeat?.id || generateId(),
@@ -207,6 +230,10 @@ export function PlotBeatModal({
     }
 
     onSave(beat)
+    toast({
+      title: editBeat ? 'Plot beat updated' : 'Plot beat created',
+      variant: 'success',
+    })
     onClose()
   }
 
@@ -266,11 +293,19 @@ export function PlotBeatModal({
               id="beat-title"
               type="text"
               value={title}
-              onChange={e => setTitle(e.target.value)}
+              onChange={e => {
+                setTitle(e.target.value)
+                if (errors.title) setErrors(prev => ({ ...prev, title: '' }))
+              }}
               placeholder="e.g., Hero discovers the truth"
-              className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+              className={`w-full px-3 py-2 bg-surface-elevated border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent ${
+                errors.title ? 'border-error' : 'border-border'
+              }`}
               required
             />
+            {errors.title && (
+              <p className="text-xs text-error mt-1">{errors.title}</p>
+            )}
           </div>
 
           {/* Framework Position (if not freeform) */}
@@ -300,12 +335,20 @@ export function PlotBeatModal({
             <textarea
               id="beat-summary"
               value={summary}
-              onChange={e => setSummary(e.target.value)}
+              onChange={e => {
+                setSummary(e.target.value)
+                if (errors.summary) setErrors(prev => ({ ...prev, summary: '' }))
+              }}
               placeholder="Brief description of what happens in this beat..."
               rows={2}
-              className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+              className={`w-full px-3 py-2 bg-surface-elevated border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none ${
+                errors.summary ? 'border-error' : 'border-border'
+              }`}
               required
             />
+            {errors.summary && (
+              <p className="text-xs text-error mt-1">{errors.summary}</p>
+            )}
           </div>
 
           {/* Detailed Description */}

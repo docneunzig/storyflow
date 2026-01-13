@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Lightbulb, Sparkles, MessageSquare, ArrowRight, Check, Send } from 'lucide-react'
+import { Lightbulb, Sparkles, MessageSquare, ArrowRight, Check, Send, AlertCircle, RefreshCw } from 'lucide-react'
 import type { Project, BrainstormSession, BrainstormTag, PlotFoundation, CharacterFoundation, SceneFoundation } from '@/types/project'
 import { updateProject as updateProjectInDb } from '@/lib/db'
 import { useProjectStore } from '@/stores/projectStore'
 import { useLanguageStore } from '@/stores/languageStore'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
+import { toast } from '@/components/ui/Toaster'
 import { cn } from '@/lib/utils'
 
 interface SectionProps {
@@ -60,7 +62,10 @@ export function BrainstormSection({ project }: SectionProps) {
   const [currentAnswer, setCurrentAnswer] = useState('')
   const [showPrompts, setShowPrompts] = useState(true)
   const [hasChanges, setHasChanges] = useState(false)
-  const [, setIsGenerating] = useState(false)
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null)
+
+  // AI generation hook with timeout support
+  const { generate, status, message, error, cancel, reset } = useAIGeneration()
 
   // Auto-save
   const saveSession = useCallback(async () => {
@@ -103,83 +108,111 @@ export function BrainstormSection({ project }: SectionProps) {
     if (!session.rawText.trim()) return
 
     setPhase('analyzing')
-    setIsGenerating(true)
+    setAnalyzeError(null)
+    reset()
 
-    try {
-      const response = await fetch('/api/ai/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agentTarget: 'brainstorm',
-          action: 'analyze-brainstorm',
-          context: {
-            specification: project.specification,
-            brainstormText: session.rawText,
-          },
-        }),
-      })
+    const result = await generate({
+      agentTarget: 'brainstorm',
+      action: 'analyze-brainstorm',
+      context: {
+        specification: project.specification,
+        brainstormText: session.rawText,
+      },
+      timeoutMs: 90000, // 90 second timeout for brainstorm analysis
+    })
 
-      const data = await response.json()
-
-      if (data.status === 'success') {
+    if (result) {
+      try {
         // Parse AI response to extract questions
-        const questions = data.result.questions || generateDefaultQuestions()
+        const parsed = typeof result === 'string' ? JSON.parse(result) : result
+        const questions = parsed.questions || generateDefaultQuestions()
         setSession(prev => ({
           ...prev,
           questionsAsked: questions,
         }))
         setPhase('questions')
         setHasChanges(true)
+      } catch {
+        // If parsing fails, use as-is with default questions
+        setSession(prev => ({
+          ...prev,
+          questionsAsked: generateDefaultQuestions(),
+        }))
+        setPhase('questions')
+        setHasChanges(true)
       }
-    } catch (error) {
-      console.error('Analysis failed:', error)
-      // Fall back to default questions
-      setSession(prev => ({
-        ...prev,
-        questionsAsked: generateDefaultQuestions(),
-      }))
-      setPhase('questions')
-      setHasChanges(true)
-    } finally {
-      setIsGenerating(false)
+    } else if (status === 'error' || status === 'cancelled') {
+      // Show error state in UI
+      setAnalyzeError(error || 'Analysis failed. Please try again.')
+      toast({
+        title: 'Analysis failed',
+        description: error || 'Unable to analyze your brainstorm. Please try again.',
+        variant: 'error',
+      })
     }
+  }
+
+  // Retry analysis after error
+  const handleRetryAnalyze = () => {
+    setAnalyzeError(null)
+    reset()
+    handleAnalyze()
+  }
+
+  // Cancel ongoing analysis
+  const handleCancelAnalyze = () => {
+    cancel()
+    setPhase('input')
+    setAnalyzeError(null)
+    toast({
+      title: 'Analysis cancelled',
+      variant: 'default',
+    })
   }
 
   // Generate foundations based on brainstorm and answers
   const handleGenerateFoundations = async () => {
-    setIsGenerating(true)
+    const result = await generate({
+      agentTarget: 'brainstorm',
+      action: 'generate-foundations',
+      context: {
+        specification: project.specification,
+        brainstormText: session.rawText,
+        questions: session.questionsAsked,
+        answers: session.answersGiven,
+      },
+      timeoutMs: 90000, // 90 second timeout
+    })
 
-    try {
-      const response = await fetch('/api/ai/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agentTarget: 'brainstorm',
-          action: 'generate-foundations',
-          context: {
-            specification: project.specification,
-            brainstormText: session.rawText,
-            questions: session.questionsAsked,
-            answers: session.answersGiven,
-          },
-        }),
-      })
-
-      const data = await response.json()
-
-      if (data.status === 'success') {
+    if (result) {
+      try {
+        const parsed = typeof result === 'string' ? JSON.parse(result) : result
         setSession(prev => ({
           ...prev,
-          plotFoundation: data.result.plotFoundation || generateDefaultPlotFoundation(session.rawText),
-          characterFoundation: data.result.characterFoundation || generateDefaultCharacterFoundation(session.rawText),
-          sceneFoundation: data.result.sceneFoundation || generateDefaultSceneFoundation(session.rawText),
+          plotFoundation: parsed.plotFoundation || generateDefaultPlotFoundation(session.rawText),
+          characterFoundation: parsed.characterFoundation || generateDefaultCharacterFoundation(session.rawText),
+          sceneFoundation: parsed.sceneFoundation || generateDefaultSceneFoundation(session.rawText),
+        }))
+        setPhase('foundations')
+        setHasChanges(true)
+      } catch {
+        // If parsing fails, use defaults
+        setSession(prev => ({
+          ...prev,
+          plotFoundation: generateDefaultPlotFoundation(session.rawText),
+          characterFoundation: generateDefaultCharacterFoundation(session.rawText),
+          sceneFoundation: generateDefaultSceneFoundation(session.rawText),
         }))
         setPhase('foundations')
         setHasChanges(true)
       }
-    } catch (error) {
-      console.error('Foundation generation failed:', error)
-      // Generate defaults
+    } else {
+      // On error/timeout, use defaults and show toast
+      toast({
+        title: 'Using default foundations',
+        description: 'AI generation timed out. Using template foundations instead.',
+        variant: 'default',
+      })
       setSession(prev => ({
         ...prev,
         plotFoundation: generateDefaultPlotFoundation(session.rawText),
@@ -188,8 +221,6 @@ export function BrainstormSection({ project }: SectionProps) {
       }))
       setPhase('foundations')
       setHasChanges(true)
-    } finally {
-      setIsGenerating(false)
     }
   }
 
@@ -384,13 +415,56 @@ export function BrainstormSection({ project }: SectionProps) {
     )
   }
 
-  const renderAnalyzingPhase = () => (
-    <div className="flex flex-col items-center justify-center h-64 gap-4">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent" />
-      <p className="text-text-secondary">{t.brainstorm.analyzingBrainstorm}</p>
-      <p className="text-sm text-text-secondary/70">{t.brainstorm.findingElements}</p>
-    </div>
-  )
+  const renderAnalyzingPhase = () => {
+    // Show error state if analysis failed
+    if (analyzeError || status === 'error') {
+      return (
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-error/20">
+            <AlertCircle className="h-8 w-8 text-error" />
+          </div>
+          <p className="text-text-primary font-medium">Analysis Failed</p>
+          <p className="text-sm text-text-secondary text-center max-w-md">
+            {analyzeError || error || 'Unable to analyze your brainstorm. Please try again.'}
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setPhase('input')
+                setAnalyzeError(null)
+                reset()
+              }}
+              className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-surface-elevated transition-colors"
+            >
+              Back to Edit
+            </button>
+            <button
+              onClick={handleRetryAnalyze}
+              className="btn-primary flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Try Again
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    // Show loading state
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent" />
+        <p className="text-text-secondary">{message || t.brainstorm.analyzingBrainstorm}</p>
+        <p className="text-sm text-text-secondary/70">{t.brainstorm.findingElements}</p>
+        <button
+          onClick={handleCancelAnalyze}
+          className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary border border-border rounded-lg hover:bg-surface-elevated transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    )
+  }
 
   const renderQuestionsPhase = () => {
     const currentQuestion = session.questionsAsked[currentQuestionIndex]

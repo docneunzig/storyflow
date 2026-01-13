@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { X, User, AlertTriangle } from 'lucide-react'
 import type { Character, CharacterRole, CharacterStatus } from '@/types/project'
 import { generateId } from '@/lib/db'
+import { toast } from '@/components/ui/Toaster'
 
 interface CharacterModalProps {
   isOpen: boolean
@@ -294,6 +295,10 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
+      toast({
+        title: 'Please fix validation errors',
+        variant: 'error',
+      })
       return
     }
 
@@ -304,6 +309,10 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
     }
 
     onSave(character)
+    toast({
+      title: editCharacter ? 'Character updated' : 'Character created',
+      variant: 'success',
+    })
     onClose()
   }
 
@@ -401,7 +410,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                   id="character-role"
                   value={formData.role}
                   onChange={(e) => handleChange('role', e.target.value as CharacterRole)}
-                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer"
                 >
                   {ROLES.map(role => (
                     <option key={role} value={role}>
@@ -416,7 +427,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                   id="character-archetype"
                   value={formData.archetype}
                   onChange={(e) => handleChange('archetype', e.target.value)}
-                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer"
                 >
                   <option value="">Select an archetype...</option>
                   {ARCHETYPES.map(arch => (
@@ -430,7 +443,9 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                   id="character-status"
                   value={formData.status}
                   onChange={(e) => handleChange('status', e.target.value as CharacterStatus)}
-                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full px-3 py-2 bg-surface-elevated border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer"
                 >
                   {STATUSES.map(status => (
                     <option key={status} value={status}>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { X, BookOpen, Sparkles, ListOrdered, Check, Edit2, RefreshCw, Maximize2, Minimize2, Lock, Unlock, Shuffle } from 'lucide-react'
 import type { Chapter, ChapterStatus, Project } from '@/types/project'
+import { toast } from '@/components/ui/Toaster'
 
 // Scene outline item for preview
 interface SceneOutlineItem {
@@ -616,6 +617,10 @@ export function ChapterModal({ isOpen, onClose, onSave, editChapter, nextChapter
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
+      toast({
+        title: 'Please fix validation errors',
+        variant: 'error',
+      })
       return
     }
 
@@ -626,6 +631,10 @@ export function ChapterModal({ isOpen, onClose, onSave, editChapter, nextChapter
     }
 
     onSave(chapter)
+    toast({
+      title: editChapter ? 'Chapter updated' : 'Chapter created',
+      variant: 'success',
+    })
     onClose()
   }
 

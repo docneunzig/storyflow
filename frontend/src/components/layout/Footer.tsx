@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useProjectStore } from '@/stores/projectStore'
 import { formatWordCount } from '@/lib/utils'
 import { Keyboard, Star } from 'lucide-react'
+import { OnlineIndicator } from '@/components/ui/OnlineIndicator'
 
 export function Footer() {
   const { currentProject } = useProjectStore()
@@ -65,9 +66,14 @@ export function Footer() {
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <Keyboard className="h-3 w-3" aria-hidden="true" />
-        <span>Press Cmd+/ for shortcuts</span>
+      <div className="flex items-center gap-4">
+        {/* Online Status Indicator */}
+        <OnlineIndicator />
+
+        <div className="flex items-center gap-2">
+          <Keyboard className="h-3 w-3" aria-hidden="true" />
+          <span>Press ? for shortcuts</span>
+        </div>
       </div>
     </footer>
   )
