@@ -52,6 +52,11 @@ export function WriteSection({ project }: WriteSectionProps) {
     setShowAIProgress,
     aiProgressTitle,
     isGenerating,
+    aiStatus: chapterAIStatus,
+    aiProgress: chapterAIProgress,
+    aiMessage: chapterAIMessage,
+    cancelAI: cancelChapterAI,
+    resetAI: resetChapterAI,
     handleContinueWriting,
     handleGenerateChapterDraft,
     handleUpdateChapterContent,
@@ -177,9 +182,15 @@ export function WriteSection({ project }: WriteSectionProps) {
     }
   }, [selectedChapter, handleUpdateChapterContent])
 
-  // Determine which progress modal to show
+  // Determine which progress modal to show and which state to use
   const currentShowAIProgress = showAIProgress || showInlineAIProgress
   const currentAIProgressTitle = showAIProgress ? aiProgressTitle : inlineAIProgressTitle
+  // Use the correct AI state based on which operation is running
+  const currentAIStatus = showAIProgress ? chapterAIStatus : aiStatus
+  const currentAIProgress = showAIProgress ? chapterAIProgress : aiProgress
+  const currentAIMessage = showAIProgress ? chapterAIMessage : aiMessage
+  const currentCancelAI = showAIProgress ? cancelChapterAI : cancelGeneration
+  const currentResetAI = showAIProgress ? resetChapterAI : resetAI
 
   return (
     <div className="h-full flex">
@@ -319,18 +330,18 @@ export function WriteSection({ project }: WriteSectionProps) {
           onClose={() => {
             setShowAIProgress(false)
             setShowInlineAIProgress(false)
-            resetAI()
+            currentResetAI()
           }}
           onCancel={() => {
-            cancelGeneration()
+            currentCancelAI()
             setShowAIProgress(false)
             setShowInlineAIProgress(false)
-            resetAI()
+            currentResetAI()
           }}
           title={currentAIProgressTitle}
-          status={aiStatus}
-          progress={aiProgress}
-          message={aiMessage}
+          status={currentAIStatus}
+          progress={currentAIProgress}
+          message={currentAIMessage}
         />
       )}
 

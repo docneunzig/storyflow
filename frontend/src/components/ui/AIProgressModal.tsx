@@ -185,17 +185,29 @@ export function AIProgressModal({
               <div className="w-full mt-4">
                 <div className="flex justify-between text-xs text-text-secondary mb-1">
                   <span>Progress</span>
-                  <span>{Math.round(progress)}%</span>
+                  <span>{progress > 0 ? `${Math.round(progress)}%` : 'Processing...'}</span>
                 </div>
                 <div className="w-full h-2 bg-surface-elevated rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${getStatusColor()} transition-all duration-500 ease-out`}
-                    style={{ width: `${progress}%` }}
-                    role="progressbar"
-                    aria-valuenow={progress}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                  />
+                  {progress > 0 ? (
+                    // Determinate progress bar
+                    <div
+                      className={`h-full ${getStatusColor()} transition-all duration-500 ease-out`}
+                      style={{ width: `${progress}%` }}
+                      role="progressbar"
+                      aria-valuenow={progress}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    />
+                  ) : (
+                    // Indeterminate animated progress bar
+                    <div
+                      className={`h-full ${getStatusColor()} animate-indeterminate-progress`}
+                      style={{ width: '30%' }}
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    />
+                  )}
                 </div>
                 {/* Elapsed time */}
                 <div className="flex items-center justify-center gap-1.5 mt-3 text-xs text-text-secondary">

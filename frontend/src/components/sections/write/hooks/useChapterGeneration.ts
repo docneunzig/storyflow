@@ -20,6 +20,10 @@ export function useChapterGeneration({
     isGenerating,
     generate,
     reset: resetAI,
+    status: aiStatus,
+    progress: aiProgress,
+    message: aiMessage,
+    cancel: cancelAI,
   } = useAIGeneration()
 
   // AI progress state
@@ -271,6 +275,13 @@ export function useChapterGeneration({
     setShowAIProgress,
     aiProgressTitle,
     isGenerating,
+
+    // AI status for progress modal
+    aiStatus,
+    aiProgress,
+    aiMessage,
+    cancelAI,
+    resetAI,
 
     // Chapter generation
     handleContinueWriting,
