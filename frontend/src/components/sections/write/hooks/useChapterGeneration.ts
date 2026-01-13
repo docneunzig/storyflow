@@ -69,7 +69,7 @@ export function useChapterGeneration({
         agentTarget: 'writer',
         action: 'continue-writing',
         context: {
-          currentContent: chapter.content || '',
+          currentChapter: chapter.content || '',
           chapterId: selectedChapterId,
           projectId: project.id,
           specification: project.specification,
@@ -81,6 +81,7 @@ export function useChapterGeneration({
           })),
           scenes: project.scenes?.filter(s => s.chapterId === selectedChapterId),
         },
+        timeoutMs: 120000, // 2 minute timeout for continue writing
       })
 
       if (result) {
