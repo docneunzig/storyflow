@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { ChevronRight, ChevronLeft, User, Film, Link2, X, Edit2, Trash2, BookOpen } from 'lucide-react'
 import type { Character, Scene, CharacterRelationship } from '@/types/project'
+import { showConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { useLanguageStore } from '@/stores/languageStore'
 
 interface InspectorProps {
   selectedCharacter: Character | null
@@ -26,7 +28,23 @@ export function Inspector({
   onDeleteCharacter,
 }: InspectorProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const t = useLanguageStore((state) => state.t)
+
+  const handleDeleteClick = async () => {
+    if (!selectedCharacter) return
+
+    const confirmed = await showConfirmDialog({
+      title: t.dialogs.deleteCharacter,
+      message: `${t.dialogs.confirmDelete} ${t.dialogs.cannotBeUndone}`,
+      confirmLabel: t.actions.delete,
+      cancelLabel: t.actions.cancel,
+      variant: 'destructive',
+    })
+    if (confirmed) {
+      onDeleteCharacter?.(selectedCharacter.id)
+      onClose()
+    }
+  }
 
   if (!selectedCharacter) {
     return null
@@ -64,7 +82,7 @@ export function Inspector({
   if (isCollapsed) {
     return (
       <aside
-        className="w-10 bg-surface border-l border-border flex flex-col items-center py-4"
+        className="hidden lg:flex w-10 bg-surface border-l border-border flex-col items-center py-4"
         role="complementary"
         aria-label="Inspector panel (collapsed)"
       >
@@ -82,7 +100,7 @@ export function Inspector({
 
   return (
     <aside
-      className="w-72 bg-surface border-l border-border flex flex-col overflow-hidden"
+      className="fixed inset-0 z-50 bg-surface lg:relative lg:inset-auto lg:z-auto lg:w-72 lg:border-l lg:border-border flex flex-col overflow-hidden"
       role="complementary"
       aria-label="Inspector panel"
     >
@@ -92,7 +110,7 @@ export function Inspector({
         <div className="flex items-center gap-1">
           <button
             onClick={() => setIsCollapsed(true)}
-            className="p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
+            className="hidden lg:block p-1.5 rounded-md hover:bg-surface-elevated transition-colors"
             aria-label="Collapse inspector"
             title="Collapse inspector"
           >
@@ -156,35 +174,14 @@ export function Inspector({
               <Edit2 className="h-4 w-4" aria-hidden="true" />
               Edit
             </button>
-            {deleteConfirm ? (
-              <div className="flex-1 flex gap-1">
-                <button
-                  onClick={() => {
-                    onDeleteCharacter?.(selectedCharacter.id)
-                    setDeleteConfirm(false)
-                    onClose()
-                  }}
-                  className="flex-1 px-2 py-2 bg-error text-white rounded-lg hover:bg-error/90 transition-colors text-xs"
-                >
-                  Confirm
-                </button>
-                <button
-                  onClick={() => setDeleteConfirm(false)}
-                  className="flex-1 px-2 py-2 border border-border rounded-lg hover:bg-surface-elevated transition-colors text-xs"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setDeleteConfirm(true)}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-error/10 text-error border border-error/30 rounded-lg hover:bg-error/20 transition-colors text-sm"
-                aria-label="Delete character"
-              >
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-                Delete
-              </button>
-            )}
+            <button
+              onClick={handleDeleteClick}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-error/10 text-error border border-error/30 rounded-lg hover:bg-error/20 transition-colors text-sm"
+              aria-label="Delete character"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              Delete
+            </button>
           </div>
         </div>
 

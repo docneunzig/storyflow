@@ -9,6 +9,7 @@ import { UnsavedChangesModal } from '@/components/ui/UnsavedChangesModal'
 import { FindDialog } from '@/components/ui/FindDialog'
 import { AIGenerationModal } from '@/components/ui/AIGenerationModal'
 import { useProjectStore } from '@/stores/projectStore'
+import { useLanguageStore } from '@/stores/languageStore'
 import { toast } from '@/components/ui/Toaster'
 
 // Navigation sections mapped to number keys
@@ -33,6 +34,7 @@ export function Layout() {
   const [isFindOpen, setIsFindOpen] = useState(false)
   const [isAIGenerationOpen, setIsAIGenerationOpen] = useState(false)
   const { saveStatus, currentProject } = useProjectStore()
+  const t = useLanguageStore((state) => state.t)
 
   // Extract current section from URL path
   const getCurrentSection = () => {
@@ -64,9 +66,9 @@ export function Layout() {
       window.dispatchEvent(new CustomEvent('storyflow:save'))
       // Show feedback based on current save status
       if (saveStatus === 'saved') {
-        toast({ title: 'Saved', description: 'All changes are saved' })
+        toast({ title: t.toasts.saved, description: t.toasts.allChangesSaved })
       } else {
-        toast({ title: 'Saving...', description: 'Saving your changes' })
+        toast({ title: t.toasts.saving, description: t.toasts.savingChanges })
       }
     }
     // Cmd+1 through Cmd+7 - Navigate to sections
@@ -95,19 +97,19 @@ export function Layout() {
       const newMode = !isFocusMode
       setIsFocusMode(newMode)
       toast({
-        title: newMode ? 'Focus Mode' : 'Normal Mode',
-        description: newMode ? 'Press F11 or Escape to exit' : 'Sidebar and footer restored',
+        title: newMode ? t.toasts.focusMode : t.toasts.normalMode,
+        description: newMode ? t.toasts.focusModeExit : t.toasts.sidebarRestored,
       })
     }
     // Escape - Exit focus mode (in addition to closing modals)
     if (e.key === 'Escape' && isFocusMode) {
       setIsFocusMode(false)
       toast({
-        title: 'Normal Mode',
-        description: 'Sidebar and footer restored',
+        title: t.toasts.normalMode,
+        description: t.toasts.sidebarRestored,
       })
     }
-  }, [saveStatus, projectId, navigate, isFocusMode])
+  }, [saveStatus, projectId, navigate, isFocusMode, t])
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown)
@@ -124,7 +126,7 @@ export function Layout() {
         <main
           className={`flex-1 overflow-auto ${isFocusMode ? 'p-12 max-w-4xl mx-auto' : 'p-6'}`}
           role="main"
-          aria-label="Main content"
+          aria-label={t.ariaLabels.mainContent}
         >
           <Outlet />
         </main>

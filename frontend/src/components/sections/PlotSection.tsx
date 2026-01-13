@@ -8,6 +8,7 @@ import { PlotCanvas } from '@/components/ui/PlotCanvas'
 import { PlotConsistencyWarning } from '@/components/ui/PlotConsistencyWarning'
 import { SubplotCanvas } from '@/components/ui/SubplotCanvas'
 import { toast } from '@/components/ui/Toaster'
+import { showConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
 import { UnifiedActionButton } from '@/components/ui/UnifiedActionButton'
@@ -45,7 +46,6 @@ type ViewMode = 'list' | 'canvas' | 'subplots'
 export function PlotSection({ project }: SectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingBeat, setEditingBeat] = useState<PlotBeat | null>(null)
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
   const t = useLanguageStore((state) => state.t)
@@ -136,6 +136,18 @@ export function PlotSection({ project }: SectionProps) {
   }
 
   const handleDeleteBeat = async (beatId: string) => {
+    const beat = plot.beats.find(b => b.id === beatId)
+    if (!beat) return
+
+    const confirmed = await showConfirmDialog({
+      title: t.dialogs.deletePlotBeat,
+      message: `${t.dialogs.confirmDelete} ${t.dialogs.cannotBeUndone}`,
+      confirmLabel: t.actions.delete,
+      cancelLabel: t.actions.cancel,
+      variant: 'destructive',
+    })
+    if (!confirmed) return
+
     try {
       setSaveStatus('saving')
       const updatedBeats = plot.beats.filter(b => b.id !== beatId)
@@ -146,7 +158,6 @@ export function PlotSection({ project }: SectionProps) {
       await updateProject(project.id, { plot: updatedPlot })
       updateProjectStore(project.id, { plot: updatedPlot })
       setSaveStatus('saved')
-      setDeleteConfirmId(null)
       toast({ title: t.toasts.deleteSuccess, variant: 'success' })
     } catch (error) {
       console.error('Failed to delete beat:', error)
@@ -543,6 +554,18 @@ export function PlotSection({ project }: SectionProps) {
   }
 
   const handleDeleteSubplot = async (id: string) => {
+    const subplot = subplots.find(s => s.id === id)
+    if (!subplot) return
+
+    const confirmed = await showConfirmDialog({
+      title: t.dialogs.deleteSubplot,
+      message: `${t.dialogs.confirmDelete} ${t.dialogs.cannotBeUndone}`,
+      confirmLabel: t.actions.delete,
+      cancelLabel: t.actions.cancel,
+      variant: 'destructive',
+    })
+    if (!confirmed) return
+
     try {
       setSaveStatus('saving')
       const updatedSubplots = subplots.filter(s => s.id !== id)
@@ -853,31 +876,14 @@ export function PlotSection({ project }: SectionProps) {
                         <Edit2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
                       </button>
                     )}
-                    {deleteConfirmId === beat.id ? (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleDeleteBeat(beat.id)}
-                          className="px-2 py-1 text-xs bg-error text-white rounded hover:bg-error/90"
-                        >
-                          {t.common.confirm}
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirmId(null)}
-                          className="px-2 py-1 text-xs border border-border rounded hover:bg-surface-elevated"
-                        >
-                          {t.actions.cancel}
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setDeleteConfirmId(beat.id)}
-                        className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
-                        aria-label="Delete beat"
-                        title="Delete beat"
-                      >
-                        <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleDeleteBeat(beat.id)}
+                      className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
+                      aria-label="Delete beat"
+                      title="Delete beat"
+                    >
+                      <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
+                    </button>
                   </div>
                 </div>
               </div>

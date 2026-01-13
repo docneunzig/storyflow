@@ -5,6 +5,7 @@ import {
   cleanupGeneration,
   isGenerationCancelled,
   isClaudeCliAuthenticated,
+  ACTION_PROMPTS,
 } from '../../services/claude.js'
 
 // Mock child_process
@@ -60,49 +61,82 @@ describe('claude.ts service', () => {
 })
 
 describe('ACTION_PROMPTS', () => {
-  // These tests verify the structure of action prompts without actually calling Claude
+  // These tests verify the structure and existence of action prompts
 
-  it('should have all required Phase 1 actions defined', () => {
-    const requiredActions = [
-      'analyze-subplot-health',
-      'suggest-subplot-touches',
-      'generate-subplot-scene',
-      'predict-completion',
-      'generate-sprint-plan',
-      'check-series-continuity',
-      'extract-series-elements',
-    ]
-
-    // We can't directly import ACTION_PROMPTS as it's not exported,
-    // but we can verify the service module loads without errors
-    expect(true).toBe(true)
+  it('should be a valid object with action functions', () => {
+    expect(ACTION_PROMPTS).toBeDefined()
+    expect(typeof ACTION_PROMPTS).toBe('object')
+    expect(Object.keys(ACTION_PROMPTS).length).toBeGreaterThan(0)
   })
 
-  it('should have all required Phase 2 actions defined', () => {
-    const requiredActions = [
-      'summarize-chapter',
-      'update-character-knowledge',
-      'retrieve-context',
+  it('should have all core generation actions defined', () => {
+    const coreActions = [
+      'generate-chapter',
+      'generate-scene',
+      'continue-writing',
+      'expand-selection',
+      'condense-selection',
+      'rewrite-selection',
     ]
 
-    expect(true).toBe(true)
+    for (const action of coreActions) {
+      expect(ACTION_PROMPTS[action]).toBeDefined()
+      expect(typeof ACTION_PROMPTS[action]).toBe('function')
+    }
   })
 
-  it('should have all required Phase 3 actions defined', () => {
-    const requiredActions = [
-      'analyze-show-dont-tell',
-      'rewrite-to-show',
+  it('should have all brainstorm and critique actions defined', () => {
+    const brainstormActions = [
+      'analyze-brainstorm',
+      'generate-foundations',
+      'critique-chapter',
+      'extract-facts',
+      'check-continuity',
     ]
 
-    expect(true).toBe(true)
+    for (const action of brainstormActions) {
+      expect(ACTION_PROMPTS[action]).toBeDefined()
+      expect(typeof ACTION_PROMPTS[action]).toBe('function')
+    }
   })
 
-  it('should have all required Phase 4 actions defined', () => {
-    const requiredActions = [
-      'analyze-style',
-      'generate-in-style',
+  it('should have all character and voice actions defined', () => {
+    const voiceActions = [
+      'analyze-voice',
+      'check-voice-consistency',
+      'fix-voice',
     ]
 
-    expect(true).toBe(true)
+    for (const action of voiceActions) {
+      expect(ACTION_PROMPTS[action]).toBeDefined()
+      expect(typeof ACTION_PROMPTS[action]).toBe('function')
+    }
+  })
+
+  it('should generate valid prompts when called with context', () => {
+    const mockContext = {
+      specification: { title: 'Test Novel', genre: ['Fantasy'] },
+      characters: [{ name: 'Test Character', role: 'protagonist' }],
+    }
+
+    // Test that prompt functions return strings
+    const generateChapterPrompt = ACTION_PROMPTS['generate-chapter']
+    const result = generateChapterPrompt(mockContext)
+    expect(typeof result).toBe('string')
+    expect(result.length).toBeGreaterThan(0)
+  })
+
+  it('should include context in generated prompts', () => {
+    const mockContext = {
+      specification: {
+        title: 'The Great Adventure',
+        genre: ['Fantasy', 'Adventure'],
+        targetAudience: 'Adult',
+      },
+    }
+
+    const result = ACTION_PROMPTS['generate-chapter'](mockContext)
+    // The prompt should mention the genre from context
+    expect(result.toLowerCase()).toContain('fantasy')
   })
 })

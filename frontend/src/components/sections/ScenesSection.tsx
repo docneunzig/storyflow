@@ -8,6 +8,7 @@ import { SceneModal } from '@/components/ui/SceneModal'
 import { SceneTimeline } from '@/components/ui/SceneTimeline'
 import { SceneCharacterMatrix } from '@/components/ui/SceneCharacterMatrix'
 import { toast } from '@/components/ui/Toaster'
+import { showConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
 import { UnifiedActionButton } from '@/components/ui/UnifiedActionButton'
@@ -48,7 +49,6 @@ export function ScenesSection({ project }: SectionProps) {
   const t = useLanguageStore((state) => state.t)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingScene, setEditingScene] = useState<Scene | null>(null)
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [draggedSceneId, setDraggedSceneId] = useState<string | null>(null)
   const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
@@ -186,9 +186,20 @@ export function ScenesSection({ project }: SectionProps) {
   }
 
   const handleDeleteScene = async (sceneId: string) => {
+    const scene = project.scenes.find(s => s.id === sceneId)
+    if (!scene) return
+
+    const confirmed = await showConfirmDialog({
+      title: t.dialogs.deleteScene,
+      message: `${t.dialogs.confirmDelete} ${t.dialogs.cannotBeUndone}`,
+      confirmLabel: t.actions.delete,
+      cancelLabel: t.actions.cancel,
+      variant: 'destructive',
+    })
+    if (!confirmed) return
+
     try {
       setSaveStatus('saving')
-      const scene = project.scenes.find(s => s.id === sceneId)
       const updatedScenes = project.scenes.filter(s => s.id !== sceneId)
 
       // Update character scenesPresent to remove deleted scene
@@ -197,8 +208,7 @@ export function ScenesSection({ project }: SectionProps) {
       await updateProject(project.id, { scenes: updatedScenes, characters: updatedCharacters })
       updateProjectStore(project.id, { scenes: updatedScenes, characters: updatedCharacters })
       setSaveStatus('saved')
-      setDeleteConfirmId(null)
-      toast({ title: `${t.scenes.sceneDeleted}: "${scene?.title}"`, variant: 'success' })
+      toast({ title: `${t.scenes.sceneDeleted}: "${scene.title}"`, variant: 'success' })
     } catch (error) {
       console.error('Failed to delete scene:', error)
       toast({ title: t.scenes.failedToDeleteScene, variant: 'error' })
@@ -816,31 +826,14 @@ export function ScenesSection({ project }: SectionProps) {
                     >
                       <Edit2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
                     </button>
-                    {deleteConfirmId === scene.id ? (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleDeleteScene(scene.id)}
-                          className="px-2 py-1 text-xs bg-error text-white rounded hover:bg-error/90"
-                        >
-                          {t.common.confirm}
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirmId(null)}
-                          className="px-2 py-1 text-xs border border-border rounded hover:bg-surface-elevated"
-                        >
-                          {t.actions.cancel}
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setDeleteConfirmId(scene.id)}
-                        className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
-                        aria-label="Delete scene"
-                        title="Delete scene"
-                      >
-                        <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleDeleteScene(scene.id)}
+                      className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
+                      aria-label="Delete scene"
+                      title="Delete scene"
+                    >
+                      <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
+                    </button>
                   </div>
                 </div>
 

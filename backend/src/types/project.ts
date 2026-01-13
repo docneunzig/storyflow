@@ -1,15 +1,92 @@
-// Backend type definitions matching frontend types
+/**
+ * Backend type definitions - synchronized with frontend types
+ *
+ * IMPORTANT: Keep these types in sync with frontend/src/types/project.ts
+ * All union types and enums should match exactly.
+ */
+
+// =============================================================================
+// Union Types (must match frontend exactly)
+// =============================================================================
+
+export type ProjectPhase =
+  | 'specification'
+  | 'plotting'
+  | 'characters'
+  | 'scenes'
+  | 'writing'
+  | 'revision'
+  | 'complete'
+
+export type TargetAudience = 'Children' | 'Middle Grade' | 'YA' | 'New Adult' | 'Adult'
+export type POV = 'First Person' | 'Third Limited' | 'Third Omniscient' | 'Second Person' | 'Multiple POV'
+export type Tense = 'Past' | 'Present'
+export type NovelLanguage = 'en' | 'de' | 'fr' | 'es' | 'it'
+export type ChildrensAgeCategory = '4-6' | '7-10' | '11-14' | '15-18'
+
+export type PlotFramework =
+  | 'Three-Act Structure'
+  | "Hero's Journey"
+  | 'Save the Cat'
+  | 'Seven-Point Structure'
+  | 'Freeform'
+
+export type ContentStatus = 'outline' | 'drafted' | 'revised' | 'locked'
+export type CharacterRole = 'protagonist' | 'antagonist' | 'supporting' | 'minor'
+export type CharacterStatus = 'alive' | 'deceased' | 'unknown'
+export type RelationshipType = 'family' | 'romantic' | 'conflict' | 'alliance' | 'mentor' | 'sibling' | 'rival' | 'friend'
+export type ChapterStatus = 'outline' | 'draft' | 'revision' | 'final' | 'locked'
+
+export type WikiCategory =
+  | 'locations'
+  | 'characters'
+  | 'timeline'
+  | 'magicTechnology'
+  | 'culturesFactions'
+  | 'objects'
+  | 'terminology'
+  | 'rules'
+
+export type SubplotType =
+  | 'romance'
+  | 'mystery'
+  | 'revenge'
+  | 'redemption'
+  | 'discovery'
+  | 'survival'
+  | 'rivalry'
+  | 'coming-of-age'
+  | 'custom'
+
+export type SubplotStatus =
+  | 'setup'
+  | 'developing'
+  | 'escalating'
+  | 'climax'
+  | 'resolved'
+  | 'abandoned'
+
+export type SubplotTouchType = 'setup' | 'development' | 'escalation' | 'callback' | 'resolution'
+export type SuggestionStatus = 'pending' | 'approved' | 'modified' | 'rejected'
+export type BrainstormTag = 'character' | 'setting' | 'plot' | 'theme' | 'scene' | 'question' | 'inspiration'
+export type ConfidenceLevel = 'explicit' | 'inferred' | 'suggested'
+
+// =============================================================================
+// Core Project Types
+// =============================================================================
 
 export interface Project {
   id: string
   version: number
   metadata: ProjectMetadata
   specification: NovelSpecification | null
+  brainstorm: BrainstormSession | null
   plot: PlotStructure | null
   characters: Character[]
   scenes: Scene[]
   chapters: Chapter[]
   worldbuilding: WorldbuildingWiki | null
+  worldbuildingEntries: WikiEntry[]
   relationships: CharacterRelationship[]
   revisions: RevisionHistory[]
   qualityScores: ChapterQualityScore[]
@@ -30,26 +107,19 @@ export interface ProjectMetadata {
   currentPhase: ProjectPhase
 }
 
-export type ProjectPhase =
-  | 'specification'
-  | 'plotting'
-  | 'characters'
-  | 'scenes'
-  | 'writing'
-  | 'revision'
-  | 'complete'
-
 export interface NovelSpecification {
   genre: string[]
   subgenre: string[]
-  targetAudience: string
+  targetAudience: TargetAudience
+  childrensAgeCategory?: ChildrensAgeCategory
+  novelLanguage: NovelLanguage
   writingStyle: {
     reference: string
     custom: string
   }
   tone: string
-  pov: string
-  tense: string
+  pov: POV
+  tense: Tense
   targetWordCount: number
   targetChapterCount: number
   chapterLengthRange: {
@@ -63,8 +133,12 @@ export interface NovelSpecification {
   complexity: number
 }
 
+// =============================================================================
+// Plot Types
+// =============================================================================
+
 export interface PlotStructure {
-  framework: string
+  framework: PlotFramework
   beats: PlotBeat[]
   overallArc: string
   centralConflict: string
@@ -86,15 +160,19 @@ export interface PlotBeat {
   payoffs: string[]
   chapterTarget: number | null
   wordCountEstimate: number
-  status: string
+  status: ContentStatus
   userNotes: string
 }
+
+// =============================================================================
+// Character Types
+// =============================================================================
 
 export interface Character {
   id: string
   name: string
   aliases: string[]
-  role: string
+  role: CharacterRole
   archetype: string
   age: number | null
   gender: string
@@ -118,18 +196,22 @@ export interface Character {
   arcCatalyst: string
   firstAppearance: string | null
   scenesPresent: string[]
-  status: string
+  status: CharacterStatus
   userNotes: string
 }
 
 export interface CharacterRelationship {
   sourceCharacterId: string
   targetCharacterId: string
-  relationshipType: string
+  relationshipType: RelationshipType
   dynamicDescription: string
   evolution: string
   keyScenes: string[]
 }
+
+// =============================================================================
+// Scene Types
+// =============================================================================
 
 export interface Scene {
   id: string
@@ -158,7 +240,7 @@ export interface Scene {
   pacing: string
   setupFor: string[]
   payoffFor: string[]
-  status: string
+  status: ContentStatus
   userNotes: string
 }
 
@@ -168,6 +250,10 @@ export interface CharacterGoal {
   outcome: string
 }
 
+// =============================================================================
+// Chapter Types
+// =============================================================================
+
 export interface Chapter {
   id: string
   number: number
@@ -175,7 +261,7 @@ export interface Chapter {
   sceneIds: string[]
   content: string
   wordCount: number
-  status: string
+  status: ChapterStatus
   lockedPassages: LockedPassage[]
   currentRevision: number
 }
@@ -185,6 +271,10 @@ export interface LockedPassage {
   end: number
   reason: string
 }
+
+// =============================================================================
+// Worldbuilding Types
+// =============================================================================
 
 export interface WorldbuildingWiki {
   locations: WikiEntry[]
@@ -198,13 +288,17 @@ export interface WorldbuildingWiki {
 
 export interface WikiEntry {
   id: string
-  category: string
+  category: WikiCategory
   name: string
   description: string
   relatedEntries: string[]
   sourceChapters: string[]
   tags: string[]
 }
+
+// =============================================================================
+// Revision & Quality Types
+// =============================================================================
 
 export interface RevisionHistory {
   chapterId: string
@@ -228,7 +322,7 @@ export interface ChapterQualityScore {
   chapterId: string
   revisionNumber: number
   timestamp: string
-  dimensions: Record<string, number>
+  dimensions: QualityDimensions
   overallScore: number
   strengths: string[]
   weaknesses: string[]
@@ -236,15 +330,34 @@ export interface ChapterQualityScore {
   bestsellerComparison: string
 }
 
+export interface QualityDimensions {
+  plotCoherence: number
+  characterConsistency: number
+  characterVoice: number
+  pacing: number
+  dialogueQuality: number
+  proseStyle: number
+  emotionalImpact: number
+  tensionManagement: number
+  worldbuildingIntegration: number
+  themeExpression: number
+  marketAppeal: number
+  originality: number
+}
+
 export interface Suggestion {
   id: string
   priority: number
-  dimension: string
+  dimension: keyof QualityDimensions
   description: string
   specificText: string
   suggestedChange: string
-  status: string
+  status: SuggestionStatus
 }
+
+// =============================================================================
+// Statistics Types
+// =============================================================================
 
 export interface WritingStatistics {
   totalWords: number
@@ -268,6 +381,10 @@ export interface WritingSession {
   wordsWritten: number
 }
 
+// =============================================================================
+// Market Analysis Types
+// =============================================================================
+
 export interface MarketAnalysis {
   comparableTitles: ComparableTitle[]
   genrePositioning: string
@@ -284,53 +401,198 @@ export interface ComparableTitle {
   marketPerformance: string
 }
 
-// Subplot types
+// =============================================================================
+// Subplot Types
+// =============================================================================
+
 export interface Subplot {
   id: string
   name: string
-  type: SubplotType
   description: string
+  type: SubplotType
+  relatedCharacterIds: string[]
+  setupSceneId: string | null
+  payoffSceneId: string | null
   status: SubplotStatus
-  primaryCharacterId: string
-  secondaryCharacterIds: string[]
-  connectedToMainPlot: boolean
-  mainPlotConnection?: string
   tensionCurve: SubplotTensionPoint[]
-  targetResolutionChapter?: number
-  notes: string
+  color: string
   createdAt: string
 }
-
-export type SubplotType =
-  | 'romance'
-  | 'mystery'
-  | 'revenge'
-  | 'redemption'
-  | 'discovery'
-  | 'survival'
-  | 'rivalry'
-  | 'coming-of-age'
-  | 'custom'
-
-export type SubplotStatus =
-  | 'setup'
-  | 'developing'
-  | 'escalating'
-  | 'climax'
-  | 'resolved'
-  | 'abandoned'
 
 export interface SubplotTouch {
   id: string
   subplotId: string
+  sceneId: string
   chapterId: string
-  sceneId?: string
+  touchType: SubplotTouchType
   tensionLevel: number
   notes: string
-  type: 'setup' | 'development' | 'escalation' | 'callback' | 'resolution'
 }
 
 export interface SubplotTensionPoint {
   chapterNumber: number
   tensionLevel: number
+}
+
+// =============================================================================
+// Brainstorm Types
+// =============================================================================
+
+export interface BrainstormSession {
+  id: string
+  projectId: string
+  rawText: string
+  taggedSections: TaggedSection[]
+  questionsAsked: BrainstormQuestion[]
+  answersGiven: BrainstormAnswer[]
+  plotFoundation: PlotFoundation | null
+  characterFoundation: CharacterFoundation | null
+  sceneFoundation: SceneFoundation | null
+  createdAt: string
+  updatedAt: string
+  finalized: boolean
+  version: number
+}
+
+export interface TaggedSection {
+  startIndex: number
+  endIndex: number
+  tag: BrainstormTag
+  text: string
+}
+
+export interface BrainstormQuestion {
+  id: string
+  category: string
+  questionText: string
+  contextQuote: string | null
+  priority: number
+}
+
+export interface BrainstormAnswer {
+  questionId: string
+  answerText: string
+  skipped: boolean
+  timestamp: string
+}
+
+// =============================================================================
+// Foundation Types
+// =============================================================================
+
+export interface PlotFoundation {
+  premise: string
+  centralConflict: string
+  suggestedStructure: {
+    framework: string
+    reasoning: string
+  }
+  keyPlotPoints: PlotSeed[]
+  potentialSubplots: string[]
+  openQuestions: string[]
+}
+
+export interface PlotSeed {
+  id: string
+  title: string
+  description: string
+  storyPhase: 'beginning' | 'middle' | 'end'
+  confidence: ConfidenceLevel
+  sourceQuote: string | null
+  selected: boolean
+}
+
+export interface CharacterFoundation {
+  identifiedCharacters: CharacterSeed[]
+  relationshipHints: RelationshipSeed[]
+  missingArchetypes: string[]
+  openQuestions: string[]
+}
+
+export interface CharacterSeed {
+  id: string
+  name: string | null
+  workingName: string
+  role: string
+  knownTraits: string[]
+  inferredTraits: string[]
+  potentialArc: string | null
+  keyRelationships: string[]
+  confidence: ConfidenceLevel
+  sourceQuotes: string[]
+  selected: boolean
+}
+
+export interface RelationshipSeed {
+  character1: string
+  character2: string
+  relationshipType: string
+  description: string
+  confidence: ConfidenceLevel
+}
+
+export interface SceneFoundation {
+  envisionedScenes: SceneSeed[]
+  suggestedScenes: SceneSeed[]
+  keyMoments: string[]
+  settingNotes: SettingSeed[]
+  openQuestions: string[]
+}
+
+export interface SceneSeed {
+  id: string
+  title: string
+  description: string
+  charactersInvolved: string[]
+  emotionalBeat: string
+  storyFunction: string
+  vividness: 'detailed' | 'sketched' | 'implied'
+  sourceQuote: string | null
+  selected: boolean
+}
+
+export interface SettingSeed {
+  id: string
+  name: string
+  description: string
+  atmosphere: string
+  confidence: ConfidenceLevel
+}
+
+// =============================================================================
+// Story Memory Types (Feature 8)
+// =============================================================================
+
+export interface ChapterSummary {
+  id: string
+  chapterId: string
+  chapterNumber: number
+  summary: string
+  keyEvents: string[]
+  charactersPresent: string[]
+  locationsUsed: string[]
+  emotionalBeats: string[]
+  plotBeatsAdvanced: string[]
+  subplotsTouched: string[]
+  foreshadowing: string[] | { element: string; setup: string }[]
+  payoffs: string[]
+  cliffhanger: string | null
+  openQuestions?: string[]
+  generatedAt: string
+  tokenCount: number
+}
+
+export interface CharacterKnowledgeState {
+  id: string
+  characterId: string
+  asOfChapterId: string
+  asOfChapterNumber: number
+  knownFacts: string[]
+  beliefs: string[]
+  secrets: string[]
+  relationships: Record<string, string>
+  emotionalState: string
+  activeGoals: string[]
+  recentExperiences: string[]
+  generatedAt: string
 }

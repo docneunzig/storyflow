@@ -9,6 +9,7 @@ import { RelationshipModal } from '@/components/ui/RelationshipModal'
 import { RelationshipMap } from '@/components/ui/RelationshipMap'
 import { Inspector } from '@/components/layout/Inspector'
 import { toast } from '@/components/ui/Toaster'
+import { showConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
@@ -69,14 +70,12 @@ export function CharactersSection({ project }: SectionProps) {
   const [isRelationshipModalOpen, setIsRelationshipModalOpen] = useState(false)
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null)
   const [editingRelationship, setEditingRelationship] = useState<CharacterRelationship | null>(null)
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'cards' | 'relationships' | 'map' | 'voiceDna'>('cards')
 
   // Voice DNA state
   const [voiceDNA, setVoiceDNA] = useState<Record<string, CharacterVoiceDNA>>({})
   const [voiceWarnings, setVoiceWarnings] = useState<VoiceDeviationWarning[]>([])
   const [selectedCharacters, setSelectedCharacters] = useState<Set<string>>(new Set())
-  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
   const [inspectorCharacter, setInspectorCharacter] = useState<Character | null>(null)
   const { updateProject: updateProjectStore, setSaveStatus } = useProjectStore()
 
@@ -232,10 +231,24 @@ export function CharactersSection({ project }: SectionProps) {
     }
   }
 
-  const handleDeleteCharacter = async (characterId: string) => {
+  const handleDeleteCharacter = async (characterId: string, skipConfirm = false) => {
+    const character = project.characters.find(c => c.id === characterId)
+    if (!character) return
+
+    // Show confirmation dialog unless explicitly skipped
+    if (!skipConfirm) {
+      const confirmed = await showConfirmDialog({
+        title: t.characters.deleteCharacter,
+        message: `Are you sure you want to delete "${character.name}"? This will also remove all their relationships and scene references. This action cannot be undone.`,
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        variant: 'destructive',
+      })
+      if (!confirmed) return
+    }
+
     try {
       setSaveStatus('saving')
-      const character = project.characters.find(c => c.id === characterId)
       const updatedCharacters = project.characters.filter(c => c.id !== characterId)
 
       // Cascade delete: Remove all relationships involving this character
@@ -275,8 +288,7 @@ export function CharactersSection({ project }: SectionProps) {
         scenes: updatedScenes,
       })
       setSaveStatus('saved')
-      setDeleteConfirmId(null)
-      toast({ title: `Character "${character?.name}" deleted`, variant: 'success' })
+      toast({ title: `Character "${character.name}" deleted`, variant: 'success' })
     } catch (error) {
       console.error('Failed to delete character:', error)
       toast({ title: t.toasts.deleteError, variant: 'error' })
@@ -286,6 +298,20 @@ export function CharactersSection({ project }: SectionProps) {
 
   const handleBulkDeleteCharacters = async () => {
     if (selectedCharacters.size === 0) return
+
+    const selectedNames = Array.from(selectedCharacters)
+      .map(id => project.characters.find(c => c.id === id)?.name)
+      .filter(Boolean)
+      .join(', ')
+
+    const confirmed = await showConfirmDialog({
+      title: `Delete ${selectedCharacters.size} Character(s)`,
+      message: `Are you sure you want to delete: ${selectedNames}? This will also remove all their relationships. This action cannot be undone.`,
+      confirmLabel: 'Delete All',
+      cancelLabel: 'Cancel',
+      variant: 'destructive',
+    })
+    if (!confirmed) return
 
     try {
       setSaveStatus('saving')
@@ -307,7 +333,6 @@ export function CharactersSection({ project }: SectionProps) {
       })
       setSaveStatus('saved')
       setSelectedCharacters(new Set())
-      setBulkDeleteConfirm(false)
       toast({ title: `${deleteCount} character(s) deleted`, variant: 'success' })
     } catch (error) {
       console.error('Failed to bulk delete characters:', error)
@@ -370,6 +395,21 @@ export function CharactersSection({ project }: SectionProps) {
   }
 
   const handleDeleteRelationship = async (sourceId: string, targetId: string) => {
+    const sourceName = getCharacterName(sourceId)
+    const targetName = getCharacterName(targetId)
+    const relationship = (project.relationships || []).find(
+      r => r.sourceCharacterId === sourceId && r.targetCharacterId === targetId
+    )
+
+    const confirmed = await showConfirmDialog({
+      title: t.characters.deleteRelationship,
+      message: `Are you sure you want to remove the "${relationship?.relationshipType || 'relationship'}" between ${sourceName} and ${targetName}?`,
+      confirmLabel: 'Remove',
+      cancelLabel: 'Cancel',
+      variant: 'warning',
+    })
+    if (!confirmed) return
+
     try {
       setSaveStatus('saving')
       const updatedRelationships = (project.relationships || []).filter(
@@ -1009,45 +1049,25 @@ export function CharactersSection({ project }: SectionProps) {
               </div>
               {selectedCharacters.size > 0 && (
                 <div className="flex items-center gap-2">
-                  {bulkDeleteConfirm ? (
-                    <>
-                      <span className="text-sm text-error mr-2">{t.characters.deleteConfirm}</span>
-                      <button
-                        onClick={handleBulkDeleteCharacters}
-                        className="px-3 py-1.5 text-sm bg-error text-white rounded-lg hover:bg-error/90 transition-colors"
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        onClick={() => setBulkDeleteConfirm(false)}
-                        className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-surface transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      {selectedCharacters.size === 2 && (
-                        <button
-                          onClick={() => {
-                            const [char1Id, char2Id] = Array.from(selectedCharacters)
-                            handleGenerateDialogue(char1Id, char2Id)
-                          }}
-                          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-accent/10 text-accent rounded-lg hover:bg-accent/20 transition-colors"
-                        >
-                          <MessageSquare className="h-4 w-4" aria-hidden="true" />
-                          Generate Dialogue
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setBulkDeleteConfirm(true)}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-error/10 text-error rounded-lg hover:bg-error/20 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        Delete Selected
-                      </button>
-                    </div>
+                  {selectedCharacters.size === 2 && (
+                    <button
+                      onClick={() => {
+                        const [char1Id, char2Id] = Array.from(selectedCharacters)
+                        handleGenerateDialogue(char1Id, char2Id)
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-accent/10 text-accent rounded-lg hover:bg-accent/20 transition-colors"
+                    >
+                      <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                      Generate Dialogue
+                    </button>
                   )}
+                  <button
+                    onClick={handleBulkDeleteCharacters}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-error/10 text-error rounded-lg hover:bg-error/20 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    Delete Selected
+                  </button>
                 </div>
               )}
             </div>
@@ -1137,31 +1157,14 @@ export function CharactersSection({ project }: SectionProps) {
                         >
                           <Edit2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
                         </button>
-                        {deleteConfirmId === character.id ? (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleDeleteCharacter(character.id)}
-                              className="px-2 py-1 text-xs bg-error text-white rounded hover:bg-error/90"
-                            >
-                              Confirm
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirmId(null)}
-                              className="px-2 py-1 text-xs border border-border rounded hover:bg-surface-elevated"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setDeleteConfirmId(character.id)}
-                            className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
-                            aria-label="Delete character"
-                            title={t.characters.deleteCharacter}
-                          >
-                            <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDeleteCharacter(character.id)}
+                          className="p-1.5 rounded-md hover:bg-error/10 transition-colors"
+                          aria-label="Delete character"
+                          title={t.characters.deleteCharacter}
+                        >
+                          <Trash2 className="h-4 w-4 text-error" aria-hidden="true" />
+                        </button>
                       </div>
                     </div>
 

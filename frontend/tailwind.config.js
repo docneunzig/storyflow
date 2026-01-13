@@ -73,6 +73,16 @@ export default {
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
       },
+      // Semantic z-index values for consistent layering
+      zIndex: {
+        dropdown: '40',
+        sticky: '45',
+        modal: '50',
+        popover: '55',
+        tooltip: '60',
+        toast: '70',
+        overlay: '100',
+      },
     },
   },
   plugins: [],

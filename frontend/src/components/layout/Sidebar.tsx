@@ -55,37 +55,47 @@ const PHASE_RECOMMENDED: Record<ProjectPhase, string> = {
 
 // Unlock requirements for each section
 interface UnlockRequirement {
-  label: string
+  labelKey: keyof typeof MILESTONE_KEYS
   check: (project: Project) => boolean
 }
 
+// Keys for translation lookup
+const MILESTONE_KEYS = {
+  completeSpecification: 'completeSpecification',
+  definePlotStructure: 'definePlotStructure',
+  createCharacters: 'createCharacters',
+  createScenes: 'createScenes',
+  writeChapterContent: 'writeChapterContent',
+  completeReview: 'completeReview',
+} as const
+
 const UNLOCK_REQUIREMENTS: Record<string, UnlockRequirement[]> = {
   'plot': [
-    { label: 'Complete specification', check: (p) => !!p.specification?.genre },
+    { labelKey: 'completeSpecification', check: (p) => !!p.specification?.genre },
   ],
   'characters': [
-    { label: 'Define plot structure', check: (p) => (p.plot?.beats?.length ?? 0) >= 3 },
+    { labelKey: 'definePlotStructure', check: (p) => (p.plot?.beats?.length ?? 0) >= 3 },
   ],
   'scenes': [
-    { label: 'Create 2+ characters', check: (p) => (p.characters?.length ?? 0) >= 2 },
+    { labelKey: 'createCharacters', check: (p) => (p.characters?.length ?? 0) >= 2 },
   ],
   'write': [
-    { label: 'Create 3+ scenes', check: (p) => (p.scenes?.length ?? 0) >= 3 },
+    { labelKey: 'createScenes', check: (p) => (p.scenes?.length ?? 0) >= 3 },
   ],
   'review': [
-    { label: 'Write chapter content', check: (p) => p.chapters?.some(ch => (ch.wordCount ?? 0) > 100) ?? false },
+    { labelKey: 'writeChapterContent', check: (p) => p.chapters?.some(ch => (ch.wordCount ?? 0) > 100) ?? false },
   ],
   'export': [
-    { label: 'Complete a review', check: (p) => (p.qualityScores?.length ?? 0) > 0 },
+    { labelKey: 'completeReview', check: (p) => (p.qualityScores?.length ?? 0) > 0 },
   ],
   'market': [
-    { label: 'Create 3+ scenes', check: (p) => (p.scenes?.length ?? 0) >= 3 },
+    { labelKey: 'createScenes', check: (p) => (p.scenes?.length ?? 0) >= 3 },
   ],
 }
 
 // Get unlock status for a section
 function getUnlockStatus(path: string, project: Project | null): {
-  requirements: { label: string; met: boolean }[]
+  requirements: { labelKey: keyof typeof MILESTONE_KEYS; met: boolean }[]
   progress: number
 } {
   if (!project) return { requirements: [], progress: 0 }
@@ -94,7 +104,7 @@ function getUnlockStatus(path: string, project: Project | null): {
   if (requirements.length === 0) return { requirements: [], progress: 100 }
 
   const checked = requirements.map(req => ({
-    label: req.label,
+    labelKey: req.labelKey,
     met: req.check(project)
   }))
 
@@ -232,7 +242,7 @@ function LockTooltip({ path, label, project, collapsed }: LockTooltipProps) {
                 <span className={cn(
                   req.met ? 'text-green-400 line-through' : 'text-text-primary'
                 )}>
-                  {req.label}
+                  {t.milestones[req.labelKey]}
                 </span>
               </div>
             ))}

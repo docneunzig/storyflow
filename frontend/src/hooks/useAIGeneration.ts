@@ -13,8 +13,8 @@ export interface AIGenerationProgress {
 export interface AIGenerationOptions {
   agentTarget: string
   action: string
-  context?: Record<string, any>
-  payload?: Record<string, any>
+  context?: Record<string, unknown>
+  payload?: Record<string, unknown>
   onProgress?: (progress: AIGenerationProgress) => void
   useStreaming?: boolean // Enable SSE streaming for real-time progress
 }
@@ -38,6 +38,55 @@ function mapStatus(backendStatus: string): AIGenerationStatus {
   }
 }
 
+/**
+ * Convert technical errors to user-friendly messages
+ */
+function getUserFriendlyError(err: Error): { message: string; error: string } {
+  const errorMsg = err.message
+
+  if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+    return {
+      message: 'Connection lost',
+      error: 'Unable to connect to the AI service. Please check your internet connection and try again.',
+    }
+  }
+  if (errorMsg.includes('timeout') || errorMsg.includes('TIMEOUT')) {
+    return {
+      message: 'Request timed out',
+      error: 'The AI service is taking longer than expected. Please try again in a moment.',
+    }
+  }
+  if (errorMsg.includes('503') || errorMsg.includes('Service Unavailable')) {
+    return {
+      message: 'Service temporarily unavailable',
+      error: 'The AI service is currently experiencing high demand. Please try again in a few minutes.',
+    }
+  }
+  if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
+    return {
+      message: 'Authentication error',
+      error: 'There was a problem with your session. Please refresh the page and try again.',
+    }
+  }
+  if (errorMsg.includes('429') || errorMsg.includes('Too Many Requests')) {
+    return {
+      message: 'Rate limit reached',
+      error: "You've made too many requests. Please wait a moment before trying again.",
+    }
+  }
+  if (errorMsg.includes('500') || errorMsg.includes('Internal Server')) {
+    return {
+      message: 'Server error',
+      error: 'Something went wrong on our end. Please try again in a moment.',
+    }
+  }
+
+  return {
+    message: 'Generation failed',
+    error: errorMsg,
+  }
+}
+
 export function useAIGeneration() {
   const [status, setStatus] = useState<AIGenerationStatus>('idle')
   const [progress, setProgress] = useState<number>(0)
@@ -48,285 +97,370 @@ export function useAIGeneration() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
   const isGeneratingRef = useRef<boolean>(false)
+  // Track mounted state to prevent state updates after unmount (memory leak fix)
+  const isMountedRef = useRef<boolean>(true)
 
-  // Clean up EventSource on unmount
+  // Track mounted state and cleanup on unmount
   useEffect(() => {
+    isMountedRef.current = true
+
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close()
-      }
-    }
-  }, [])
-
-  const generate = useCallback(async (options: AIGenerationOptions): Promise<string | null> => {
-    const { agentTarget, action, context, payload, onProgress } = options
-
-    // Prevent concurrent generations
-    if (isGeneratingRef.current) {
-      console.warn('AI generation already in progress')
-      return null
-    }
-
-    // Create new AbortController for this generation
-    abortControllerRef.current = new AbortController()
-    isGeneratingRef.current = true
-
-    // Reset state
-    setStatus('generating')
-    setProgress(0)
-    setMessage('Initializing AI generation...')
-    setResult(null)
-    setError(null)
-
-    const updateProgress = (newProgress: AIGenerationProgress) => {
-      setStatus(newProgress.status)
-      setProgress(newProgress.progress)
-      setMessage(newProgress.message)
-      if (newProgress.result) setResult(newProgress.result)
-      if (newProgress.error) setError(newProgress.error)
-      onProgress?.(newProgress)
-    }
-
-    try {
-      updateProgress({
-        status: 'generating',
-        progress: 5,
-        message: `Starting ${action} generation...`,
-      })
-
-      // Start the API call
-      const fetchPromise = fetch('/api/ai/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          agentTarget,
-          action,
-          context,
-          payload,
-        }),
-        signal: abortControllerRef.current.signal,
-      })
-
-      // Wait for initial response to get generationId
-      const response = await fetchPromise
-
-      // Check if cancelled during fetch
-      if (abortControllerRef.current?.signal.aborted) {
-        updateProgress({
-          status: 'cancelled',
-          progress: 0,
-          message: 'Generation cancelled',
-        })
-        return null
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      // If streaming is enabled and we have a generationId, the SSE would have been
-      // updating us in real-time. Since the generate endpoint returns synchronously
-      // after completion, we can just use the result directly.
-      const generatedResult = data.result || data.content || null
-
-      updateProgress({
-        status: 'completed',
-        progress: 100,
-        message: 'Generation complete!',
-        result: generatedResult || undefined,
-      })
-
-      return generatedResult
-    } catch (err) {
-      if (err instanceof Error) {
-        if (err.name === 'AbortError') {
-          updateProgress({
-            status: 'cancelled',
-            progress: 0,
-            message: 'Generation cancelled by user',
-          })
-          return null
-        }
-
-        // Convert technical errors to user-friendly messages
-        let userMessage = 'Generation failed'
-        let userError = err.message
-
-        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-          userMessage = 'Connection lost'
-          userError = 'Unable to connect to the AI service. Please check your internet connection and try again.'
-        } else if (err.message.includes('timeout') || err.message.includes('TIMEOUT')) {
-          userMessage = 'Request timed out'
-          userError = 'The AI service is taking longer than expected. Please try again in a moment.'
-        } else if (err.message.includes('503') || err.message.includes('Service Unavailable')) {
-          userMessage = 'Service temporarily unavailable'
-          userError = 'The AI service is currently experiencing high demand. Please try again in a few minutes.'
-        } else if (err.message.includes('401') || err.message.includes('Unauthorized')) {
-          userMessage = 'Authentication error'
-          userError = 'There was a problem with your session. Please refresh the page and try again.'
-        } else if (err.message.includes('429') || err.message.includes('Too Many Requests')) {
-          userMessage = 'Rate limit reached'
-          userError = 'You\'ve made too many requests. Please wait a moment before trying again.'
-        } else if (err.message.includes('500') || err.message.includes('Internal Server')) {
-          userMessage = 'Server error'
-          userError = 'Something went wrong on our end. Please try again in a moment.'
-        }
-
-        updateProgress({
-          status: 'error',
-          progress: 0,
-          message: userMessage,
-          error: userError,
-        })
-      }
-      return null
-    } finally {
-      isGeneratingRef.current = false
-      abortControllerRef.current = null
+      isMountedRef.current = false
+      // Cleanup EventSource
       if (eventSourceRef.current) {
         eventSourceRef.current.close()
         eventSourceRef.current = null
       }
+      // Cleanup AbortController
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
     }
   }, [])
 
-  // Streaming generate function - uses SSE for real-time updates
-  const generateWithStreaming = useCallback(async (options: AIGenerationOptions): Promise<string | null> => {
-    const { agentTarget, action, context, payload, onProgress } = options
+  /**
+   * Safely update progress state, only if component is still mounted
+   */
+  const updateProgressSafe = useCallback(
+    (newProgress: AIGenerationProgress, onProgress?: (progress: AIGenerationProgress) => void) => {
+      // Guard against state updates after unmount
+      if (!isMountedRef.current) return
 
-    // Prevent concurrent generations
-    if (isGeneratingRef.current) {
-      console.warn('AI generation already in progress')
-      return null
-    }
-
-    abortControllerRef.current = new AbortController()
-    isGeneratingRef.current = true
-
-    // Reset state
-    setStatus('generating')
-    setProgress(0)
-    setMessage('Initializing AI generation...')
-    setResult(null)
-    setError(null)
-
-    const updateProgress = (newProgress: AIGenerationProgress) => {
       setStatus(newProgress.status)
       setProgress(newProgress.progress)
       setMessage(newProgress.message)
-      if (newProgress.result) setResult(newProgress.result)
-      if (newProgress.error) setError(newProgress.error)
+      if (newProgress.result !== undefined) setResult(newProgress.result)
+      if (newProgress.error !== undefined) setError(newProgress.error)
       onProgress?.(newProgress)
+    },
+    []
+  )
+
+  /**
+   * Cleanup function for generation resources
+   */
+  const cleanupGeneration = useCallback(() => {
+    isGeneratingRef.current = false
+    abortControllerRef.current = null
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+      eventSourceRef.current = null
     }
+  }, [])
 
-    return new Promise((resolve) => {
-      // Start the API call to get generationId
-      fetch('/api/ai/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentTarget, action, context, payload }),
-        signal: abortControllerRef.current!.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}))
-            throw new Error(errorData.message || `HTTP ${response.status}`)
-          }
-          return response.json()
+  const generate = useCallback(
+    async (options: AIGenerationOptions): Promise<string | null> => {
+      const { agentTarget, action, context, payload, onProgress } = options
+
+      // Prevent concurrent generations
+      if (isGeneratingRef.current) {
+        console.warn('AI generation already in progress')
+        return null
+      }
+
+      // Create new AbortController for this generation
+      abortControllerRef.current = new AbortController()
+      isGeneratingRef.current = true
+
+      // Reset state
+      updateProgressSafe(
+        {
+          status: 'generating',
+          progress: 0,
+          message: 'Initializing AI generation...',
+        },
+        onProgress
+      )
+      setResult(null)
+      setError(null)
+
+      try {
+        updateProgressSafe(
+          {
+            status: 'generating',
+            progress: 5,
+            message: `Starting ${action} generation...`,
+          },
+          onProgress
+        )
+
+        // Start the API call
+        const response = await fetch('/api/ai/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            agentTarget,
+            action,
+            context,
+            payload,
+          }),
+          signal: abortControllerRef.current.signal,
         })
-        .then((data) => {
-          const { generationId, result: generatedResult } = data
 
-          // If we got a result directly, use it
-          if (generatedResult) {
-            updateProgress({
-              status: 'completed',
-              progress: 100,
-              message: 'Generation complete!',
-              result: generatedResult,
-            })
-            resolve(generatedResult)
-            return
-          }
+        // Check if cancelled during fetch or component unmounted
+        if (!isMountedRef.current) {
+          return null
+        }
 
-          // Otherwise, connect to SSE for streaming updates
-          if (generationId) {
-            const eventSource = new EventSource(`/api/ai/stream/${generationId}`)
-            eventSourceRef.current = eventSource
-
-            eventSource.onmessage = (event) => {
-              try {
-                const data = JSON.parse(event.data)
-
-                if (data.type === 'progress') {
-                  updateProgress({
-                    status: mapStatus(data.status),
-                    progress: data.progress || 0,
-                    message: data.message || '',
-                    result: data.result,
-                    error: data.error,
-                  })
-
-                  if (data.status === 'completed') {
-                    eventSource.close()
-                    resolve(data.result || null)
-                  } else if (data.status === 'error' || data.status === 'cancelled') {
-                    eventSource.close()
-                    resolve(null)
-                  }
-                }
-              } catch (e) {
-                console.error('Error parsing SSE message:', e)
-              }
-            }
-
-            eventSource.onerror = () => {
-              eventSource.close()
-              updateProgress({
-                status: 'error',
-                progress: 0,
-                message: 'Connection lost',
-                error: 'Lost connection to the AI service.',
-              })
-              resolve(null)
-            }
-          } else {
-            resolve(null)
-          }
-        })
-        .catch((err) => {
-          if (err.name === 'AbortError') {
-            updateProgress({
+        if (abortControllerRef.current?.signal.aborted) {
+          updateProgressSafe(
+            {
               status: 'cancelled',
               progress: 0,
-              message: 'Generation cancelled by user',
-            })
-          } else {
-            updateProgress({
+              message: 'Generation cancelled',
+            },
+            onProgress
+          )
+          return null
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+          throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`)
+        }
+
+        const data = await response.json()
+
+        // Check mounted again after async operation
+        if (!isMountedRef.current) {
+          return null
+        }
+
+        const generatedResult = data.result || data.content || null
+
+        updateProgressSafe(
+          {
+            status: 'completed',
+            progress: 100,
+            message: 'Generation complete!',
+            result: generatedResult || undefined,
+          },
+          onProgress
+        )
+
+        return generatedResult
+      } catch (err) {
+        // Don't update state if unmounted
+        if (!isMountedRef.current) {
+          return null
+        }
+
+        if (err instanceof Error) {
+          if (err.name === 'AbortError') {
+            updateProgressSafe(
+              {
+                status: 'cancelled',
+                progress: 0,
+                message: 'Generation cancelled by user',
+              },
+              onProgress
+            )
+            return null
+          }
+
+          const { message: userMessage, error: userError } = getUserFriendlyError(err)
+
+          updateProgressSafe(
+            {
               status: 'error',
               progress: 0,
-              message: 'Generation failed',
-              error: err.message,
-            })
-          }
-          resolve(null)
+              message: userMessage,
+              error: userError,
+            },
+            onProgress
+          )
+        }
+        return null
+      } finally {
+        cleanupGeneration()
+      }
+    },
+    [updateProgressSafe, cleanupGeneration]
+  )
+
+  // Streaming generate function - uses SSE for real-time updates
+  const generateWithStreaming = useCallback(
+    async (options: AIGenerationOptions): Promise<string | null> => {
+      const { agentTarget, action, context, payload, onProgress } = options
+
+      // Prevent concurrent generations
+      if (isGeneratingRef.current) {
+        console.warn('AI generation already in progress')
+        return null
+      }
+
+      abortControllerRef.current = new AbortController()
+      isGeneratingRef.current = true
+
+      // Reset state
+      updateProgressSafe(
+        {
+          status: 'generating',
+          progress: 0,
+          message: 'Initializing AI generation...',
+        },
+        onProgress
+      )
+      setResult(null)
+      setError(null)
+
+      return new Promise((resolve) => {
+        // Start the API call to get generationId
+        fetch('/api/ai/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentTarget, action, context, payload }),
+          signal: abortControllerRef.current!.signal,
         })
-        .finally(() => {
-          isGeneratingRef.current = false
-          abortControllerRef.current = null
-        })
-    })
-  }, [])
+          .then(async (response) => {
+            // Check if unmounted
+            if (!isMountedRef.current) {
+              resolve(null)
+              return
+            }
+
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}))
+              throw new Error(errorData.message || `HTTP ${response.status}`)
+            }
+            return response.json()
+          })
+          .then((data) => {
+            // Check if unmounted
+            if (!isMountedRef.current || !data) {
+              resolve(null)
+              return
+            }
+
+            const { generationId, result: generatedResult } = data
+
+            // If we got a result directly, use it
+            if (generatedResult) {
+              updateProgressSafe(
+                {
+                  status: 'completed',
+                  progress: 100,
+                  message: 'Generation complete!',
+                  result: generatedResult,
+                },
+                onProgress
+              )
+              resolve(generatedResult)
+              return
+            }
+
+            // Otherwise, connect to SSE for streaming updates
+            if (generationId) {
+              const eventSource = new EventSource(`/api/ai/stream/${generationId}`)
+              eventSourceRef.current = eventSource
+
+              eventSource.onmessage = (event) => {
+                // Check if unmounted before processing
+                if (!isMountedRef.current) {
+                  eventSource.close()
+                  resolve(null)
+                  return
+                }
+
+                try {
+                  const eventData = JSON.parse(event.data)
+
+                  if (eventData.type === 'progress') {
+                    updateProgressSafe(
+                      {
+                        status: mapStatus(eventData.status),
+                        progress: eventData.progress || 0,
+                        message: eventData.message || '',
+                        result: eventData.result,
+                        error: eventData.error,
+                      },
+                      onProgress
+                    )
+
+                    if (eventData.status === 'completed') {
+                      eventSource.close()
+                      eventSourceRef.current = null
+                      resolve(eventData.result || null)
+                    } else if (eventData.status === 'error' || eventData.status === 'cancelled') {
+                      eventSource.close()
+                      eventSourceRef.current = null
+                      resolve(null)
+                    }
+                  }
+                } catch (e) {
+                  console.error('Error parsing SSE message:', e)
+                }
+              }
+
+              eventSource.onerror = () => {
+                eventSource.close()
+                eventSourceRef.current = null
+
+                // Only update state if still mounted
+                if (isMountedRef.current) {
+                  updateProgressSafe(
+                    {
+                      status: 'error',
+                      progress: 0,
+                      message: 'Connection lost',
+                      error: 'Lost connection to the AI service.',
+                    },
+                    onProgress
+                  )
+                }
+                resolve(null)
+              }
+            } else {
+              resolve(null)
+            }
+          })
+          .catch((err) => {
+            // Only update state if still mounted
+            if (!isMountedRef.current) {
+              resolve(null)
+              return
+            }
+
+            if (err.name === 'AbortError') {
+              updateProgressSafe(
+                {
+                  status: 'cancelled',
+                  progress: 0,
+                  message: 'Generation cancelled by user',
+                },
+                onProgress
+              )
+            } else {
+              const { message: userMessage, error: userError } = getUserFriendlyError(err)
+              updateProgressSafe(
+                {
+                  status: 'error',
+                  progress: 0,
+                  message: userMessage,
+                  error: userError,
+                },
+                onProgress
+              )
+            }
+            resolve(null)
+          })
+          .finally(() => {
+            cleanupGeneration()
+          })
+      })
+    },
+    [updateProgressSafe, cleanupGeneration]
+  )
 
   const cancel = useCallback(() => {
     if (abortControllerRef.current && isGeneratingRef.current) {
-      setStatus('cancelling')
-      setMessage('Cancelling generation...')
+      if (isMountedRef.current) {
+        setStatus('cancelling')
+        setMessage('Cancelling generation...')
+      }
       abortControllerRef.current.abort()
       if (eventSourceRef.current) {
         eventSourceRef.current.close()
@@ -336,6 +470,7 @@ export function useAIGeneration() {
   }, [])
 
   const reset = useCallback(() => {
+    if (!isMountedRef.current) return
     setStatus('idle')
     setProgress(0)
     setMessage('')

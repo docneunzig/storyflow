@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom'
 import { Toaster } from '@/components/ui/Toaster'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Layout } from '@/components/layout/Layout'
 import { ProjectList } from '@/pages/ProjectList'
 import { ProjectWorkspace } from '@/pages/ProjectWorkspace'
@@ -76,6 +77,7 @@ function App() {
     <ErrorBoundary>
       <RouterProvider router={router} />
       <Toaster />
+      <ConfirmDialog />
     </ErrorBoundary>
   )
 }

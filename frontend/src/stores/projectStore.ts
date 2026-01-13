@@ -1,70 +1,32 @@
-import { create } from 'zustand'
-import type { Project, WritingStatistics, ProjectPhase } from '@/types/project'
+/**
+ * Project Store - Combined exports for backwards compatibility
+ *
+ * This file re-exports from the split stores:
+ * - currentProjectStore: Current project and session state
+ * - projectListStore: Project list management
+ * - projectUIStore: UI state (save status, loading, errors)
+ *
+ * New code should import directly from the specific stores.
+ * This combined store is maintained for backwards compatibility.
+ */
 
+import { create } from 'zustand'
+import type { Project, WritingStatistics } from '@/types/project'
+
+// Re-export the split stores
+export { useCurrentProjectStore, calculateProjectPhase } from './currentProjectStore'
+export { useProjectListStore } from './projectListStore'
+export { useProjectUIStore, type SaveStatus } from './projectUIStore'
+
+// Legacy SaveStatus type (also exported from projectUIStore)
 type SaveStatus = 'unsaved' | 'saving' | 'saved'
 
-// Calculate the appropriate project phase based on progress
-export function calculateProjectPhase(project: Project): ProjectPhase {
-  const spec = project.specification
-  const brainstorm = project.brainstorm
-  const chapters = project.chapters || []
-  const scenes = project.scenes || []
-  const characters = project.characters || []
-  const plotBeats = project.plot?.beats || []
-
-  // Count completed chapters
-  const finalizedChapters = chapters.filter(c =>
-    c.status === 'final' || c.status === 'locked'
-  ).length
-  const draftedChapters = chapters.filter(c =>
-    c.status === 'draft' || c.status === 'revision' || c.status === 'final' || c.status === 'locked'
-  ).length
-
-  // Check for completion
-  const targetWordCount = spec?.targetWordCount || 80000
-  const totalWords = chapters.reduce((sum, ch) => sum + (ch.wordCount || 0), 0)
-  const isComplete = totalWords >= targetWordCount && finalizedChapters > 0
-
-  if (isComplete) {
-    return 'complete'
-  }
-
-  // Check for revision phase (have chapters, mostly done writing)
-  if (draftedChapters >= 3 && totalWords >= targetWordCount * 0.7) {
-    return 'revision'
-  }
-
-  // Check for writing phase (have scene blueprints and characters)
-  if (scenes.length >= 3 && characters.length >= 2 && plotBeats.length >= 3) {
-    return 'writing'
-  }
-
-  // Check for scenes phase (have characters and plot)
-  if (characters.length >= 2 && plotBeats.length >= 3) {
-    return 'scenes'
-  }
-
-  // Check for characters phase (have plot structure)
-  if (plotBeats.length >= 3) {
-    return 'characters'
-  }
-
-  // Check for plotting phase (have spec filled out OR brainstorm finalized)
-  const hasSpec = spec && (
-    (spec.genre && spec.genre.length > 0) ||
-    spec.targetAudience ||
-    (spec.themes && spec.themes.length > 0)
-  )
-  const hasBrainstorm = brainstorm && brainstorm.finalized
-
-  if (hasSpec || hasBrainstorm) {
-    return 'plotting'
-  }
-
-  // Default to specification phase
-  return 'specification'
-}
-
+/**
+ * @deprecated Use the specific stores instead:
+ * - useCurrentProjectStore for currentProject
+ * - useProjectListStore for projects list
+ * - useProjectUIStore for UI state
+ */
 interface ProjectState {
   // Current project
   currentProject: Project | null
@@ -99,6 +61,14 @@ interface ProjectState {
   setError: (error: string | null) => void
 }
 
+/**
+ * @deprecated Use the specific stores instead:
+ * - useCurrentProjectStore for currentProject
+ * - useProjectListStore for projects list
+ * - useProjectUIStore for UI state
+ *
+ * This combined store is maintained for backwards compatibility.
+ */
 export const useProjectStore = create<ProjectState>((set, get) => ({
   // Current project
   currentProject: null,
@@ -106,7 +76,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const state = get()
     // When setting a new project, initialize session start word count if not already set
     if (project && state.sessionStartTime === null) {
-      const totalWords = (project.chapters || []).reduce((sum, ch) => sum + (ch.wordCount || 0), 0)
+      const totalWords = (project.chapters || []).reduce(
+        (sum, ch) => sum + (ch.wordCount || 0),
+        0
+      )
       set({
         currentProject: project,
         sessionStartWordCount: totalWords,
@@ -125,13 +98,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   // Project list
   projects: [],
   setProjects: (projects) => set({ projects }),
-  addProject: (project) =>
-    set((state) => ({ projects: [...state.projects, project] })),
+  addProject: (project) => set((state) => ({ projects: [...state.projects, project] })),
   updateProject: (id, updates) =>
     set((state) => ({
-      projects: state.projects.map((p) =>
-        p.id === id ? { ...p, ...updates } : p
-      ),
+      projects: state.projects.map((p) => (p.id === id ? { ...p, ...updates } : p)),
       currentProject:
         state.currentProject?.id === id
           ? { ...state.currentProject, ...updates }

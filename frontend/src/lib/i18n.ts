@@ -636,6 +636,48 @@ export interface Translations {
     deleteError: string
     generateSuccess: string
     generateError: string
+    saved: string
+    saving: string
+    allChangesSaved: string
+    savingChanges: string
+    focusMode: string
+    normalMode: string
+    focusModeExit: string
+    sidebarRestored: string
+  }
+  // Dialog strings
+  dialogs: {
+    deleteScene: string
+    deleteCharacter: string
+    deletePlotBeat: string
+    deleteSubplot: string
+    deleteRelationship: string
+    confirmDelete: string
+    cannotBeUndone: string
+  }
+  // Sidebar milestones
+  milestones: {
+    completeSpecification: string
+    definePlotStructure: string
+    createCharacters: string
+    createScenes: string
+    writeChapterContent: string
+    completeReview: string
+  }
+  // Aria labels
+  ariaLabels: {
+    closeDialog: string
+    closeModal: string
+    expandInspector: string
+    collapseInspector: string
+    editCharacter: string
+    deleteCharacter: string
+    editScene: string
+    deleteScene: string
+    navigation: string
+    mainNavigation: string
+    mainHeader: string
+    mainContent: string
   }
 }
 
@@ -1243,6 +1285,45 @@ const en: Translations = {
     deleteError: 'Failed to delete',
     generateSuccess: 'Generated successfully',
     generateError: 'Failed to generate',
+    saved: 'Saved',
+    saving: 'Saving...',
+    allChangesSaved: 'All changes are saved',
+    savingChanges: 'Saving your changes',
+    focusMode: 'Focus Mode',
+    normalMode: 'Normal Mode',
+    focusModeExit: 'Press F11 or Escape to exit',
+    sidebarRestored: 'Sidebar and footer restored',
+  },
+  dialogs: {
+    deleteScene: 'Delete Scene',
+    deleteCharacter: 'Delete Character',
+    deletePlotBeat: 'Delete Plot Beat',
+    deleteSubplot: 'Delete Subplot',
+    deleteRelationship: 'Delete Relationship',
+    confirmDelete: 'Are you sure you want to delete this?',
+    cannotBeUndone: 'This action cannot be undone.',
+  },
+  milestones: {
+    completeSpecification: 'Complete specification',
+    definePlotStructure: 'Define plot structure',
+    createCharacters: 'Create 2+ characters',
+    createScenes: 'Create 3+ scenes',
+    writeChapterContent: 'Write chapter content',
+    completeReview: 'Complete a review',
+  },
+  ariaLabels: {
+    closeDialog: 'Close dialog',
+    closeModal: 'Close modal',
+    expandInspector: 'Expand inspector',
+    collapseInspector: 'Collapse inspector',
+    editCharacter: 'Edit character',
+    deleteCharacter: 'Delete character',
+    editScene: 'Edit scene',
+    deleteScene: 'Delete scene',
+    navigation: 'Navigation',
+    mainNavigation: 'Main navigation',
+    mainHeader: 'Main header',
+    mainContent: 'Main content',
   },
 }
 
@@ -1850,6 +1931,45 @@ const de: Translations = {
     deleteError: 'Löschen fehlgeschlagen',
     generateSuccess: 'Erfolgreich generiert',
     generateError: 'Generierung fehlgeschlagen',
+    saved: 'Gespeichert',
+    saving: 'Speichern...',
+    allChangesSaved: 'Alle Änderungen gespeichert',
+    savingChanges: 'Speichere deine Änderungen',
+    focusMode: 'Fokus-Modus',
+    normalMode: 'Normaler Modus',
+    focusModeExit: 'Drücke F11 oder Escape zum Beenden',
+    sidebarRestored: 'Seitenleiste und Fußzeile wiederhergestellt',
+  },
+  dialogs: {
+    deleteScene: 'Szene löschen',
+    deleteCharacter: 'Charakter löschen',
+    deletePlotBeat: 'Handlungspunkt löschen',
+    deleteSubplot: 'Nebenhandlung löschen',
+    deleteRelationship: 'Beziehung löschen',
+    confirmDelete: 'Möchtest du das wirklich löschen?',
+    cannotBeUndone: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+  },
+  milestones: {
+    completeSpecification: 'Spezifikation ausfüllen',
+    definePlotStructure: 'Handlungsstruktur definieren',
+    createCharacters: '2+ Charaktere erstellen',
+    createScenes: '3+ Szenen erstellen',
+    writeChapterContent: 'Kapitelinhalt schreiben',
+    completeReview: 'Überarbeitung abschließen',
+  },
+  ariaLabels: {
+    closeDialog: 'Dialog schließen',
+    closeModal: 'Modal schließen',
+    expandInspector: 'Inspektor erweitern',
+    collapseInspector: 'Inspektor einklappen',
+    editCharacter: 'Charakter bearbeiten',
+    deleteCharacter: 'Charakter löschen',
+    editScene: 'Szene bearbeiten',
+    deleteScene: 'Szene löschen',
+    navigation: 'Navigation',
+    mainNavigation: 'Hauptnavigation',
+    mainHeader: 'Kopfzeile',
+    mainContent: 'Hauptinhalt',
   },
 }
 
