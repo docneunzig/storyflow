@@ -77,7 +77,14 @@ export function expandBeat(context: PlotContext): string {
     })
   }
 
-  return JSON.stringify(scenes)
+  // Convert scenes array to prose description (not JSON)
+  const proseDescription = scenes
+    .map((scene, index) => {
+      return `**Scene ${index + 1}: ${scene.title}**\n${scene.summary}`
+    })
+    .join('\n\n')
+
+  return proseDescription
 }
 
 /**

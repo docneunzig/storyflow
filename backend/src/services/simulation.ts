@@ -6,6 +6,7 @@
 import {
   // Character generators
   generateSampleCharacterContent,
+  generateCharacterProfile,
   generateCharacterDialogue,
   deepenCharacter,
   generateCharacterInteraction,
@@ -13,8 +14,10 @@ import {
   generateSampleChapterContent,
   continueWriting,
   generateChapterDraft,
+  generateChapterStructures,
   // Scene generators
   generateSampleSceneContent,
+  generateSceneBlueprint,
   generateSceneProse,
   expandSelection,
   condenseSelection,
@@ -93,16 +96,18 @@ function generateContent(action: string, context: Record<string, unknown>): stri
       return generateChapterDraft(context)
     case 'continue-writing':
       return continueWriting(context)
+    case 'suggest-chapter-structure':
+      return generateChapterStructures(context)
 
     // Scene generation
     case 'generate-scene':
-      return generateSampleSceneContent(context)
+      return generateSceneBlueprint(context)
     case 'generate-scene-prose':
       return generateSceneProse(context)
 
     // Character generation
     case 'generate-character':
-      return generateSampleCharacterContent(context)
+      return generateCharacterProfile(context)
     case 'generate-dialogue':
       return generateCharacterDialogue(context)
     case 'deepen-character':

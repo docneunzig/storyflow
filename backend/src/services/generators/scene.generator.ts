@@ -74,6 +74,125 @@ export function generateSampleSceneContent(context: SceneContext): string {
 }
 
 /**
+ * Generate a scene blueprint with all fields for the scene creation form
+ */
+export function generateSceneBlueprint(context: SceneContext): string {
+  const spec = context.specification as {
+    genre?: string[]
+    themes?: string[]
+    setting?: { timePeriod?: string; location?: string }
+    tone?: string
+  } | undefined
+
+  const genre = spec?.genre?.[0] || 'general fiction'
+  const themes = spec?.themes || []
+  const timePeriod = spec?.setting?.timePeriod || 'contemporary'
+  const characters = context.characters || []
+
+  // Scene blueprint based on genre
+  const conflictTypes = [
+    'Person vs Person',
+    'Person vs Self',
+    'Person vs Nature',
+    'Person vs Society',
+  ]
+  const pacingOptions = ['Slow', 'Moderate', 'Fast', 'Intense']
+
+  const conflictType = conflictTypes[Math.floor(Math.random() * conflictTypes.length)]
+  const pacing = pacingOptions[Math.floor(Math.random() * pacingOptions.length)]
+
+  // Generate time period appropriate time descriptions
+  let timeInStory = 'Morning of Day 1'
+  if (timePeriod.includes('medieval') || timePeriod.includes('historical')) {
+    const times = ['Dawn, as the bells toll', 'High noon', 'Dusk, as shadows lengthen', 'The small hours of the night']
+    timeInStory = times[Math.floor(Math.random() * times.length)]
+  }
+
+  // Generate weather/atmosphere based on pacing
+  const atmospheres: Record<string, string[]> = {
+    'Slow': ['Peaceful dawn light', 'Quiet afternoon stillness', 'Gentle evening calm'],
+    'Moderate': ['Shifting clouds and variable light', 'A day of subtle tensions', 'Unremarkable weather masking turbulent emotions'],
+    'Fast': ['Storm brewing on the horizon', 'Harsh afternoon light', 'Wind picking up as events unfold'],
+    'Intense': ['Thunder and lightning illuminate the scene', 'Oppressive heat bears down', 'Driving rain mirrors inner turmoil'],
+  }
+  const weatherAtmosphere = atmospheres[pacing][Math.floor(Math.random() * atmospheres[pacing].length)]
+
+  // Genre-specific scene blueprints
+  let blueprint: Record<string, unknown> = {
+    title: `Scene ${Date.now().toString(36).slice(-4)}`,
+    timeInStory,
+    weatherAtmosphere,
+    pacing,
+    conflictType,
+    estimatedWordCount: pacing === 'Intense' ? 3000 : pacing === 'Fast' ? 2500 : 2000,
+    status: 'outline',
+  }
+
+  if (genre.toLowerCase().includes('fantasy')) {
+    blueprint = {
+      ...blueprint,
+      summary: 'A pivotal scene where ancient powers stir and characters must choose their path. The weight of destiny presses down as hidden truths begin to surface.',
+      sceneGoal: 'Reveal a key piece of magical lore while deepening character relationships',
+      conflictDescription: 'The conflict between what must be done and what the heart desires reaches a breaking point.',
+      openingEmotion: 'Uneasy anticipation',
+      closingEmotion: 'Resolved determination',
+      tone: 'Epic yet intimate',
+      openingHook: 'Something ancient stirs—something that has been sleeping for centuries.',
+      closingHook: 'The first step on an irreversible path has been taken.',
+    }
+  } else if (genre.toLowerCase().includes('mystery') || genre.toLowerCase().includes('thriller')) {
+    blueprint = {
+      ...blueprint,
+      summary: 'A crucial investigation scene where a key clue emerges, but its implications are more troubling than expected.',
+      sceneGoal: 'Plant a clue while misdirecting the reader',
+      conflictDescription: 'The evidence points in an uncomfortable direction, forcing a choice between convenience and truth.',
+      openingEmotion: 'Focused determination',
+      closingEmotion: 'Unsettled doubt',
+      tone: 'Tense and atmospheric',
+      openingHook: 'Something about this scene doesn\'t add up—and the protagonist knows it.',
+      closingHook: 'The answer leads only to more questions.',
+    }
+  } else if (genre.toLowerCase().includes('romance')) {
+    blueprint = {
+      ...blueprint,
+      summary: 'An emotionally charged encounter where walls begin to crumble and vulnerability becomes unavoidable.',
+      sceneGoal: 'Deepen emotional intimacy while creating romantic tension',
+      conflictDescription: 'Fear of vulnerability wars with the growing desire for connection.',
+      openingEmotion: 'Guarded hope',
+      closingEmotion: 'Tentative openness',
+      tone: 'Warm with underlying tension',
+      openingHook: 'This conversation will change everything—if either of them is brave enough to be honest.',
+      closingHook: 'Something has shifted between them. There\'s no going back to who they were before.',
+    }
+  } else {
+    // General fiction
+    blueprint = {
+      ...blueprint,
+      summary: 'A scene of transformation where characters face truths they\'ve been avoiding and must decide who they want to become.',
+      sceneGoal: 'Push the protagonist toward their turning point',
+      conflictDescription: 'The comfortable lie can no longer be maintained. The truth demands acknowledgment.',
+      openingEmotion: 'Restless unease',
+      closingEmotion: 'Painful clarity',
+      tone: 'Contemplative with emotional depth',
+      openingHook: 'Today will be different. The protagonist can feel it.',
+      closingHook: 'Nothing will ever be quite the same again.',
+    }
+  }
+
+  // Add theme-related elements
+  if (themes.includes('Redemption') || themes.includes('redemption')) {
+    blueprint.sceneGoal = 'Show a step on the path to redemption'
+    blueprint.closingEmotion = 'Fragile hope'
+  }
+  if (themes.includes('Identity') || themes.includes('identity')) {
+    blueprint.sceneGoal = 'Challenge the protagonist\'s sense of self'
+    blueprint.conflictDescription = 'Who they thought they were vs. who they might actually be.'
+  }
+
+  return JSON.stringify(blueprint)
+}
+
+/**
  * Generate prose from a scene outline
  */
 export function generateSceneProse(context: SceneContext): string {

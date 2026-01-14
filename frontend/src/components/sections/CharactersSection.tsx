@@ -1421,6 +1421,7 @@ export function CharactersSection({ project }: SectionProps) {
         onClose={handleCloseModal}
         onSave={handleSaveCharacter}
         editCharacter={editingCharacter}
+        project={project}
       />
 
       {/* Relationship Modal */}

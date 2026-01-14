@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Film, Link2, ArrowRight, ArrowLeft } from 'lucide-react'
-import type { Scene, ContentStatus, Character, WikiEntry, Chapter, PlotBeat } from '@/types/project'
+import { X, Film, Link2, ArrowRight, ArrowLeft, Sparkles, Loader2 } from 'lucide-react'
+import type { Scene, ContentStatus, Character, WikiEntry, Chapter, PlotBeat, Project } from '@/types/project'
 import { generateId } from '@/lib/db'
 import { toast } from '@/components/ui/Toaster'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
 
 interface SceneModalProps {
   isOpen: boolean
@@ -14,6 +15,7 @@ interface SceneModalProps {
   chapters?: Chapter[]
   plotBeats?: PlotBeat[]
   allScenes?: Scene[]
+  project?: Project | null
 }
 
 const STATUSES: ContentStatus[] = ['outline', 'drafted', 'revised', 'locked']
@@ -59,9 +61,55 @@ function createEmptyScene(): Omit<Scene, 'id'> {
   }
 }
 
-export function SceneModal({ isOpen, onClose, onSave, editScene, characters = [], locations = [], chapters = [], plotBeats = [], allScenes = [] }: SceneModalProps) {
+export function SceneModal({ isOpen, onClose, onSave, editScene, characters = [], locations = [], chapters = [], plotBeats = [], allScenes = [], project }: SceneModalProps) {
   const [formData, setFormData] = useState<Omit<Scene, 'id'>>(createEmptyScene())
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // AI generation hook
+  const { isGenerating, generate } = useAIGeneration()
+
+  // Generate scene blueprint with AI
+  const handleGenerateWithAI = useCallback(async () => {
+    const result = await generate({
+      agentTarget: 'scene',
+      action: 'generate-scene',
+      context: {
+        specification: project?.specification,
+        characters: (characters || []).map(c => ({
+          id: c.id,
+          name: c.name,
+        })),
+      },
+    })
+
+    if (result) {
+      try {
+        const parsed = JSON.parse(result)
+        // Populate form with generated scene blueprint
+        setFormData(prev => ({
+          ...prev,
+          title: parsed.title || prev.title,
+          timeInStory: parsed.timeInStory || prev.timeInStory,
+          weatherAtmosphere: parsed.weatherAtmosphere || prev.weatherAtmosphere,
+          summary: parsed.summary || prev.summary,
+          sceneGoal: parsed.sceneGoal || prev.sceneGoal,
+          conflictType: parsed.conflictType || prev.conflictType,
+          conflictDescription: parsed.conflictDescription || prev.conflictDescription,
+          openingEmotion: parsed.openingEmotion || prev.openingEmotion,
+          closingEmotion: parsed.closingEmotion || prev.closingEmotion,
+          tone: parsed.tone || prev.tone,
+          openingHook: parsed.openingHook || prev.openingHook,
+          closingHook: parsed.closingHook || prev.closingHook,
+          pacing: parsed.pacing || prev.pacing,
+          estimatedWordCount: parsed.estimatedWordCount || prev.estimatedWordCount,
+          status: parsed.status || prev.status,
+        }))
+        toast({ title: 'Scene blueprint generated with AI', variant: 'success' })
+      } catch {
+        toast({ title: 'Failed to parse AI response', variant: 'error' })
+      }
+    }
+  }, [generate, project, characters])
 
   // Reset form when modal opens/closes or editScene changes
   useEffect(() => {
@@ -149,13 +197,31 @@ export function SceneModal({ isOpen, onClose, onSave, editScene, characters = []
               {editScene ? 'Edit Scene' : 'New Scene'}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
-            aria-label="Close modal"
-          >
-            <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-2">
+            {!editScene && (
+              <button
+                type="button"
+                onClick={handleGenerateWithAI}
+                disabled={isGenerating}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
+                title="Generate scene blueprint with AI"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                )}
+                <span>{isGenerating ? 'Generating...' : 'Generate with AI'}</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+              aria-label="Close modal"
+            >
+              <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}

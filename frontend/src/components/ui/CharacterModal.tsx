@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { X, User, AlertTriangle } from 'lucide-react'
-import type { Character, CharacterRole, CharacterStatus } from '@/types/project'
+import { X, User, AlertTriangle, Sparkles, Loader2 } from 'lucide-react'
+import type { Character, CharacterRole, CharacterStatus, Project } from '@/types/project'
 import { generateId } from '@/lib/db'
 import { toast } from '@/components/ui/Toaster'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
 
 interface CharacterModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: (character: Character) => void
   editCharacter?: Character | null
+  project?: Project | null
 }
 
 interface UnsavedChangesDialogProps {
@@ -170,11 +172,62 @@ function UnsavedChangesDialog({ isOpen, onDiscard, onCancel }: UnsavedChangesDia
   )
 }
 
-export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: CharacterModalProps) {
+export function CharacterModal({ isOpen, onClose, onSave, editCharacter, project }: CharacterModalProps) {
   const [formData, setFormData] = useState<Omit<Character, 'id'>>(createEmptyCharacter())
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [initialFormData, setInitialFormData] = useState<Omit<Character, 'id'>>(createEmptyCharacter())
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
+
+  // AI generation hook
+  const { isGenerating, generate } = useAIGeneration()
+
+  // Generate character profile with AI
+  const handleGenerateWithAI = useCallback(async () => {
+    const result = await generate({
+      agentTarget: 'character',
+      action: 'generate-character',
+      context: {
+        specification: project?.specification,
+        existingCharacters: (project?.characters || []).map(c => ({
+          name: c.name,
+          role: c.role,
+          archetype: c.archetype,
+        })),
+      },
+    })
+
+    if (result) {
+      try {
+        const parsed = JSON.parse(result)
+        // Populate form with generated character data
+        setFormData(prev => ({
+          ...prev,
+          name: parsed.name || prev.name,
+          role: parsed.role || prev.role,
+          archetype: parsed.archetype || prev.archetype,
+          age: parsed.age || prev.age,
+          gender: parsed.gender || prev.gender,
+          status: parsed.status || prev.status,
+          physicalDescription: parsed.physicalDescription || prev.physicalDescription,
+          personalitySummary: parsed.personalitySummary || prev.personalitySummary,
+          strengths: parsed.strengths || prev.strengths,
+          flaws: parsed.flaws || prev.flaws,
+          fears: parsed.fears || prev.fears,
+          desires: parsed.desires || prev.desires,
+          needs: parsed.needs || prev.needs,
+          misbelief: parsed.misbelief || prev.misbelief,
+          backstory: parsed.backstory || prev.backstory,
+          speechPatterns: parsed.speechPatterns || prev.speechPatterns,
+          vocabularyLevel: parsed.vocabularyLevel || prev.vocabularyLevel,
+          characterArc: parsed.characterArc || prev.characterArc,
+          arcCatalyst: parsed.arcCatalyst || prev.arcCatalyst,
+        }))
+        toast({ title: 'Character generated with AI', variant: 'success' })
+      } catch {
+        toast({ title: 'Failed to parse AI response', variant: 'error' })
+      }
+    }
+  }, [generate, project])
 
   // Check if form has been modified (dirty state)
   const isDirty = useMemo(() => {
@@ -358,13 +411,31 @@ export function CharacterModal({ isOpen, onClose, onSave, editCharacter }: Chara
                 {editCharacter ? 'Edit Character' : 'New Character'}
               </h2>
             </div>
-            <button
-              onClick={handleAttemptClose}
-              className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
-              aria-label="Close modal"
-            >
-              <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
-            </button>
+            <div className="flex items-center gap-2">
+              {!editCharacter && (
+                <button
+                  type="button"
+                  onClick={handleGenerateWithAI}
+                  disabled={isGenerating}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50"
+                  title="Generate character profile with AI"
+                >
+                  {isGenerating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  <span>{isGenerating ? 'Generating...' : 'Generate with AI'}</span>
+                </button>
+              )}
+              <button
+                onClick={handleAttemptClose}
+                className="p-1 rounded-md hover:bg-surface-elevated transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5 text-text-secondary" aria-hidden="true" />
+              </button>
+            </div>
           </div>
 
           {/* Content */}

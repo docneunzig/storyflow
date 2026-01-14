@@ -54,6 +54,125 @@ This is AI-generated sample content for the character generation feature.`
 }
 
 /**
+ * Generate a complete character profile with all fields
+ */
+export function generateCharacterProfile(context: CharacterContext): string {
+  const spec = context.specification as {
+    genre?: string[]
+    themes?: string[]
+    setting?: { timePeriod?: string; location?: string }
+  } | undefined
+
+  const genre = spec?.genre?.[0] || 'general fiction'
+  const themes = spec?.themes || []
+  const timePeriod = spec?.setting?.timePeriod || 'contemporary'
+  const location = spec?.setting?.location || ''
+
+  // Generate contextual character based on genre and themes
+  const archetypes = ['Reluctant Hero', 'Anti-Hero', 'Mastermind', 'Tragic Hero', 'Morally Gray']
+  const archetype = archetypes[Math.floor(Math.random() * archetypes.length)]
+
+  const genderOptions = ['Female', 'Male', 'Non-binary']
+  const gender = genderOptions[Math.floor(Math.random() * genderOptions.length)]
+
+  const age = 25 + Math.floor(Math.random() * 30) // 25-54
+
+  // Build character profile based on archetype
+  let profile: Record<string, unknown> = {
+    name: `Character ${Date.now().toString(36).slice(-4)}`,
+    role: 'supporting',
+    archetype,
+    age,
+    gender,
+    status: 'alive',
+  }
+
+  // Add genre-specific elements
+  if (genre.toLowerCase().includes('fantasy')) {
+    profile = {
+      ...profile,
+      physicalDescription: 'Weathered features marked by years of travel across the realm, with eyes that hold secrets of ancient magic.',
+      personalitySummary: 'A complex soul torn between duty to the old ways and desire for a new path.',
+      strengths: ['Arcane knowledge', 'Resilience', 'Strategic thinking'],
+      flaws: ['Haunted by past', 'Trust issues', 'Pride'],
+      fears: ['Losing control of power', 'Failing those who depend on them'],
+      desires: ['Redemption', 'Peace', 'Understanding'],
+      needs: ['Acceptance', 'Purpose', 'Connection'],
+      misbelief: 'Power always corrupts—including my own.',
+      backstory: `Born during a time of great upheaval in ${location || 'the realm'}, they learned early that survival required both cunning and sacrifice. Their path has been marked by loss, but also by unexpected moments of connection.`,
+      speechPatterns: 'Formal when guarded, more casual when trust is earned',
+      vocabularyLevel: 'Academic',
+      characterArc: 'From isolation to belonging',
+      arcCatalyst: 'An unexpected alliance challenges their worldview',
+    }
+  } else if (genre.toLowerCase().includes('mystery') || genre.toLowerCase().includes('thriller')) {
+    profile = {
+      ...profile,
+      physicalDescription: 'Sharp, observant eyes that miss nothing. An unassuming presence that allows them to blend into any crowd.',
+      personalitySummary: 'Methodical and perceptive, with a dry wit that masks deeper emotional waters.',
+      strengths: ['Deductive reasoning', 'Patience', 'Reading people'],
+      flaws: ['Obsessive', 'Emotionally guarded', 'Difficulty with intimacy'],
+      fears: ['Missing the crucial detail', 'The truth they might uncover'],
+      desires: ['Justice', 'Answers', 'Closure'],
+      needs: ['Validation', 'Trust', 'Peace'],
+      misbelief: 'Everyone has something to hide—including me.',
+      backstory: `A defining case—or crime—shaped their worldview. Since then, they have dedicated themselves to uncovering truths others want buried.`,
+      speechPatterns: 'Precise, asks probing questions, rarely volunteers information',
+      vocabularyLevel: 'Sophisticated',
+      characterArc: 'From detachment to engagement',
+      arcCatalyst: 'A case that becomes personal',
+    }
+  } else if (genre.toLowerCase().includes('romance')) {
+    profile = {
+      ...profile,
+      physicalDescription: 'A presence that commands attention without trying, with features softened by genuine warmth.',
+      personalitySummary: 'Guarded heart, open mind. Someone who has loved and lost and is learning to try again.',
+      strengths: ['Empathy', 'Loyalty', 'Emotional intelligence'],
+      flaws: ['Fear of vulnerability', 'Past relationship baggage', 'Self-sabotage'],
+      fears: ['Being hurt again', 'Not being enough', 'Losing independence'],
+      desires: ['Real connection', 'To be truly known', 'Partnership'],
+      needs: ['Security', 'Acceptance', 'Passion'],
+      misbelief: 'Love means losing yourself.',
+      backstory: `Past relationships taught them the high cost of opening up. They built walls that served them well—until they started to feel more like a prison.`,
+      speechPatterns: 'Warm but deflects with humor when conversations get too personal',
+      vocabularyLevel: 'Casual',
+      characterArc: 'From guarded to vulnerable',
+      arcCatalyst: 'Someone who refuses to give up on them',
+    }
+  } else {
+    // General fiction
+    profile = {
+      ...profile,
+      physicalDescription: 'Carries themselves with a quiet confidence, though observant eyes might catch the tension in their shoulders.',
+      personalitySummary: 'A study in contradictions: strong yet vulnerable, certain yet searching.',
+      strengths: ['Determination', 'Adaptability', 'Hidden depth'],
+      flaws: ['Stubbornness', 'Difficulty asking for help', 'Avoidance'],
+      fears: ['Failure', 'Abandonment', 'The past repeating'],
+      desires: ['Belonging', 'Success on their terms', 'Peace'],
+      needs: ['Recognition', 'Stability', 'Self-acceptance'],
+      misbelief: 'I have to handle everything alone.',
+      backstory: `Life taught them self-reliance the hard way. Now they must learn that strength sometimes means letting others in.`,
+      speechPatterns: 'Direct, occasionally verbose when passionate about something',
+      vocabularyLevel: 'Standard',
+      characterArc: 'From isolation to community',
+      arcCatalyst: 'Circumstances that require them to rely on others',
+    }
+  }
+
+  // Add theme-related elements
+  if (themes.includes('Redemption') || themes.includes('redemption')) {
+    profile.misbelief = 'Some mistakes can never be forgiven—especially mine.'
+    profile.characterArc = 'From guilt to self-forgiveness'
+  }
+  if (themes.includes('Identity') || themes.includes('identity')) {
+    profile.misbelief = "I don't know who I really am."
+    profile.characterArc = 'From confusion to self-discovery'
+  }
+
+  return JSON.stringify(profile)
+}
+
+/**
  * Generate character dialogue using their voice specifications
  */
 export function generateCharacterDialogue(context: CharacterContext): string {

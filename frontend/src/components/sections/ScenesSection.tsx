@@ -954,6 +954,7 @@ export function ScenesSection({ project }: SectionProps) {
         chapters={chapters}
         plotBeats={plotBeats}
         allScenes={scenes}
+        project={project}
       />
 
       {/* AI Progress Modal */}

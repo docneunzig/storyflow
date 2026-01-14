@@ -6,6 +6,7 @@
 // Character generators
 export {
   generateSampleCharacterContent,
+  generateCharacterProfile,
   generateCharacterDialogue,
   deepenCharacter,
   generateCharacterInteraction,
@@ -17,12 +18,15 @@ export {
   generateSampleChapterContent,
   continueWriting,
   generateChapterDraft,
+  generateChapterStructures,
   type ChapterContext,
+  type ChapterStructureContext,
 } from './chapter.generator.js'
 
 // Scene generators
 export {
   generateSampleSceneContent,
+  generateSceneBlueprint,
   generateSceneProse,
   expandSelection,
   condenseSelection,
