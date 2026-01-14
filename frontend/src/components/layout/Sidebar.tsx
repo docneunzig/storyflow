@@ -32,7 +32,7 @@ interface SidebarProps {
 }
 
 // Define which sections are unlocked at each phase
-const PHASE_UNLOCKS: Record<ProjectPhase, string[]> = {
+export const PHASE_UNLOCKS: Record<ProjectPhase, string[]> = {
   'specification': ['specification', 'brainstorm', 'wiki', 'stats'],
   'plotting': ['specification', 'brainstorm', 'plot', 'wiki', 'stats'],
   'characters': ['specification', 'brainstorm', 'plot', 'characters', 'wiki', 'stats'],
@@ -43,7 +43,7 @@ const PHASE_UNLOCKS: Record<ProjectPhase, string[]> = {
 }
 
 // Get the recommended section for current phase
-const PHASE_RECOMMENDED: Record<ProjectPhase, string> = {
+export const PHASE_RECOMMENDED: Record<ProjectPhase, string> = {
   'specification': 'specification',
   'plotting': 'plot',
   'characters': 'characters',
@@ -268,7 +268,7 @@ function LockTooltip({ path, label, project, collapsed }: LockTooltipProps) {
 }
 
 // Phase progress calculation
-const PHASE_ORDER: ProjectPhase[] = [
+export const PHASE_ORDER: ProjectPhase[] = [
   'specification', 'plotting', 'characters', 'scenes', 'writing', 'revision', 'complete'
 ]
 
@@ -282,7 +282,7 @@ const PHASE_LABELS: Record<ProjectPhase, string> = {
   'complete': 'Complete',
 }
 
-function getPhaseProgress(phase: ProjectPhase): { percent: number; label: string; next: string } {
+export function getPhaseProgress(phase: ProjectPhase): { percent: number; label: string; next: string } {
   const index = PHASE_ORDER.indexOf(phase)
   const percent = Math.round(((index + 1) / PHASE_ORDER.length) * 100)
   const nextPhase = index < PHASE_ORDER.length - 1 ? PHASE_ORDER[index + 1] : null

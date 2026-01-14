@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import { Plus, Target, Edit2, Trash2, Users, MapPin, BookOpen, Layers, Sparkles, List, GitBranch, Wand2, Zap, X, TrendingUp } from 'lucide-react'
-import type { Project, PlotBeat, PlotStructure, PlotFramework, Subplot, SubplotTouch } from '@/types/project'
+import type { Project, PlotBeat, PlotStructure, PlotFramework, Subplot, SubplotTouch, Character, Scene } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { updateProject, generateId } from '@/lib/db'
 import { PlotBeatModal } from '@/components/ui/PlotBeatModal'
@@ -13,6 +14,17 @@ import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
 import { UnifiedActionButton } from '@/components/ui/UnifiedActionButton'
 import { useLanguageStore } from '@/stores/languageStore'
+import { NextStepBanner } from '@/components/ui/NextStepBanner'
+
+// Character suggestion from AI generation
+interface CharacterSuggestion {
+  name: string
+  role: 'protagonist' | 'antagonist' | 'supporting' | 'minor'
+  archetype: string
+  description: string
+  desires: string
+  flaw: string
+}
 
 // Plot option interface for AI generation
 interface PlotOption {
@@ -20,6 +32,7 @@ interface PlotOption {
   description: string
   approach: string
   beats: { position: string; title: string; summary: string }[]
+  characters?: CharacterSuggestion[]
 }
 
 interface SectionProps {
@@ -44,6 +57,7 @@ const STATUS_COLORS: Record<string, string> = {
 type ViewMode = 'list' | 'canvas' | 'subplots'
 
 export function PlotSection({ project }: SectionProps) {
+  const { projectId } = useParams<{ projectId: string }>()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingBeat, setEditingBeat] = useState<PlotBeat | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
@@ -239,6 +253,11 @@ export function PlotSection({ project }: SectionProps) {
           { position: 'Act 3', title: 'Climax', summary: 'The ultimate confrontation' },
           { position: 'Act 3', title: 'Resolution', summary: 'The new normal emerges' },
         ],
+        characters: [
+          { name: 'The Hero', role: 'protagonist', archetype: 'The Hero', description: 'An ordinary person called to extraordinary action', desires: 'To prove their worth and protect what matters', flaw: 'Self-doubt and fear of failure' },
+          { name: 'The Mentor', role: 'supporting', archetype: 'The Mentor', description: 'A wise guide who provides knowledge and tools', desires: 'To pass on their wisdom before time runs out', flaw: 'Cannot fight the hero\'s battles for them' },
+          { name: 'The Shadow', role: 'antagonist', archetype: 'The Shadow', description: 'A dark reflection of what the hero could become', desires: 'Power and control over the world', flaw: 'Arrogance and inability to see their own weakness' },
+        ],
       },
       {
         title: 'The Internal Struggle',
@@ -250,6 +269,11 @@ export function PlotSection({ project }: SectionProps) {
           { position: 'Middle', title: 'False Solution', summary: 'Initial attempts to avoid real change' },
           { position: 'Crisis', title: 'Dark Night', summary: 'Complete breakdown before transformation' },
           { position: 'Resolution', title: 'Integration', summary: 'Genuine healing and growth' },
+        ],
+        characters: [
+          { name: 'The Seeker', role: 'protagonist', archetype: 'The Seeker', description: 'Someone running from their past while seeking meaning', desires: 'To find peace and understand themselves', flaw: 'Avoidance of painful truths' },
+          { name: 'The Mirror', role: 'supporting', archetype: 'The Ally', description: 'A confidant who reflects the protagonist\'s true self', desires: 'To help their friend see clearly', flaw: 'Too close to remain objective' },
+          { name: 'The Ghost', role: 'antagonist', archetype: 'The Shadow', description: 'A figure from the past who represents unresolved trauma', desires: 'Recognition and acknowledgment', flaw: 'Trapped in the past' },
         ],
       },
       {
@@ -263,6 +287,11 @@ export function PlotSection({ project }: SectionProps) {
           { position: 'Past', title: 'The Event', summary: 'The pivotal moment that changed everything' },
           { position: 'Convergence', title: 'Revelation', summary: 'Past and present collide in understanding' },
         ],
+        characters: [
+          { name: 'The Investigator', role: 'protagonist', archetype: 'The Detective', description: 'Someone piecing together fragments of a hidden truth', desires: 'To uncover the truth regardless of cost', flaw: 'Obsession that blinds them to present dangers' },
+          { name: 'The Keeper', role: 'supporting', archetype: 'The Guardian', description: 'Someone who holds pieces of the puzzle', desires: 'To protect secrets that could hurt loved ones', flaw: 'Misguided protectiveness' },
+          { name: 'The Catalyst', role: 'antagonist', archetype: 'The Trickster', description: 'The one whose past actions set everything in motion', desires: 'To escape the consequences of their choices', flaw: 'Inability to take responsibility' },
+        ],
       },
     ]
   }
@@ -271,6 +300,49 @@ export function PlotSection({ project }: SectionProps) {
   const handleSelectPlotOption = async (option: PlotOption) => {
     try {
       setSaveStatus('saving')
+      setShowOptionsModal(false)
+
+      // Create new characters from the plot option
+      const newCharacters: Character[] = (option.characters || []).map((c) => ({
+        id: generateId(),
+        name: c.name,
+        aliases: [],
+        role: c.role,
+        archetype: c.archetype,
+        age: null,
+        gender: '',
+        physicalDescription: '',
+        distinguishingFeatures: [],
+        personalitySummary: c.description,
+        strengths: [],
+        flaws: c.flaw ? [c.flaw] : [],
+        fears: [],
+        desires: c.desires ? [c.desires] : [],
+        needs: [],
+        misbelief: '',
+        backstory: '',
+        formativeExperiences: [],
+        secrets: [],
+        speechPatterns: '',
+        vocabularyLevel: 'Average',
+        catchphrases: [],
+        internalVoice: '',
+        characterArc: '',
+        arcCatalyst: '',
+        firstAppearance: null,
+        scenesPresent: [],
+        status: 'alive' as const,
+        userNotes: `Generated from plot: ${option.title}`,
+      }))
+
+      // Create character ID map for linking to beats
+      const characterIdMap: Record<string, string> = {}
+      newCharacters.forEach((char) => {
+        const originalName = option.characters?.find(c => c.name === char.name)?.name
+        if (originalName) {
+          characterIdMap[originalName.toLowerCase()] = char.id
+        }
+      })
 
       const newBeats: PlotBeat[] = option.beats.map((b, i) => ({
         id: generateId(),
@@ -297,16 +369,164 @@ export function PlotSection({ project }: SectionProps) {
         overallArc: option.description,
       }
 
-      await updateProject(project.id, { plot: updatedPlot })
-      updateProjectStore(project.id, { plot: updatedPlot })
+      // Merge with existing characters (don't overwrite if they already exist)
+      const existingCharacterNames = (project.characters || []).map(c => c.name.toLowerCase())
+      const charactersToAdd = newCharacters.filter(
+        c => !existingCharacterNames.includes(c.name.toLowerCase())
+      )
+      const mergedCharacters = [...(project.characters || []), ...charactersToAdd]
+
+      // Save plot and characters first
+      await updateProject(project.id, {
+        plot: updatedPlot,
+        characters: mergedCharacters,
+      })
+      updateProjectStore(project.id, {
+        plot: updatedPlot,
+        characters: mergedCharacters,
+      })
       setSaveStatus('saved')
-      setShowOptionsModal(false)
       setPlotOptions([])
-      toast({ title: t.toasts.saveSuccess, variant: 'success' })
+
+      const charCount = charactersToAdd.length
+      if (charCount > 0) {
+        toast({
+          title: `Plot applied with ${charCount} new character${charCount > 1 ? 's' : ''}`,
+          description: 'Generating scenes from plot beats...',
+          variant: 'success'
+        })
+      } else {
+        toast({
+          title: t.toasts.saveSuccess,
+          description: 'Generating scenes from plot beats...',
+          variant: 'success'
+        })
+      }
+
+      // Now generate scenes from the beats
+      setAIProgressTitle('Generating Scenes from Plot')
+      setShowAIProgress(true)
+
+      try {
+        const sceneResult = await generate({
+          agentTarget: 'plot',
+          action: 'generate-scenes-from-beats',
+          context: {
+            specification: project.specification,
+            beats: newBeats.map(b => ({
+              title: b.title,
+              summary: b.summary,
+              frameworkPosition: b.frameworkPosition,
+              charactersInvolved: b.charactersInvolved,
+            })),
+            characters: mergedCharacters.map(c => ({
+              name: c.name,
+              role: c.role,
+              description: c.personalitySummary,
+            })),
+            targetSceneCount: Math.max(newBeats.length * 2, 12),
+          },
+          timeoutMs: 120000, // 2 minute timeout for scene generation
+        })
+
+        if (sceneResult) {
+          try {
+            // Parse the AI response
+            let jsonStr = sceneResult
+            // Handle markdown code blocks
+            jsonStr = jsonStr.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
+            const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
+            if (jsonMatch) jsonStr = jsonMatch[0]
+
+            const parsed = JSON.parse(jsonStr)
+            const generatedScenes = parsed.scenes || []
+
+            if (generatedScenes.length > 0) {
+              // Convert AI-generated scenes to Scene objects
+              const newScenes: Scene[] = generatedScenes.map((s: any, i: number) => {
+                // Find beat ID based on plotBeatIndex
+                const beatIndex = typeof s.plotBeatIndex === 'number' ? s.plotBeatIndex : 0
+                const linkedBeat = newBeats[Math.min(beatIndex, newBeats.length - 1)]
+
+                // Map character names to IDs
+                const characterIds = (s.charactersPresent || [])
+                  .map((name: string) => {
+                    const char = mergedCharacters.find(c =>
+                      c.name.toLowerCase() === name.toLowerCase()
+                    )
+                    return char?.id
+                  })
+                  .filter(Boolean)
+
+                return {
+                  id: generateId(),
+                  title: s.title || `Scene ${i + 1}`,
+                  chapterId: null,
+                  sequenceInChapter: i + 1,
+                  plotBeatId: linkedBeat?.id || null,
+                  locationId: null,
+                  timeInStory: '',
+                  weatherAtmosphere: '',
+                  povCharacterId: characterIds[0] || null,
+                  charactersPresent: characterIds,
+                  summary: s.summary || '',
+                  detailedOutline: '',
+                  openingHook: '',
+                  keyMoments: [],
+                  closingHook: '',
+                  sceneGoal: s.sceneGoal || '',
+                  conflictType: s.conflictType || '',
+                  conflictDescription: '',
+                  characterGoals: [],
+                  openingEmotion: '',
+                  closingEmotion: '',
+                  tone: s.tone || '',
+                  estimatedWordCount: 1500,
+                  pacing: s.pacing || 'Moderate',
+                  setupFor: [],
+                  payoffFor: [],
+                  status: 'outline' as const,
+                  userNotes: `Generated from beat: ${linkedBeat?.title || 'Unknown'}`,
+                }
+              })
+
+              // Merge with existing scenes
+              const existingScenes = project.scenes || []
+              const updatedScenes = [...existingScenes, ...newScenes]
+
+              await updateProject(project.id, { scenes: updatedScenes })
+              updateProjectStore(project.id, { scenes: updatedScenes })
+
+              toast({
+                title: `${newScenes.length} scenes generated`,
+                description: 'Go to Scenes section to refine them',
+                variant: 'success'
+              })
+            }
+          } catch (parseError) {
+            console.error('Failed to parse scene generation result:', parseError)
+            toast({
+              title: 'Scene generation completed',
+              description: 'Some scenes may need manual creation',
+              variant: 'default'
+            })
+          }
+        }
+      } catch (sceneError) {
+        console.error('Scene generation failed:', sceneError)
+        toast({
+          title: 'Scene generation skipped',
+          description: 'You can manually create scenes in the Scenes section',
+          variant: 'default'
+        })
+      } finally {
+        setShowAIProgress(false)
+      }
     } catch (error) {
       console.error('Failed to apply plot option:', error)
       toast({ title: t.toasts.saveError, variant: 'error' })
       setSaveStatus('unsaved')
+      setShowAIProgress(false)
     }
   }
 
@@ -936,9 +1156,9 @@ export function PlotSection({ project }: SectionProps) {
               </button>
             </div>
             <p className="px-4 pt-3 text-sm text-text-secondary">
-              Select one of these 3 distinct plot approaches. Each offers a different way to tell your story.
+              Select one of these 3 distinct plot approaches. Each includes suggested characters you can refine.
             </p>
-            <div className="p-4 grid gap-4">
+            <div className="p-4 grid gap-4 max-h-[60vh] overflow-y-auto">
               {plotOptions.map((option, index) => (
                 <button
                   key={index}
@@ -955,16 +1175,48 @@ export function PlotSection({ project }: SectionProps) {
                   </div>
                   <p className="text-sm text-text-secondary mb-2">{option.description}</p>
                   <p className="text-xs text-accent mb-3">Approach: {option.approach}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {option.beats.map((beat, bi) => (
-                      <span
-                        key={bi}
-                        className="text-xs bg-surface px-2 py-0.5 rounded text-text-secondary"
-                      >
-                        {beat.title}
-                      </span>
-                    ))}
+
+                  {/* Plot Beats */}
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-text-secondary mb-1.5">Plot Beats:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {option.beats.map((beat, bi) => (
+                        <span
+                          key={bi}
+                          className="text-xs bg-surface px-2 py-0.5 rounded text-text-secondary"
+                        >
+                          {beat.title}
+                        </span>
+                      ))}
+                    </div>
                   </div>
+
+                  {/* Characters */}
+                  {option.characters && option.characters.length > 0 && (
+                    <div className="pt-2 border-t border-border/50">
+                      <p className="text-xs font-medium text-text-secondary mb-1.5 flex items-center gap-1">
+                        <Users className="h-3 w-3" aria-hidden="true" />
+                        Characters ({option.characters.length}):
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {option.characters.map((char, ci) => (
+                          <span
+                            key={ci}
+                            className={`text-xs px-2 py-0.5 rounded ${
+                              char.role === 'protagonist'
+                                ? 'bg-success/20 text-success'
+                                : char.role === 'antagonist'
+                                ? 'bg-error/20 text-error'
+                                : 'bg-warning/20 text-warning'
+                            }`}
+                            title={`${char.archetype}: ${char.description}`}
+                          >
+                            {char.name} ({char.role})
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -1106,6 +1358,15 @@ export function PlotSection({ project }: SectionProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Next Step Navigation */}
+      {projectId && (
+        <NextStepBanner
+          currentSection="plot"
+          projectId={projectId}
+          project={project}
+        />
       )}
     </div>
   )

@@ -1,5 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import type { Project, Chapter } from '@/types/project'
+import { NextStepBanner } from '@/components/ui/NextStepBanner'
 import { ChapterModal } from '@/components/ui/ChapterModal'
 import { WikiAutoExtractModal } from '@/components/ui/WikiAutoExtractModal'
 import { GuidedGenerationPanel } from '@/components/ui/GuidedGenerationPanel'
@@ -13,17 +15,21 @@ import { ChapterScenes } from './ChapterScenes'
 import { ChapterContent } from './ChapterContent'
 import { RevisionHistoryModal } from './RevisionHistoryModal'
 import { EmptyState } from './EmptyState'
+import { ChapterStructureModal } from './ChapterStructureModal'
 
 // Hooks
 import { useChapterSave } from './hooks/useChapterSave'
 import { useInlineAI } from './hooks/useInlineAI'
 import { useChapterGeneration } from './hooks/useChapterGeneration'
+import { useChapterStructure } from './hooks/useChapterStructure'
 
 interface WriteSectionProps {
   project: Project
 }
 
 export function WriteSection({ project }: WriteSectionProps) {
+  const { projectId } = useParams<{ projectId: string }>()
+
   // UI state
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null)
@@ -107,9 +113,28 @@ export function WriteSection({ project }: WriteSectionProps) {
     onUpdateChapterContent: handleUpdateChapterContent,
   })
 
+  // Chapter structure suggestion hook
+  const {
+    isGenerating: isGeneratingStructure,
+    showAIProgress: showStructureAIProgress,
+    setShowAIProgress: setShowStructureAIProgress,
+    aiStatus: structureAIStatus,
+    aiProgress: structureAIProgress,
+    aiMessage: structureAIMessage,
+    cancelAI: cancelStructureAI,
+    resetAI: resetStructureAI,
+    structureSuggestions,
+    showStructureModal,
+    setShowStructureModal,
+    handleGenerateStructures,
+    handleSelectStructure,
+  } = useChapterStructure({ project })
+
   // Computed values
   const chapters = project.chapters || []
   const scenes = project.scenes || []
+  const plotBeats = project.plot?.beats || []
+  const hasPlotBeatsOrScenes = plotBeats.length > 0 || scenes.length > 0
   const totalWords = chapters.reduce((acc, c) => acc + c.wordCount, 0)
   const nextChapterNumber = chapters.length > 0
     ? Math.max(...chapters.map(c => c.number)) + 1
@@ -183,14 +208,38 @@ export function WriteSection({ project }: WriteSectionProps) {
   }, [selectedChapter, handleUpdateChapterContent])
 
   // Determine which progress modal to show and which state to use
-  const currentShowAIProgress = showAIProgress || showInlineAIProgress
-  const currentAIProgressTitle = showAIProgress ? aiProgressTitle : inlineAIProgressTitle
+  const currentShowAIProgress = showAIProgress || showInlineAIProgress || showStructureAIProgress
+  const currentAIProgressTitle = showAIProgress
+    ? aiProgressTitle
+    : showStructureAIProgress
+      ? 'Suggesting Chapter Structure'
+      : inlineAIProgressTitle
   // Use the correct AI state based on which operation is running
-  const currentAIStatus = showAIProgress ? chapterAIStatus : aiStatus
-  const currentAIProgress = showAIProgress ? chapterAIProgress : aiProgress
-  const currentAIMessage = showAIProgress ? chapterAIMessage : aiMessage
-  const currentCancelAI = showAIProgress ? cancelChapterAI : cancelGeneration
-  const currentResetAI = showAIProgress ? resetChapterAI : resetAI
+  const currentAIStatus = showAIProgress
+    ? chapterAIStatus
+    : showStructureAIProgress
+      ? structureAIStatus
+      : aiStatus
+  const currentAIProgress = showAIProgress
+    ? chapterAIProgress
+    : showStructureAIProgress
+      ? structureAIProgress
+      : aiProgress
+  const currentAIMessage = showAIProgress
+    ? chapterAIMessage
+    : showStructureAIProgress
+      ? structureAIMessage
+      : aiMessage
+  const currentCancelAI = showAIProgress
+    ? cancelChapterAI
+    : showStructureAIProgress
+      ? cancelStructureAI
+      : cancelGeneration
+  const currentResetAI = showAIProgress
+    ? resetChapterAI
+    : showStructureAIProgress
+      ? resetStructureAI
+      : resetAI
 
   return (
     <div className="h-full flex">
@@ -270,7 +319,10 @@ export function WriteSection({ project }: WriteSectionProps) {
         ) : (
           <EmptyState
             hasChapters={chapters.length > 0}
+            hasPlotBeatsOrScenes={hasPlotBeatsOrScenes}
+            isGeneratingStructure={isGeneratingStructure}
             onCreateChapter={() => handleOpenModal()}
+            onSuggestStructure={handleGenerateStructures}
           />
         )}
       </div>
@@ -330,12 +382,14 @@ export function WriteSection({ project }: WriteSectionProps) {
           onClose={() => {
             setShowAIProgress(false)
             setShowInlineAIProgress(false)
+            setShowStructureAIProgress(false)
             currentResetAI()
           }}
           onCancel={() => {
             currentCancelAI()
             setShowAIProgress(false)
             setShowInlineAIProgress(false)
+            setShowStructureAIProgress(false)
             currentResetAI()
           }}
           title={currentAIProgressTitle}
@@ -344,6 +398,14 @@ export function WriteSection({ project }: WriteSectionProps) {
           message={currentAIMessage}
         />
       )}
+
+      {/* Chapter Structure Modal */}
+      <ChapterStructureModal
+        isOpen={showStructureModal}
+        onClose={() => setShowStructureModal(false)}
+        onSelect={handleSelectStructure}
+        structures={structureSuggestions}
+      />
 
       {/* AI Alternatives Modal */}
       <AIOptionsModal
@@ -358,6 +420,17 @@ export function WriteSection({ project }: WriteSectionProps) {
         onSelect={handleSelectAlternative}
         isLoading={isGenerating && alternatives.length === 0}
       />
+
+      {/* Next Step Navigation */}
+      {projectId && (
+        <div className="fixed bottom-4 right-4 z-40 max-w-md">
+          <NextStepBanner
+            currentSection="write"
+            projectId={projectId}
+            project={project}
+          />
+        </div>
+      )}
     </div>
   )
 }

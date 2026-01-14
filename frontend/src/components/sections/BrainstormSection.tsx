@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Lightbulb, Sparkles, MessageSquare, ArrowRight, Check, Send, AlertCircle, RefreshCw } from 'lucide-react'
-import type { Project, BrainstormSession, BrainstormTag, PlotFoundation, CharacterFoundation, SceneFoundation } from '@/types/project'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useParams } from 'react-router-dom'
+import { Lightbulb, Sparkles, MessageSquare, ArrowRight, Check, Send, AlertCircle, RefreshCw, Loader2 } from 'lucide-react'
+import type { Project, BrainstormSession, BrainstormTag, PlotFoundation, CharacterFoundation, SceneFoundation, Character, PlotBeat, Scene } from '@/types/project'
 import { updateProject as updateProjectInDb } from '@/lib/db'
 import { useProjectStore } from '@/stores/projectStore'
 import { useLanguageStore } from '@/stores/languageStore'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { toast } from '@/components/ui/Toaster'
 import { cn } from '@/lib/utils'
+import { NextStepBanner } from '@/components/ui/NextStepBanner'
 
 interface SectionProps {
   project: Project
@@ -26,6 +28,7 @@ const TAG_CONFIG: { value: BrainstormTag; emoji: string; color: string }[] = [
 type Phase = 'input' | 'analyzing' | 'questions' | 'foundations' | 'review'
 
 export function BrainstormSection({ project }: SectionProps) {
+  const { projectId } = useParams<{ projectId: string }>()
   const { updateProject, setSaveStatus } = useProjectStore()
   const t = useLanguageStore((state) => state.t)
 
@@ -63,6 +66,17 @@ export function BrainstormSection({ project }: SectionProps) {
   const [showPrompts, setShowPrompts] = useState(true)
   const [hasChanges, setHasChanges] = useState(false)
   const [analyzeError, setAnalyzeError] = useState<string | null>(null)
+
+  // Answer suggestions state
+  const [answerSuggestions, setAnswerSuggestions] = useState<string[]>([])
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(new Set())
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null)
+
+  // Auto-finalize state
+  const [autoFinalize, setAutoFinalize] = useState(true)
+  const [isAutoFinalizing, setIsAutoFinalizing] = useState(false)
+  const autoFinalizeTriggered = useRef(false)
 
   // AI generation hook with timeout support
   const { generate, status, message, error, cancel, reset } = useAIGeneration()
@@ -159,6 +173,105 @@ export function BrainstormSection({ project }: SectionProps) {
     handleAnalyze()
   }
 
+  // Generate answer suggestions for current question
+  const handleGenerateAnswerSuggestions = async () => {
+    const currentQuestion = session.questionsAsked[currentQuestionIndex]
+    if (!currentQuestion) return
+
+    setIsLoadingSuggestions(true)
+    setSuggestionsError(null)
+
+    // Get previous answers with their questions for context
+    const previousAnswers = session.answersGiven.map((answer, idx) => ({
+      questionText: session.questionsAsked[idx]?.questionText || '',
+      answerText: answer.answerText,
+    }))
+
+    const result = await generate({
+      agentTarget: 'brainstorm',
+      action: 'suggest-answers',
+      context: {
+        specification: project.specification,
+        brainstormText: session.rawText,
+        question: currentQuestion,
+        previousAnswers,
+      },
+      timeoutMs: 60000,
+    })
+
+    setIsLoadingSuggestions(false)
+
+    if (result) {
+      try {
+        let jsonStr = typeof result === 'string' ? result : JSON.stringify(result)
+
+        // Remove markdown code blocks if present
+        jsonStr = jsonStr.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
+
+        // Try to extract JSON object from the response
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          jsonStr = jsonMatch[0]
+        }
+
+        const parsed = JSON.parse(jsonStr)
+        const suggestions = parsed.suggestions || []
+
+        if (Array.isArray(suggestions) && suggestions.length > 0) {
+          setAnswerSuggestions(suggestions)
+          setSelectedSuggestions(new Set())
+        } else {
+          setSuggestionsError('Keine Vorschläge erhalten. Versuche es erneut.')
+          setAnswerSuggestions([])
+        }
+      } catch (parseError) {
+        console.error('Failed to parse suggestions:', parseError, result)
+        setSuggestionsError('Fehler beim Parsen der Vorschläge. Versuche es erneut.')
+        setAnswerSuggestions([])
+      }
+    } else {
+      setSuggestionsError('Vorschläge konnten nicht generiert werden. Versuche es erneut oder schreibe deine eigene Antwort.')
+    }
+  }
+
+  // Toggle suggestion selection
+  const toggleSuggestionSelection = (index: number) => {
+    setSelectedSuggestions(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(index)) {
+        newSet.delete(index)
+      } else {
+        newSet.add(index)
+      }
+      return newSet
+    })
+  }
+
+  // Combine selected suggestions with custom answer
+  const getCombinedAnswer = (): string => {
+    const selectedTexts = Array.from(selectedSuggestions)
+      .sort((a, b) => a - b)
+      .map(idx => answerSuggestions[idx])
+      .filter(Boolean)
+
+    const parts: string[] = []
+    if (selectedTexts.length > 0) {
+      parts.push(selectedTexts.join(' '))
+    }
+    if (currentAnswer.trim()) {
+      parts.push(currentAnswer.trim())
+    }
+    return parts.join(' ')
+  }
+
+  // Clear suggestions when moving to next question
+  const resetSuggestionsState = () => {
+    setAnswerSuggestions([])
+    setSelectedSuggestions(new Set())
+    setSuggestionsError(null)
+    setCurrentAnswer('')
+  }
+
   // Cancel ongoing analysis
   const handleCancelAnalyze = () => {
     cancel()
@@ -224,14 +337,64 @@ export function BrainstormSection({ project }: SectionProps) {
     }
   }
 
+  // Auto-finalize effect: auto-select all seeds and finalize
+  useEffect(() => {
+    if (
+      autoFinalize &&
+      phase === 'foundations' &&
+      session.plotFoundation &&
+      !session.finalized &&
+      !autoFinalizeTriggered.current
+    ) {
+      autoFinalizeTriggered.current = true
+      setIsAutoFinalizing(true)
+
+      // Auto-select all seeds
+      setSession(prev => ({
+        ...prev,
+        plotFoundation: prev.plotFoundation ? {
+          ...prev.plotFoundation,
+          keyPlotPoints: prev.plotFoundation.keyPlotPoints.map(seed => ({ ...seed, selected: true }))
+        } : null,
+        characterFoundation: prev.characterFoundation ? {
+          ...prev.characterFoundation,
+          identifiedCharacters: prev.characterFoundation.identifiedCharacters.map(seed => ({ ...seed, selected: true }))
+        } : null,
+        sceneFoundation: prev.sceneFoundation ? {
+          ...prev.sceneFoundation,
+          envisionedScenes: prev.sceneFoundation.envisionedScenes.map(seed => ({ ...seed, selected: true })),
+          suggestedScenes: prev.sceneFoundation.suggestedScenes.map(seed => ({ ...seed, selected: true }))
+        } : null,
+      }))
+
+      // Small delay to show user what was selected, then finalize
+      const timer = setTimeout(() => {
+        handleFinalize()
+        setIsAutoFinalizing(false)
+      }, 1500)
+
+      return () => clearTimeout(timer)
+    }
+  }, [autoFinalize, phase, session.plotFoundation, session.finalized])
+
+  // Reset auto-finalize trigger when going back to input
+  useEffect(() => {
+    if (phase === 'input') {
+      autoFinalizeTriggered.current = false
+    }
+  }, [phase])
+
   // Answer current question
   const handleAnswerQuestion = (skip: boolean = false) => {
     const question = session.questionsAsked[currentQuestionIndex]
     if (!question) return
 
+    // Get the combined answer from selected suggestions + custom text
+    const combinedAnswer = skip ? '' : getCombinedAnswer()
+
     const answer = {
       questionId: question.id,
-      answerText: skip ? '' : currentAnswer,
+      answerText: combinedAnswer,
       skipped: skip,
       timestamp: new Date().toISOString(),
     }
@@ -241,7 +404,8 @@ export function BrainstormSection({ project }: SectionProps) {
       answersGiven: [...prev.answersGiven, answer],
     }))
 
-    setCurrentAnswer('')
+    // Reset suggestions state for next question
+    resetSuggestionsState()
     setHasChanges(true)
 
     if (currentQuestionIndex < session.questionsAsked.length - 1) {
@@ -300,18 +464,184 @@ export function BrainstormSection({ project }: SectionProps) {
     setHasChanges(true)
   }
 
+  // Helper: Map seed role string to Character role type
+  const mapSeedRoleToCharacterRole = (seedRole: string): Character['role'] => {
+    const roleLower = seedRole.toLowerCase()
+    if (roleLower.includes('protagonist') || roleLower.includes('main') || roleLower.includes('hero')) {
+      return 'protagonist'
+    }
+    if (roleLower.includes('antagonist') || roleLower.includes('villain')) {
+      return 'antagonist'
+    }
+    if (roleLower.includes('supporting') || roleLower.includes('sidekick') || roleLower.includes('ally')) {
+      return 'supporting'
+    }
+    return 'minor'
+  }
+
   // Finalize and send to F2-F4
   const handleFinalize = async () => {
-    // Mark session as finalized
+    // 1. Create Characters first (need IDs for scene references)
+    const selectedCharacterSeeds = session.characterFoundation?.identifiedCharacters
+      .filter(seed => seed.selected) || []
+
+    const newCharacters: Character[] = selectedCharacterSeeds.map(seed => ({
+      id: crypto.randomUUID(),
+      name: seed.name || seed.workingName,
+      aliases: [],
+      role: mapSeedRoleToCharacterRole(seed.role),
+      archetype: '',
+      age: null,
+      gender: '',
+      physicalDescription: '',
+      distinguishingFeatures: [],
+      personalitySummary: [...seed.knownTraits, ...seed.inferredTraits].join('. '),
+      strengths: seed.knownTraits,
+      flaws: [],
+      fears: [],
+      desires: [],
+      needs: [],
+      misbelief: '',
+      backstory: '',
+      formativeExperiences: [],
+      secrets: [],
+      speechPatterns: '',
+      vocabularyLevel: '',
+      catchphrases: [],
+      internalVoice: '',
+      characterArc: seed.potentialArc || '',
+      arcCatalyst: '',
+      firstAppearance: null,
+      scenesPresent: [],
+      status: 'alive' as const,
+      userNotes: seed.sourceQuotes.join('\n'),
+    }))
+
+    // Build name→ID map for scene character references
+    const characterNameToId = new Map<string, string>()
+    newCharacters.forEach(c => characterNameToId.set(c.name.toLowerCase(), c.id))
+    // Include existing characters in the map
+    project.characters?.forEach(c => characterNameToId.set(c.name.toLowerCase(), c.id))
+
+    // 2. Create Plot Beats
+    const selectedPlotSeeds = session.plotFoundation?.keyPlotPoints
+      .filter(seed => seed.selected) || []
+
+    const existingBeatsCount = project.plot?.beats?.length || 0
+    const newBeats: PlotBeat[] = selectedPlotSeeds.map((seed, index) => ({
+      id: crypto.randomUUID(),
+      frameworkPosition: seed.storyPhase,
+      title: seed.title,
+      summary: seed.description,
+      detailedDescription: '',
+      charactersInvolved: [],
+      location: null,
+      timelinePosition: existingBeatsCount + index,
+      emotionalArc: '',
+      stakes: '',
+      foreshadowing: [],
+      payoffs: [],
+      chapterTarget: null,
+      wordCountEstimate: 3000,
+      status: 'outline' as const,
+      userNotes: seed.sourceQuote || '',
+    }))
+
+    // 3. Create Scenes (with character ID mapping)
+    const selectedSceneSeeds = [
+      ...(session.sceneFoundation?.envisionedScenes || []),
+      ...(session.sceneFoundation?.suggestedScenes || []),
+    ].filter(seed => seed.selected)
+
+    const existingScenesCount = project.scenes?.length || 0
+    const newScenes: Scene[] = selectedSceneSeeds.map((seed, index) => ({
+      id: crypto.randomUUID(),
+      title: seed.title,
+      chapterId: null,
+      sequenceInChapter: existingScenesCount + index + 1,
+      plotBeatId: null,
+      locationId: null,
+      timeInStory: '',
+      weatherAtmosphere: '',
+      povCharacterId: null,
+      charactersPresent: seed.charactersInvolved
+        .map(name => characterNameToId.get(name.toLowerCase()))
+        .filter((id): id is string => id !== undefined),
+      summary: seed.description,
+      detailedOutline: '',
+      openingHook: '',
+      keyMoments: [],
+      closingHook: '',
+      sceneGoal: seed.storyFunction,
+      conflictType: '',
+      conflictDescription: '',
+      characterGoals: [],
+      openingEmotion: seed.emotionalBeat,
+      closingEmotion: '',
+      tone: '',
+      estimatedWordCount: seed.vividness === 'detailed' ? 2000 : seed.vividness === 'sketched' ? 1500 : 1000,
+      pacing: 'Moderate' as const,
+      setupFor: [],
+      payoffFor: [],
+      status: 'outline' as const,
+      userNotes: seed.sourceQuote || '',
+    }))
+
+    // 4. Merge with existing entities (avoid duplicate characters by name)
+    const existingCharNames = new Set((project.characters || []).map(c => c.name.toLowerCase()))
+    const charactersToAdd = newCharacters.filter(c => !existingCharNames.has(c.name.toLowerCase()))
+
+    // 5. Build project updates
+    const updates: Partial<Project> = {}
+
+    if (charactersToAdd.length > 0) {
+      updates.characters = [...(project.characters || []), ...charactersToAdd]
+    }
+
+    if (newBeats.length > 0) {
+      const defaultPlot = {
+        framework: 'Freeform' as const,
+        beats: [],
+        overallArc: '',
+        centralConflict: session.plotFoundation?.centralConflict || '',
+        stakes: '',
+      }
+      updates.plot = {
+        ...(project.plot || defaultPlot),
+        beats: [...(project.plot?.beats || []), ...newBeats],
+      }
+    }
+
+    if (newScenes.length > 0) {
+      updates.scenes = [...(project.scenes || []), ...newScenes]
+    }
+
+    // 6. Save to database if we have updates
+    if (Object.keys(updates).length > 0) {
+      await updateProjectInDb(project.id, updates)
+      updateProject(project.id, updates)
+    }
+
+    // 7. Mark session as finalized
     const finalizedSession = { ...session, finalized: true }
     setSession(finalizedSession)
-
-    // TODO: Convert selected seeds to actual Plot Beats, Characters, and Scenes
-    // This would update project.plot.beats, project.characters, project.scenes
-
     setPhase('review')
     setHasChanges(true)
     await saveSession()
+
+    // 8. Show success toast with counts
+    const counts: string[] = []
+    if (newBeats.length) counts.push(`${newBeats.length} plot beats`)
+    if (charactersToAdd.length) counts.push(`${charactersToAdd.length} characters`)
+    if (newScenes.length) counts.push(`${newScenes.length} scenes`)
+
+    if (counts.length > 0) {
+      toast({
+        title: t.brainstorm.foundationsCreated,
+        description: `Created ${counts.join(', ')}`,
+        variant: 'success',
+      })
+    }
   }
 
   // Render based on current phase
@@ -469,6 +799,7 @@ export function BrainstormSection({ project }: SectionProps) {
   const renderQuestionsPhase = () => {
     const currentQuestion = session.questionsAsked[currentQuestionIndex]
     const progress = ((currentQuestionIndex + 1) / session.questionsAsked.length) * 100
+    const hasAnswer = getCombinedAnswer().trim().length > 0
 
     return (
       <div className="max-w-2xl mx-auto space-y-6">
@@ -507,14 +838,105 @@ export function BrainstormSection({ project }: SectionProps) {
               </div>
             )}
 
-            <textarea
-              value={currentAnswer}
-              onChange={(e) => setCurrentAnswer(e.target.value)}
-              placeholder={t.brainstorm.yourThoughts}
-              className="w-full h-32 p-3 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none resize-none"
-            />
+            {/* AI Answer Suggestions */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-accent" />
+                  AI-Vorschläge
+                </label>
+                <button
+                  onClick={handleGenerateAnswerSuggestions}
+                  disabled={isLoadingSuggestions}
+                  className="text-sm text-accent hover:text-accent/80 flex items-center gap-1 disabled:opacity-50"
+                >
+                  {isLoadingSuggestions ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-accent" />
+                      Generiere...
+                    </>
+                  ) : answerSuggestions.length > 0 ? (
+                    <>
+                      <RefreshCw className="h-3 w-3" />
+                      Neue Vorschläge
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3 w-3" />
+                      Vorschläge generieren
+                    </>
+                  )}
+                </button>
+              </div>
 
-            <div className="flex justify-between">
+              {/* Suggestions Error */}
+              {suggestionsError && (
+                <p className="text-sm text-error">{suggestionsError}</p>
+              )}
+
+              {/* Suggestion Checkboxes */}
+              {answerSuggestions.length > 0 && (
+                <div className="space-y-2">
+                  {answerSuggestions.map((suggestion, index) => (
+                    <label
+                      key={index}
+                      className={cn(
+                        "flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors border",
+                        selectedSuggestions.has(index)
+                          ? "bg-accent/10 border-accent"
+                          : "bg-surface-elevated border-border hover:border-accent/50"
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSuggestions.has(index)}
+                        onChange={() => toggleSuggestionSelection(index)}
+                        className="mt-0.5 accent-accent"
+                      />
+                      <span className="text-sm text-text-primary flex-1">{suggestion}</span>
+                    </label>
+                  ))}
+                  <p className="text-xs text-text-secondary">
+                    Wähle einen oder mehrere Vorschläge aus, oder schreibe deine eigene Antwort unten.
+                  </p>
+                </div>
+              )}
+
+              {/* Loading state */}
+              {isLoadingSuggestions && answerSuggestions.length === 0 && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center space-y-2">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto" />
+                    <p className="text-sm text-text-secondary">Generiere Antwortvorschläge...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Custom Answer */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-text-secondary">
+                {answerSuggestions.length > 0 ? 'Eigene Ergänzung (optional)' : 'Deine Antwort'}
+              </label>
+              <textarea
+                value={currentAnswer}
+                onChange={(e) => setCurrentAnswer(e.target.value)}
+                placeholder={answerSuggestions.length > 0
+                  ? "Ergänze oder schreibe eine eigene Antwort..."
+                  : t.brainstorm.yourThoughts}
+                className="w-full h-24 p-3 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-accent focus:border-accent outline-none resize-none"
+              />
+            </div>
+
+            {/* Selected Answer Preview */}
+            {(selectedSuggestions.size > 0 || currentAnswer.trim()) && (
+              <div className="bg-surface-elevated p-3 rounded-lg border border-border">
+                <p className="text-xs text-text-secondary mb-1">Deine kombinierte Antwort:</p>
+                <p className="text-sm text-text-primary">{getCombinedAnswer()}</p>
+              </div>
+            )}
+
+            <div className="flex justify-between pt-2">
               <button
                 onClick={() => handleAnswerQuestion(true)}
                 className="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors"
@@ -523,7 +945,7 @@ export function BrainstormSection({ project }: SectionProps) {
               </button>
               <button
                 onClick={() => handleAnswerQuestion(false)}
-                disabled={!currentAnswer.trim()}
+                disabled={!hasAnswer}
                 className="btn-primary flex items-center gap-2 disabled:opacity-50"
               >
                 <Send className="h-4 w-4" />
@@ -798,7 +1220,31 @@ export function BrainstormSection({ project }: SectionProps) {
 
   return (
     <div className="max-w-6xl pb-12">
+      {/* Auto-finalization loading overlay */}
+      {isAutoFinalizing && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-surface border border-border rounded-lg p-6 shadow-xl max-w-sm mx-4 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-accent mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-text-primary mb-2">
+              {t.brainstorm.autoFinalizing}
+            </h3>
+            <p className="text-sm text-text-secondary">
+              {t.brainstorm.foundationsCreated}
+            </p>
+          </div>
+        </div>
+      )}
+
       {renderPhase()}
+
+      {/* Next Step Navigation - show on review phase */}
+      {phase === 'review' && projectId && (
+        <NextStepBanner
+          currentSection="brainstorm"
+          projectId={projectId}
+          project={project}
+        />
+      )}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
+import { useParams } from 'react-router-dom'
 import {
   AlertTriangle,
   BookOpen,
@@ -54,6 +55,7 @@ import { UnifiedActionButton } from '@/components/ui/UnifiedActionButton'
 import { useProjectStore } from '@/stores/projectStore'
 import { useLanguageStore } from '@/stores/languageStore'
 import { updateProject as updateProjectInDb } from '@/lib/db'
+import { NextStepBanner } from '@/components/ui/NextStepBanner'
 
 interface SectionProps {
   project: Project
@@ -249,6 +251,7 @@ const HARSHNESS_OPTIONS: HarshnessOption[] = [
 type ReviewTab = 'critique' | 'reader' | 'continuity'
 
 export function ReviewSection({ project }: SectionProps) {
+  const { projectId } = useParams<{ projectId: string }>()
   const t = useLanguageStore((state) => state.t)
 
   // Tab state
@@ -2856,6 +2859,15 @@ export function ReviewSection({ project }: SectionProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Next Step Navigation */}
+      {projectId && (
+        <NextStepBanner
+          currentSection="review"
+          projectId={projectId}
+          project={project}
+        />
       )}
     </div>
   )

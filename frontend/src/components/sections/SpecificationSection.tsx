@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useParams } from 'react-router-dom'
 import { ChevronDown, ChevronUp, RotateCcw, Sparkles, X, Sword, Search, Rocket, Heart, Brain, Users, Save, Folder, Trash2, type LucideIcon } from 'lucide-react'
 import type { Project, NovelSpecification, TargetAudience, POV, Tense, NovelLanguage, ChildrensAgeCategory } from '@/types/project'
 import { useLanguageStore } from '@/stores/languageStore'
@@ -14,6 +15,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { AIProgressModal } from '@/components/ui/AIProgressModal'
 import { toast } from '@/components/ui/Toaster'
+import { NextStepBanner, type ValidationStatus } from '@/components/ui/NextStepBanner'
 
 interface SectionProps {
   project: Project
@@ -268,6 +270,7 @@ function AccordionSection({ title, id, isExpanded, onToggle, children }: Accordi
 }
 
 export function SpecificationSection({ project }: SectionProps) {
+  const { projectId } = useParams<{ projectId: string }>()
   const { updateProject, setSaveStatus } = useProjectStore()
   const t = useLanguageStore((state) => state.t)
 
@@ -310,6 +313,36 @@ export function SpecificationSection({ project }: SectionProps) {
   const [showAIProgress, setShowAIProgress] = useState(false)
   const [aiProgressTitle, setAIProgressTitle] = useState('Generating Suggestions')
   const [suggestions, setSuggestions] = useState<string[]>([])
+
+  // Validation for NextStepBanner
+  const validationStatus = useMemo((): ValidationStatus => {
+    const warnings: string[] = []
+    const errors: string[] = []
+
+    // Required fields (errors)
+    if (!workingTitle.trim() || workingTitle === 'Untitled Novel') {
+      errors.push(t.validation.titleRequired)
+    }
+
+    // Recommended fields (warnings)
+    if (!spec?.genre || spec.genre.length === 0) {
+      warnings.push(t.validation.genreRecommended)
+    }
+
+    if (!spec?.targetWordCount || spec.targetWordCount < 10000) {
+      warnings.push(t.validation.wordCountRecommended)
+    }
+
+    if (!spec?.targetAudience) {
+      warnings.push(t.validation.audienceRecommended)
+    }
+
+    return {
+      isValid: errors.length === 0,
+      warnings,
+      errors,
+    }
+  }, [workingTitle, spec, t])
   const [suggestionType, setSuggestionType] = useState<'title' | 'tone' | 'theme' | null>(null)
   const [showSuggestionsModal, setShowSuggestionsModal] = useState(false)
 
@@ -1497,6 +1530,16 @@ export function SpecificationSection({ project }: SectionProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Next Step Navigation */}
+      {projectId && (
+        <NextStepBanner
+          currentSection="specification"
+          projectId={projectId}
+          project={project}
+          validationStatus={validationStatus}
+        />
       )}
     </div>
   )

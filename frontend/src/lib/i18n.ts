@@ -363,6 +363,25 @@ export interface Translations {
     lastSaved: string
     generate: string
     regenerate: string
+    suggestChapterStructure: string
+    suggestingStructure: string
+    chooseChapterStructure: string
+    chooseStructureDescription: string
+    chapters: string
+    avgWordsPerChapter: string
+    assignedBeats: string
+    assignedScenes: string
+    pacing: string
+    pacingSlow: string
+    pacingMedium: string
+    pacingFast: string
+    balanced: string
+    balancedDesc: string
+    risingAction: string
+    risingActionDesc: string
+    sceneDriven: string
+    sceneDrivenDesc: string
+    noDataForStructure: string
   }
   // Brainstorm section
   brainstorm: {
@@ -409,6 +428,7 @@ export interface Translations {
     foundationsPrepared: string
     seedsReady: string
     returnToAddMore: string
+    foundationsCreated: string
     tags: {
       character: string
       setting: string
@@ -426,6 +446,9 @@ export interface Translations {
       inspiration: string
       ownQuestions: string
     }
+    autoFinalize: string
+    autoFinalizing: string
+    manualSelection: string
   }
   // Review section
   review: {
@@ -663,6 +686,23 @@ export interface Translations {
     createScenes: string
     writeChapterContent: string
     completeReview: string
+  }
+  // Next step banner (wizard navigation)
+  nextStepBanner: {
+    currentPhase: string
+    continueToNext: string
+    phaseComplete: string
+    validationWarnings: string
+    continueAnyway: string
+    sectionComplete: string
+  }
+  // Validation messages
+  validation: {
+    titleRequired: string
+    genreRecommended: string
+    wordCountRecommended: string
+    audienceRecommended: string
+    fieldsIncomplete: string
   }
   // Aria labels
   ariaLabels: {
@@ -1020,6 +1060,25 @@ const en: Translations = {
     lastSaved: 'Last saved',
     generate: 'Generate',
     regenerate: 'Regenerate',
+    suggestChapterStructure: 'Suggest Chapter Structure',
+    suggestingStructure: 'Analyzing your story structure...',
+    chooseChapterStructure: 'Choose Your Chapter Structure',
+    chooseStructureDescription: 'Select one of these 3 approaches to organize your story into chapters.',
+    chapters: 'chapters',
+    avgWordsPerChapter: 'avg words/chapter',
+    assignedBeats: 'Beats',
+    assignedScenes: 'Scenes',
+    pacing: 'Pacing',
+    pacingSlow: 'Slow',
+    pacingMedium: 'Medium',
+    pacingFast: 'Fast',
+    balanced: 'Balanced Structure',
+    balancedDesc: 'Equal word distribution across chapters for consistent pacing.',
+    risingAction: 'Rising Action',
+    risingActionDesc: 'Shorter opening chapters building to longer, climactic chapters.',
+    sceneDriven: 'Scene-Driven',
+    sceneDrivenDesc: 'Each chapter focuses on one major scene or event.',
+    noDataForStructure: 'Add plot beats or scenes first to suggest chapter structure',
   },
   brainstorm: {
     title: 'Brainstorm',
@@ -1065,6 +1124,7 @@ const en: Translations = {
     foundationsPrepared: 'Your foundations have been prepared. Continue to Plot, Characters, or Scenes to develop them further.',
     seedsReady: 'seeds ready',
     returnToAddMore: 'Return to Brainstorm to Add More',
+    foundationsCreated: 'Foundations Created',
     tags: {
       character: 'Character',
       setting: 'Setting',
@@ -1082,6 +1142,9 @@ const en: Translations = {
       inspiration: 'What inspired this idea?',
       ownQuestions: 'What questions do you have about your own story?',
     },
+    autoFinalize: 'Automatically create elements and continue',
+    autoFinalizing: 'Creating story elements...',
+    manualSelection: 'Let me select elements manually',
   },
   review: {
     title: 'Review',
@@ -1324,6 +1387,21 @@ const en: Translations = {
     mainNavigation: 'Main navigation',
     mainHeader: 'Main header',
     mainContent: 'Main content',
+  },
+  nextStepBanner: {
+    currentPhase: 'Current Phase',
+    continueToNext: 'Continue to {section}',
+    phaseComplete: '{percent}% complete',
+    validationWarnings: 'Complete these for best results:',
+    continueAnyway: 'Continue anyway',
+    sectionComplete: 'Section complete! Ready for next step.',
+  },
+  validation: {
+    titleRequired: 'Working title is required',
+    genreRecommended: 'Genre selection recommended',
+    wordCountRecommended: 'Word count target should be at least 10,000',
+    audienceRecommended: 'Target audience selection recommended',
+    fieldsIncomplete: 'Some recommended fields are incomplete',
   },
 }
 
@@ -1666,6 +1744,25 @@ const de: Translations = {
     lastSaved: 'Zuletzt gespeichert',
     generate: 'Generieren',
     regenerate: 'Neu generieren',
+    suggestChapterStructure: 'Kapitelstruktur vorschlagen',
+    suggestingStructure: 'Analysiere deine Story-Struktur...',
+    chooseChapterStructure: 'Wähle deine Kapitelstruktur',
+    chooseStructureDescription: 'Wähle einen der 3 Ansätze, um deine Geschichte in Kapitel zu gliedern.',
+    chapters: 'Kapitel',
+    avgWordsPerChapter: 'Wörter/Kapitel im Schnitt',
+    assignedBeats: 'Beats',
+    assignedScenes: 'Szenen',
+    pacing: 'Tempo',
+    pacingSlow: 'Langsam',
+    pacingMedium: 'Mittel',
+    pacingFast: 'Schnell',
+    balanced: 'Ausgewogene Struktur',
+    balancedDesc: 'Gleichmäßige Wortverteilung über alle Kapitel für konstantes Tempo.',
+    risingAction: 'Steigende Handlung',
+    risingActionDesc: 'Kürzere Einführungskapitel, die zu längeren Höhepunktkapiteln führen.',
+    sceneDriven: 'Szenenbasiert',
+    sceneDrivenDesc: 'Jedes Kapitel konzentriert sich auf eine Hauptszene oder ein Ereignis.',
+    noDataForStructure: 'Füge zuerst Plot-Beats oder Szenen hinzu, um Kapitelstruktur vorzuschlagen',
   },
   brainstorm: {
     title: 'Brainstorming',
@@ -1711,6 +1808,7 @@ const de: Translations = {
     foundationsPrepared: 'Deine Grundlagen wurden vorbereitet. Fahre mit Handlung, Charakteren oder Szenen fort, um sie weiterzuentwickeln.',
     seedsReady: 'Ideen bereit',
     returnToAddMore: 'Zurück zum Brainstorming, um mehr hinzuzufügen',
+    foundationsCreated: 'Grundlagen erstellt',
     tags: {
       character: 'Charakter',
       setting: 'Schauplatz',
@@ -1728,6 +1826,9 @@ const de: Translations = {
       inspiration: 'Was hat diese Idee inspiriert?',
       ownQuestions: 'Welche Fragen hast du über deine eigene Geschichte?',
     },
+    autoFinalize: 'Elemente automatisch erstellen und fortfahren',
+    autoFinalizing: 'Erstelle Story-Elemente...',
+    manualSelection: 'Elemente manuell auswählen',
   },
   review: {
     title: 'Überarbeitung',
@@ -1970,6 +2071,21 @@ const de: Translations = {
     mainNavigation: 'Hauptnavigation',
     mainHeader: 'Kopfzeile',
     mainContent: 'Hauptinhalt',
+  },
+  nextStepBanner: {
+    currentPhase: 'Aktuelle Phase',
+    continueToNext: 'Weiter zu {section}',
+    phaseComplete: 'Zu {percent}% abgeschlossen',
+    validationWarnings: 'Für beste Ergebnisse vervollständigen:',
+    continueAnyway: 'Trotzdem fortfahren',
+    sectionComplete: 'Abschnitt fertig! Bereit für den nächsten Schritt.',
+  },
+  validation: {
+    titleRequired: 'Arbeitstitel ist erforderlich',
+    genreRecommended: 'Genre-Auswahl empfohlen',
+    wordCountRecommended: 'Ziel-Wortanzahl sollte mindestens 10.000 sein',
+    audienceRecommended: 'Zielgruppen-Auswahl empfohlen',
+    fieldsIncomplete: 'Einige empfohlene Felder sind unvollständig',
   },
 }
 

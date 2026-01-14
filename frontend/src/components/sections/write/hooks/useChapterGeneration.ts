@@ -8,12 +8,14 @@ interface UseChapterGenerationOptions {
   project: Project
   selectedChapterId: string | null
   onSaveChapter: (chapter: Chapter) => Promise<boolean>
+  voiceDNAData?: Record<string, CharacterVoiceDNA> // Optional voice DNA from CharactersSection
 }
 
 export function useChapterGeneration({
   project,
   selectedChapterId,
-  onSaveChapter
+  onSaveChapter,
+  voiceDNAData = {},
 }: UseChapterGenerationOptions) {
   const t = useLanguageStore((state) => state.t)
   const {
@@ -32,7 +34,8 @@ export function useChapterGeneration({
 
   // Guided Generation state
   const [guidedMode, setGuidedMode] = useState(false)
-  const [voiceDNA] = useState<Record<string, CharacterVoiceDNA>>({})
+  // Use voiceDNA data passed from CharactersSection or elsewhere
+  const voiceDNA = voiceDNAData
   const [generationResults, setGenerationResults] = useState<Record<string, SceneGenerationResult>>({})
   const [currentCheckpoint] = useState<GenerationCheckpoint | null>(null)
   const [generatingSceneId, setGeneratingSceneId] = useState<string | undefined>(undefined)
@@ -44,6 +47,36 @@ export function useChapterGeneration({
       return prevChapter.content.slice(-1000)
     }
     return ''
+  }
+
+  // Get plot beats assigned to a specific chapter
+  const getChapterPlotBeats = (chapterNumber: number) => {
+    const beats = project.plot?.beats || []
+    return beats
+      .filter(beat => beat.chapterTarget === chapterNumber)
+      .sort((a, b) => a.timelinePosition - b.timelinePosition)
+      .map(beat => ({
+        title: beat.title,
+        summary: beat.summary,
+        detailedDescription: beat.detailedDescription,
+        emotionalArc: beat.emotionalArc,
+        stakes: beat.stakes,
+        frameworkPosition: beat.frameworkPosition,
+        foreshadowing: beat.foreshadowing,
+        payoffs: beat.payoffs,
+        charactersInvolved: beat.charactersInvolved,
+      }))
+  }
+
+  // Get overall plot context
+  const getPlotContext = () => {
+    if (!project.plot) return null
+    return {
+      framework: project.plot.framework,
+      overallArc: project.plot.overallArc,
+      centralConflict: project.plot.centralConflict,
+      stakes: project.plot.stakes,
+    }
   }
 
   // Helper to update chapter content
@@ -75,15 +108,32 @@ export function useChapterGeneration({
         context: {
           currentChapter: chapter.content || '',
           chapterId: selectedChapterId,
+          chapterNumber: chapter.number,
+          chapterTitle: chapter.title,
           projectId: project.id,
           specification: project.specification,
+          // Plot context - overall story arc
+          plotContext: getPlotContext(),
+          // Plot beats assigned to this chapter
+          chapterPlotBeats: getChapterPlotBeats(chapter.number),
           characters: project.characters?.map(c => ({
+            id: c.id,
             name: c.name,
             role: c.role,
             personalitySummary: c.personalitySummary,
             speechPatterns: c.speechPatterns,
+            // Include voice DNA for consistent character voice generation
+            voiceDNA: voiceDNA[c.id] ? {
+              avgSentenceLength: voiceDNA[c.id].avgSentenceLength,
+              contractionRatio: voiceDNA[c.id].contractionRatio,
+              uniqueVocabulary: voiceDNA[c.id].uniqueVocabulary,
+              prohibitedVocabulary: voiceDNA[c.id].prohibitedVocabulary,
+              catchphrases: voiceDNA[c.id].catchphrases,
+              fillerWords: voiceDNA[c.id].fillerWords,
+            } : null,
           })),
           scenes: project.scenes?.filter(s => s.chapterId === selectedChapterId),
+          previousChapterContent: getPreviousChapterContent(chapter.number),
         },
         timeoutMs: 120000, // 2 minute timeout for continue writing
       })
@@ -132,6 +182,10 @@ export function useChapterGeneration({
           chapterNumber: chapter.number,
           projectId: project.id,
           specification: project.specification,
+          // Plot context - overall story arc
+          plotContext: getPlotContext(),
+          // Plot beats assigned to this chapter - CRITICAL for narrative coherence
+          chapterPlotBeats: getChapterPlotBeats(chapter.number),
           scenes: chapterScenes.map(s => ({
             title: s.title,
             summary: s.summary,
@@ -148,9 +202,19 @@ export function useChapterGeneration({
             personalitySummary: c.personalitySummary,
             speechPatterns: c.speechPatterns,
             vocabularyLevel: c.vocabularyLevel,
+            // Include voice DNA for consistent character voice generation
+            voiceDNA: voiceDNA[c.id] ? {
+              avgSentenceLength: voiceDNA[c.id].avgSentenceLength,
+              contractionRatio: voiceDNA[c.id].contractionRatio,
+              uniqueVocabulary: voiceDNA[c.id].uniqueVocabulary,
+              prohibitedVocabulary: voiceDNA[c.id].prohibitedVocabulary,
+              catchphrases: voiceDNA[c.id].catchphrases,
+              fillerWords: voiceDNA[c.id].fillerWords,
+            } : null,
           })),
           previousChapterContent: getPreviousChapterContent(chapter.number),
         },
+        timeoutMs: 180000, // 3 minute timeout for full chapter generation
       })
 
       if (result) {

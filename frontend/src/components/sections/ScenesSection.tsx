@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react'
+import { useParams } from 'react-router-dom'
 import { Plus, Film, Edit2, Trash2, Clock, Target, Zap, BookOpen, GitBranch, ArrowRight, ArrowLeft, GripVertical, LayoutGrid, LayoutList, Layers, Grid3X3, Sparkles, X, FileText, Wand2 } from 'lucide-react'
 import type { Project, Scene, Chapter } from '@/types/project'
 import { useProjectStore } from '@/stores/projectStore'
 import { useLanguageStore } from '@/stores/languageStore'
+import { NextStepBanner } from '@/components/ui/NextStepBanner'
 import { updateProject } from '@/lib/db'
 import { SceneModal } from '@/components/ui/SceneModal'
 import { SceneTimeline } from '@/components/ui/SceneTimeline'
@@ -46,6 +48,7 @@ const PACING_COLORS: Record<string, string> = {
 }
 
 export function ScenesSection({ project }: SectionProps) {
+  const { projectId } = useParams<{ projectId: string }>()
   const t = useLanguageStore((state) => state.t)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingScene, setEditingScene] = useState<Scene | null>(null)
@@ -1114,6 +1117,15 @@ export function ScenesSection({ project }: SectionProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Next Step Navigation */}
+      {projectId && (
+        <NextStepBanner
+          currentSection="scenes"
+          projectId={projectId}
+          project={project}
+        />
       )}
     </div>
   )

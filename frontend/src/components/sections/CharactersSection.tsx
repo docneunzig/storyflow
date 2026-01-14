@@ -16,6 +16,7 @@ import { AIProgressModal } from '@/components/ui/AIProgressModal'
 import { UnifiedActionButton } from '@/components/ui/UnifiedActionButton'
 import { VoiceConsistencyChecker } from '@/components/ui/VoiceConsistencyChecker'
 import { VoiceDNAAnalyzer } from '@/components/ui/VoiceDNAAnalyzer'
+import { NextStepBanner } from '@/components/ui/NextStepBanner'
 import type { CharacterVoiceDNA, VoiceDeviationWarning } from '@/types/project'
 
 // Character option type for AI-generated options
@@ -63,7 +64,7 @@ const PAGE_SIZE = 10
 export function CharactersSection({ project }: SectionProps) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { characterId: deepLinkCharacterId } = useParams<{ characterId?: string }>()
+  const { projectId, characterId: deepLinkCharacterId } = useParams<{ projectId?: string, characterId?: string }>()
   const t = useLanguageStore((state) => state.t)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -1608,6 +1609,15 @@ export function CharactersSection({ project }: SectionProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Next Step Navigation */}
+      {projectId && (
+        <NextStepBanner
+          currentSection="characters"
+          projectId={projectId}
+          project={project}
+        />
       )}
     </div>
   )
